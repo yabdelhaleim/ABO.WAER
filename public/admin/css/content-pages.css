@@ -1,0 +1,1162 @@
+/*
+ * ABO Admin · Content page editors — page-local stylesheet.
+ *
+ * Used by /admin/pages/about and /admin/pages/contact (front-end
+ * previews). Loaded only on those two routes via @stack('head')
+ * so the cascade is consistent with the rest of the admin shell.
+ *
+ * Conventions (matches the existing admin scope):
+ *   - All class names are prefixed with `abo-admin-content-` to
+ *     avoid colliding with the shared `abo-admin-pages-*` classes
+ *     used by the parent admin.pages.index page.
+ *   - Brand tokens are reused from the existing shell
+ *     (var(--abo-lime), var(--abo-bg), var(--abo-admin-panel),
+ *     var(--abo-admin-border), var(--abo-admin-coral), etc.).
+ *   - Square corners, no gradients, no shadows — matches the
+ *     existing admin scope (no new colors introduced).
+ *   - Animate only transform / opacity. Reduced motion respected.
+ *   - Lime 2px focus ring on every interactive element.
+ */
+
+/* ─── Title split (ABOUT / CONTACT) ─────────────────────── */
+
+.abo-admin-content__title-lime {
+    color: var(--abo-lime);
+    margin-left: 0.15em;
+}
+
+/* ─── Two-column layout (1.8fr / 1fr) ───────────────────── */
+
+.abo-admin-content__layout {
+    display: grid;
+    grid-template-columns: 1.8fr 1fr;
+    gap: 0.75rem;
+    align-items: start;
+    min-width: 0;
+}
+
+@media (max-width: 1100px) {
+    .abo-admin-content__layout { grid-template-columns: 1fr; }
+}
+
+.abo-admin-content__col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+/* ─── Editor cards (reusable block shell) ──────────────── */
+
+.abo-admin-content__block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    padding: 0.95rem 1.05rem;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+}
+
+.abo-admin-content__block-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+}
+
+.abo-admin-content__block-label {
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--abo-admin-gray);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+}
+
+/* ─── EN/AR language switch (re-uses the same visual as ─── */
+/*        the parent pages page; we re-declare it here so the
+          class is self-contained for these two editors.) ─ */
+
+.abo-admin-content__lang-switch {
+    display: inline-flex;
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    overflow: hidden;
+    background: var(--abo-admin-bg);
+}
+
+.abo-admin-content__lang-switch button {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    border-left: 1px solid var(--abo-admin-border);
+    color: var(--abo-admin-gray);
+    font: inherit;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.3rem 0.6rem;
+    cursor: pointer;
+    transition: color 180ms var(--abo-admin-ease, ease), background 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-content__lang-switch button:first-child { border-left: 0; }
+
+.abo-admin-content__lang-switch button:hover,
+.abo-admin-content__lang-switch button:focus-visible {
+    color: var(--abo-admin-text, #F4F6F0);
+    outline: none;
+}
+
+.abo-admin-content__lang-switch button.is-active {
+    background: var(--abo-lime);
+    color: var(--abo-black, #050607);
+}
+
+/* ─── Field inputs / textareas (matches pages.css) ─────── */
+
+.abo-admin-content__field-input,
+.abo-admin-content__field-textarea {
+    appearance: none;
+    background: var(--abo-admin-panel);
+    color: var(--abo-admin-text, #F4F6F0);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    font: inherit;
+    font-size: 0.92rem;
+    padding: 0.55rem 0.75rem;
+    width: 100%;
+    line-height: 1.5;
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-content__field-textarea { resize: vertical; min-height: 72px; }
+
+.abo-admin-content__field-input:hover,
+.abo-admin-content__field-textarea:hover { border-color: var(--abo-admin-gray); }
+
+.abo-admin-content__field-input:focus-visible,
+.abo-admin-content__field-textarea:focus-visible {
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-content__field-input--rtl { direction: rtl; text-align: right; }
+
+.abo-admin-content__field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.abo-admin-content__field--full { grid-column: 1 / -1; }
+
+.abo-admin-content__field label {
+    color: var(--abo-admin-gray);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.abo-admin-content__field-note {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+.abo-admin-content__field-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+}
+
+@media (max-width: 640px) {
+    .abo-admin-content__field-grid { grid-template-columns: 1fr; }
+}
+
+/* ─── Image drop / preview (local only) ─────────────────── */
+
+.abo-admin-content__image {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.65rem;
+    border: 1px dashed var(--abo-admin-border);
+    background: var(--abo-admin-panel);
+    border-radius: var(--abo-admin-radius);
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-content__image:hover { border-color: var(--abo-admin-gray); }
+
+.abo-admin-content__image-thumb {
+    width: 64px;
+    height: 64px;
+    flex-shrink: 0;
+    border-radius: var(--abo-admin-radius);
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--abo-admin-gray);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    overflow: hidden;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.abo-admin-content__image-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.abo-admin-content__image-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.abo-admin-content__image-actions label {
+    color: var(--abo-admin-text, #F4F6F0);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.abo-admin-content__image-actions small {
+    color: var(--abo-admin-gray);
+    font-size: 0.75rem;
+    line-height: 1.4;
+}
+
+.abo-admin-content__image-remove {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--abo-admin-border);
+    color: var(--abo-admin-coral);
+    font: inherit;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.3rem 0.55rem;
+    cursor: pointer;
+    align-self: flex-start;
+    transition: background 180ms var(--abo-admin-ease, ease), color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-content__image-remove:hover,
+.abo-admin-content__image-remove:focus-visible {
+    background: var(--abo-admin-coral);
+    color: var(--abo-admin-text, #F4F6F0);
+    outline: none;
+}
+
+.abo-admin-content__file {
+    display: none;
+}
+
+/* ─── Content blocks (repeater) ────────────────────────── */
+
+.abo-admin-content__blocks {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+}
+
+.abo-admin-content__block-card {
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    padding: 0.85rem 0.95rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.abo-admin-content__block-card-head {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.abo-admin-content__block-handle {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--abo-admin-border);
+    color: var(--abo-admin-gray);
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    border-radius: 3px;
+    transition: color 180ms var(--abo-admin-ease, ease), border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-content__block-handle:hover,
+.abo-admin-content__block-handle:focus-visible {
+    color: var(--abo-lime);
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-content__block-handle svg { width: 14px; height: 14px; }
+
+.abo-admin-content__block-type {
+    appearance: none;
+    background: var(--abo-admin-bg);
+    color: var(--abo-admin-text, #F4F6F0);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    height: 30px;
+    padding: 0 0.6rem;
+    cursor: pointer;
+    min-width: 0;
+}
+
+.abo-admin-content__block-num {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.abo-admin-content__block-tools {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.abo-admin-content__icon-btn {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--abo-admin-border);
+    color: var(--abo-admin-gray);
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: color 180ms var(--abo-admin-ease, ease), border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-content__icon-btn svg { width: 12px; height: 12px; }
+
+.abo-admin-content__icon-btn:hover,
+.abo-admin-content__icon-btn:focus-visible {
+    color: var(--abo-lime);
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-content__icon-btn--coral { color: var(--abo-admin-coral); }
+.abo-admin-content__icon-btn--coral:hover,
+.abo-admin-content__icon-btn--coral:focus-visible {
+    color: var(--abo-admin-coral);
+    border-color: var(--abo-admin-coral);
+}
+
+.abo-admin-content__icon-btn[disabled] {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.abo-admin-content__add-block {
+    appearance: none;
+    background: transparent;
+    border: 1px dashed var(--abo-admin-border);
+    color: var(--abo-lime);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 0.7rem 1rem;
+    cursor: pointer;
+    border-radius: var(--abo-admin-radius);
+    text-align: center;
+    transition: border-color 180ms var(--abo-admin-ease, ease), background 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-content__add-block:hover,
+.abo-admin-content__add-block:focus-visible {
+    border-color: var(--abo-lime);
+    background: rgba(198, 255, 0, 0.04);
+    outline: none;
+}
+
+/* ─── Rich-text toolbar + content area (matches pages.css) ── */
+
+.abo-admin-content__toolbar-strip {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.35rem;
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-admin-border);
+    border-bottom: 0;
+    border-radius: var(--abo-admin-radius) var(--abo-admin-radius) 0 0;
+    flex-wrap: wrap;
+}
+
+.abo-admin-content__tb-btn {
+    appearance: none;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--abo-admin-gray);
+    font: inherit;
+    font-size: 0.85rem;
+    min-width: 28px;
+    height: 28px;
+    padding: 0 0.4rem;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: color 180ms var(--abo-admin-ease, ease), background 180ms var(--abo-admin-ease, ease), border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-content__tb-btn:hover,
+.abo-admin-content__tb-btn:focus-visible {
+    color: var(--abo-admin-text, #F4F6F0);
+    background: rgba(255, 255, 255, 0.04);
+    outline: none;
+    border-color: var(--abo-admin-border);
+}
+
+.abo-admin-content__tb-btn.is-active {
+    color: var(--abo-lime);
+    background: rgba(198, 255, 0, 0.08);
+    border-color: var(--abo-lime);
+}
+
+.abo-admin-content__content {
+    min-height: 140px;
+    max-height: 240px;
+    overflow-y: auto;
+    background: var(--abo-admin-panel);
+    color: var(--abo-admin-text, #F4F6F0);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: 0 0 var(--abo-admin-radius) var(--abo-admin-radius);
+    padding: 0.7rem 0.9rem;
+    font: inherit;
+    font-size: 0.92rem;
+    line-height: 1.55;
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-content__content:focus-visible {
+    outline: none;
+    border-color: var(--abo-lime);
+}
+
+.abo-admin-content__content--rtl { direction: rtl; text-align: right; }
+
+.abo-admin-content__content p { margin: 0 0 0.45rem; }
+.abo-admin-content__content ul,
+.abo-admin-content__content ol { margin: 0 0 0.5rem 1.1rem; }
+.abo-admin-content__content--rtl ul,
+.abo-admin-content__content--rtl ol { margin: 0 1.1rem 0.5rem 0; }
+.abo-admin-content__content a { color: var(--abo-lime); }
+.abo-admin-content__content strong { color: var(--abo-admin-text, #F4F6F0); }
+
+/* ─── Working hours (contact page) ─────────────────────── */
+
+.abo-admin-content__hours {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.abo-admin-content__hours-row {
+    display: grid;
+    grid-template-columns: 90px 1fr 1fr auto;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.5rem 0.6rem;
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+}
+
+@media (max-width: 640px) {
+    .abo-admin-content__hours-row {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.4rem;
+    }
+    .abo-admin-content__hours-day { grid-column: 1 / -1; }
+    .abo-admin-content__hours-row .abo-admin-content__field-input { width: 100%; }
+}
+
+.abo-admin-content__hours-day {
+    margin: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.abo-admin-content__hours-time {
+    appearance: none;
+    background: var(--abo-admin-bg);
+    color: var(--abo-admin-text, #F4F6F0);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    font: inherit;
+    font-size: 0.85rem;
+    padding: 0.3rem 0.5rem;
+    cursor: pointer;
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+    min-width: 0;
+    color-scheme: dark;
+}
+
+.abo-admin-content__hours-time:hover,
+.abo-admin-content__hours-time:focus-visible {
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-content__hours-time:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.abo-admin-content__hours-sep {
+    color: var(--abo-admin-gray);
+    font-size: 0.85rem;
+    text-align: center;
+}
+
+/* ─── Toggles (contact form on, send me a copy) ────────── */
+
+.abo-admin-content__switch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    padding: 0.55rem 0;
+    border-top: 1px solid var(--abo-admin-border);
+}
+
+.abo-admin-content__switch-row:first-of-type { border-top: 0; padding-top: 0; }
+
+.abo-admin-content__switch-label {
+    margin: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-size: 0.92rem;
+    font-weight: 600;
+}
+
+.abo-admin-content__switch-note {
+    margin: 0.15rem 0 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+.abo-admin-content__switch {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.abo-admin-content__switch input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.abo-admin-content__switch-track {
+    display: inline-block;
+    position: relative;
+    width: 42px;
+    height: 22px;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: 999px;
+    transition: background 180ms var(--abo-admin-ease, ease), border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-content__switch-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: var(--abo-admin-gray);
+    border-radius: 50%;
+    transition: transform 180ms var(--abo-admin-ease, ease), background 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-content__switch input:checked + .abo-admin-content__switch-track {
+    background: var(--abo-lime);
+    border-color: var(--abo-lime);
+}
+
+.abo-admin-content__switch input:checked + .abo-admin-content__switch-track .abo-admin-content__switch-thumb {
+    transform: translateX(20px);
+    background: var(--abo-black, #050607);
+}
+
+.abo-admin-content__switch input:focus-visible + .abo-admin-content__switch-track {
+    outline: 2px solid var(--abo-lime);
+    outline-offset: 2px;
+}
+
+.abo-admin-content__switch input:disabled + .abo-admin-content__switch-track {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ─── Inbox (contact page) ─────────────────────────────── */
+
+.abo-admin-content__inbox {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.abo-admin-content__inbox-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+}
+
+.abo-admin-content__inbox-table th,
+.abo-admin-content__inbox-table td {
+    text-align: left;
+    padding: 0.6rem 0.5rem;
+    border-bottom: 1px solid var(--abo-admin-border);
+    white-space: nowrap;
+}
+
+.abo-admin-content__inbox-table th {
+    color: var(--abo-admin-gray);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.abo-admin-content__inbox-table tbody tr {
+    transition: background 180ms var(--abo-admin-ease, ease);
+    cursor: pointer;
+}
+
+.abo-admin-content__inbox-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.abo-admin-content__inbox-table tbody tr:last-child td { border-bottom: 0; }
+
+.abo-admin-content__pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.18rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: 1px solid currentColor;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.abo-admin-content__pill--new     { color: var(--abo-lime); }
+.abo-admin-content__pill--replied { color: var(--abo-admin-gray); }
+
+/* ─── Counter (used on meta title / description) ────────── */
+
+.abo-admin-content__counter {
+    color: var(--abo-admin-gray);
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+.abo-admin-content__counter--coral { color: var(--abo-admin-coral); }
+
+/* ─── SEO block (collapsible) ──────────────────────────── */
+
+.abo-admin-content__collapse-btn {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--abo-admin-gray);
+    font: inherit;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.3rem;
+}
+
+.abo-admin-content__collapse-btn:hover,
+.abo-admin-content__collapse-btn:focus-visible {
+    color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-content__collapse-arrow {
+    transition: transform 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-content__collapse-btn[aria-expanded="true"] .abo-admin-content__collapse-arrow {
+    transform: rotate(180deg);
+}
+
+/* ─── Status (Published / Draft) ───────────────────────── */
+
+.abo-admin-content__status-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.abo-admin-content__status-name {
+    margin: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-size: 0.95rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.abo-admin-content__status-name--draft { color: var(--abo-admin-gray); }
+
+.abo-admin-content__status-help {
+    margin: 0.15rem 0 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+/* ─── Live preview card (right column) ──────────────────── */
+
+.abo-admin-content__preview {
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    padding: 0.95rem 1rem;
+    color: var(--abo-admin-text, #F4F6F0);
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    min-height: 200px;
+}
+
+.abo-admin-content__preview h4 {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+}
+
+.abo-admin-content__preview-title {
+    margin: 0;
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    text-transform: uppercase;
+    font-size: 1.1rem;
+    letter-spacing: 0.02em;
+    line-height: 1.1;
+    color: var(--abo-lime);
+}
+
+.abo-admin-content__preview-hero {
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    height: 120px;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    color: var(--abo-admin-gray);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.abo-admin-content__preview-intro {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.88rem;
+    line-height: 1.5;
+}
+
+.abo-admin-content__preview-block {
+    border-top: 1px solid var(--abo-admin-border);
+    padding-top: 0.55rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.abo-admin-content__preview-block:first-of-type { border-top: 0; padding-top: 0; }
+
+.abo-admin-content__preview-block-label {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.abo-admin-content__preview-block-title {
+    margin: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-size: 0.92rem;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.abo-admin-content__preview-row {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    gap: 0.5rem;
+    align-items: start;
+}
+
+.abo-admin-content__preview-row-label {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.abo-admin-content__preview-row-value {
+    margin: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-size: 0.88rem;
+    line-height: 1.4;
+    white-space: pre-wrap;
+}
+
+/* ─── Top actions row (back / discard / save) ──────────── */
+
+.abo-admin-content__top-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.abo-admin-content__back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--abo-admin-gray);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-decoration: none;
+    padding: 0.55rem 0.85rem;
+    border: 1px solid var(--abo-admin-border);
+    background: transparent;
+    cursor: pointer;
+    transition: color 180ms var(--abo-admin-ease, ease), border-color 180ms var(--abo-admin-ease, ease);
+    margin-right: auto;
+}
+
+.abo-admin-content__back:hover,
+.abo-admin-content__back:focus-visible {
+    color: var(--abo-lime);
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-content__back svg { width: 12px; height: 12px; }
+
+/* ─── Dirty dot (next to title) ─────────────────────────── */
+
+.abo-admin-content__dirty {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--abo-lime);
+    margin-left: 0.5rem;
+    flex-shrink: 0;
+}
+
+.abo-admin-content__dirty[hidden] { display: none; }
+
+/* ─── Skeleton (loading state) ─────────────────────────── */
+
+.abo-admin-content__skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    padding: 0.4rem 0.1rem;
+}
+
+.abo-admin-content__skeleton-cell {
+    background: linear-gradient(90deg,
+        rgba(255, 255, 255, 0.04) 0%,
+        rgba(255, 255, 255, 0.10) 50%,
+        rgba(255, 255, 255, 0.04) 100%);
+    background-size: 200% 100%;
+    border-radius: 3px;
+    height: 14px;
+    animation: abo-admin-content-shimmer 1.4s linear infinite;
+}
+
+@keyframes abo-admin-content-shimmer {
+    from { background-position: 200% 0; }
+    to   { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .abo-admin-content__skeleton-cell { animation: none; }
+}
+
+/* ─── Modals (block remove + message view) ─────────────── */
+
+.abo-admin-content__modal {
+    position: fixed;
+    inset: 0;
+    z-index: 110;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.abo-admin-content__modal[hidden] { display: none; }
+
+.abo-admin-content__modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(5, 6, 7, 0.72);
+}
+
+.abo-admin-content__modal-card {
+    position: relative;
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    padding: 1.2rem 1.4rem;
+    max-width: 520px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    box-shadow: var(--abo-admin-shadow, 0 8px 30px rgba(0, 0, 0, 0.45));
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+}
+
+.abo-admin-content__modal-card--wide { max-width: 640px; }
+
+.abo-admin-content__modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.abo-admin-content__modal-title {
+    margin: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    text-transform: uppercase;
+    font-size: 1rem;
+    letter-spacing: 0.02em;
+}
+
+.abo-admin-content__modal-body {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.abo-admin-content__modal-foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+}
+
+.abo-admin-content__modal-close {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--abo-admin-border);
+    color: var(--abo-admin-gray);
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color 180ms var(--abo-admin-ease, ease), border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-content__modal-close:hover,
+.abo-admin-content__modal-close:focus-visible {
+    color: var(--abo-lime);
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-content__modal-close svg { width: 14px; height: 14px; }
+
+.abo-admin-content__msg {
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    padding: 0.75rem 0.9rem;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-size: 0.9rem;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.abo-admin-content__msg-meta {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    gap: 0.4rem 0.6rem;
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.82rem;
+}
+
+.abo-admin-content__msg-meta dt {
+    margin: 0;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--abo-admin-gray);
+}
+
+.abo-admin-content__msg-meta dd {
+    margin: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+}
+
+/* ─── Toast ────────────────────────────────────────────── */
+
+.abo-admin-content__toast {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 130;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.7rem 1rem;
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-lime);
+    border-radius: var(--abo-admin-radius);
+    box-shadow: var(--abo-admin-shadow, 0 8px 30px rgba(0, 0, 0, 0.45));
+    color: var(--abo-admin-text, #F4F6F0);
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.abo-admin-content__toast[hidden] { display: none; }
+
+.abo-admin-content__toast-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--abo-lime);
+    flex-shrink: 0;
+}
+
+/* ─── Empty state ──────────────────────────────────────── */
+
+.abo-admin-content__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 1.4rem 1rem;
+    border: 1px dashed var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    color: var(--abo-admin-gray);
+    font-size: 0.88rem;
+    text-align: center;
+}
+
+.abo-admin-content__empty-icon {
+    color: var(--abo-admin-gray);
+    width: 24px;
+    height: 24px;
+    margin-bottom: 0.2rem;
+}
+
+/* ─── Focus ring (lime, page-local) ────────────────────── */
+
+:where(
+        .abo-admin-content__back,
+        .abo-admin-content__lang-switch button,
+        .abo-admin-content__field-input,
+        .abo-admin-content__field-textarea,
+        .abo-admin-content__image-remove,
+        .abo-admin-content__file-label,
+        .abo-admin-content__block-handle,
+        .abo-admin-content__block-type,
+        .abo-admin-content__icon-btn,
+        .abo-admin-content__add-block,
+        .abo-admin-content__tb-btn,
+        .abo-admin-content__content,
+        .abo-admin-content__hours-time,
+        .abo-admin-content__switch input,
+        .abo-admin-content__switch-track,
+        .abo-admin-content__collapse-btn,
+        .abo-admin-content__modal-close
+):focus-visible {
+    outline: 2px solid var(--abo-lime);
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .abo-admin-content__collapse-arrow { transition: none; }
+}

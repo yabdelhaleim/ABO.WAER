@@ -1,0 +1,1367 @@
+/*
+ * ABO Admin · Products — page-local stylesheet.
+ *
+ * Conventions (matches the existing admin scope):
+ *   - All class names are prefixed with `abo-admin-products-`.
+ *   - Brand tokens are reused from the global stylesheet via
+ *     var(--abo-lime), var(--abo-bg), var(--abo-admin-panel), etc.
+ *   - No new colours. The "coral" / "amber" tones come from the
+ *     existing --abo-admin-coral / --abo-admin-amber tokens in admin.css.
+ *   - Square corners where they already exist on buttons / inputs;
+ *     small radius only on the pill toggles, modal and toast.
+ *   - Animate only transform / opacity. Reduced motion is respected.
+ *
+ * Loaded only on /admin/products*, never on the storefront or on
+ * the dashboard. The page-local stylesheet is appended to the
+ * admin layout via @stack('head') so the cascade is consistent.
+ */
+
+/* ─── Title split (PRO + DUCTS) ──────────────────────────────── */
+
+.abo-admin-products__title-lime {
+    color: var(--abo-lime);
+    margin-left: 0.15em;
+}
+
+/* ─── Stat cards: remove underline / cursor change on button ── */
+
+.abo-admin-products__stats {
+    /* abo-admin-attention is already a CSS grid; just make the
+       buttons behave like the link cards visually. */
+}
+
+.abo-admin-products__stats .abo-admin-attention__card {
+    appearance: none;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+}
+
+.abo-admin-products__stats .abo-admin-attention__card[aria-pressed="true"] {
+    background: rgba(198, 255, 0, 0.06);
+    border-color: var(--abo-lime);
+}
+
+.abo-admin-products__stats .abo-admin-attention__card[aria-pressed="true"]--coral,
+.abo-admin-products__stats .abo-admin-attention__card[aria-pressed="true"].abo-admin-attention__card--coral {
+    background: rgba(255, 122, 92, 0.06);
+    border-color: var(--abo-admin-coral);
+}
+
+/* ─── Filter bar ─────────────────────────────────────────────── */
+
+.abo-admin-products__filters {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) repeat(4, minmax(140px, 200px));
+    gap: 0.6rem;
+    align-items: center;
+}
+
+@media (max-width: 1100px) {
+    .abo-admin-products__filters {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 540px) {
+    .abo-admin-products__filters {
+        grid-template-columns: 1fr;
+    }
+}
+
+.abo-admin-products__filter-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0 0.75rem;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    height: 38px;
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-products__filter-search:focus-within {
+    border-color: var(--abo-lime);
+}
+
+.abo-admin-products__filter-icon {
+    width: 16px;
+    height: 16px;
+    color: var(--abo-admin-gray);
+    flex-shrink: 0;
+}
+
+.abo-admin-products__filter-search input {
+    flex: 1 1 auto;
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font: inherit;
+    font-size: 0.9rem;
+    height: 100%;
+    outline: none;
+    min-width: 0;
+}
+
+.abo-admin-products__filter-search input::placeholder {
+    color: rgba(141, 146, 138, 0.7);
+}
+
+.abo-admin-products__select {
+    appearance: none;
+    background: var(--abo-admin-bg);
+    color: var(--abo-admin-text, #F4F6F0);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    font: inherit;
+    font-size: 0.9rem;
+    height: 38px;
+    padding: 0 2rem 0 0.75rem;
+    width: 100%;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' stroke='%238D928A' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 0.7rem center;
+    background-size: 10px;
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-products__select:hover,
+.abo-admin-products__select:focus-visible {
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+/* ─── Bulk bar ───────────────────────────────────────────────── */
+
+.abo-admin-products__bulk {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.85rem 1.1rem;
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-admin-border);
+    border-left: 2px solid var(--abo-lime);
+    border-radius: var(--abo-admin-radius);
+    flex-wrap: wrap;
+}
+
+.abo-admin-products__bulk[hidden] {
+    display: none;
+}
+
+.abo-admin-products__bulk-count {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.88rem;
+    letter-spacing: 0.04em;
+}
+
+.abo-admin-products__bulk-num {
+    color: var(--abo-lime);
+    font-weight: 800;
+    margin-right: 0.25rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.abo-admin-products__bulk-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.abo-admin-products__bulk-delete {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--abo-admin-coral);
+    color: var(--abo-admin-coral);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.55rem 1rem;
+    border-radius: 0;
+    cursor: pointer;
+    min-height: 38px;
+    clip-path: polygon(0 0, 100% 0, 100% 70%, 94% 100%, 0 100%);
+    padding-right: 1.4rem;
+    transition: background 180ms var(--abo-admin-ease, ease), color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-products__bulk-delete:hover,
+.abo-admin-products__bulk-delete:focus-visible {
+    background: var(--abo-admin-coral);
+    color: var(--abo-admin-text, #F4F6F0);
+    outline: none;
+}
+
+/* ─── Products table ─────────────────────────────────────────── */
+
+.abo-admin-products__table-card {
+    padding: 0;
+    overflow: hidden;
+}
+
+.abo-admin-products__table-wrap {
+    overflow-x: auto;
+}
+
+.abo-admin-products__table {
+    min-width: 980px;
+}
+
+.abo-admin-products__table th,
+.abo-admin-products__table td {
+    vertical-align: middle;
+}
+
+.abo-admin-products__th-check,
+.abo-admin-products__check-cell {
+    width: 36px;
+    padding-left: 1.1rem;
+}
+
+.abo-admin-products__th-actions {
+    width: 56px;
+    text-align: right;
+    padding-right: 1.1rem;
+}
+
+.abo-admin-products__check-cell input[type="checkbox"],
+.abo-admin-products__th-check input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--abo-lime);
+    cursor: pointer;
+}
+
+.abo-admin-products__product {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    min-width: 220px;
+}
+
+.abo-admin-products__product-thumb {
+    width: 38px;
+    height: 44px;
+    background: var(--abo-admin-border);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: 3px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--abo-admin-gray);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+}
+
+.abo-admin-products__product-text { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+
+.abo-admin-products__product-name {
+    margin: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-weight: 600;
+    font-size: 0.9rem;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 220px;
+}
+
+.abo-admin-products__product-sku {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+}
+
+.abo-admin-products__price-now {
+    font-weight: 600;
+    color: var(--abo-admin-text, #F4F6F0);
+}
+
+.abo-admin-products__price-was {
+    margin-left: 0.45rem;
+    color: var(--abo-admin-gray);
+    text-decoration: line-through;
+    font-size: 0.82rem;
+}
+
+.abo-admin-products__variants-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 90px;
+}
+
+.abo-admin-products__variant-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: var(--swatch, var(--abo-admin-gray));
+    flex-shrink: 0;
+}
+
+.abo-admin-products__variant-count {
+    color: var(--abo-admin-gray);
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.abo-admin-products__stock-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    border: 1px solid currentColor;
+    background: rgba(255, 255, 255, 0.03);
+    white-space: nowrap;
+}
+
+.abo-admin-products__stock-pill--in     { color: #C8D2B6; }
+.abo-admin-products__stock-pill--low    { color: var(--abo-admin-coral); background: rgba(255, 122, 92, 0.08); }
+.abo-admin-products__stock-pill--out    { color: var(--abo-admin-coral); }
+.abo-admin-products__stock-pill--draft  { color: var(--abo-admin-gray); }
+
+.abo-admin-products__toggle {
+    position: relative;
+    display: inline-block;
+    width: 28px;
+    height: 14px;
+    cursor: pointer;
+}
+
+.abo-admin-products__toggle input {
+    position: absolute;
+    opacity: 0;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    margin: 0;
+}
+
+.abo-admin-products__toggle-track {
+    position: absolute;
+    inset: 0;
+    background: var(--abo-admin-border);
+    border-radius: 2px;
+    transition: background 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-products__toggle-thumb {
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: 12px;
+    height: 12px;
+    background: var(--abo-admin-gray);
+    border-radius: 1px;
+    transition: transform 180ms var(--abo-admin-ease, ease), background 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-products__toggle input:checked + .abo-admin-products__toggle-track {
+    background: var(--abo-lime);
+}
+
+.abo-admin-products__toggle input:checked + .abo-admin-products__toggle-track + .abo-admin-products__toggle-thumb {
+    transform: translateX(14px);
+    background: var(--abo-black, #050607);
+}
+
+.abo-admin-products__row-actions {
+    position: relative;
+    text-align: right;
+}
+
+.abo-admin-products__row-menu-btn {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--abo-admin-border);
+    color: var(--abo-admin-gray);
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 180ms var(--abo-admin-ease, ease), color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-products__row-menu-btn:hover,
+.abo-admin-products__row-menu-btn[aria-expanded="true"] {
+    border-color: var(--abo-lime);
+    color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-products__row-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    z-index: 25;
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    box-shadow: var(--abo-admin-shadow, 0 8px 30px rgba(0, 0, 0, 0.45));
+    min-width: 140px;
+    padding: 0.3rem 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.abo-admin-products__row-menu[hidden] { display: none; }
+
+.abo-admin-products__row-menu button {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    text-align: left;
+    color: var(--abo-admin-text, #F4F6F0);
+    font: inherit;
+    font-size: 0.85rem;
+    padding: 0.5rem 0.85rem;
+    cursor: pointer;
+    transition: background 180ms var(--abo-admin-ease, ease), color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-products__row-menu button:hover,
+.abo-admin-products__row-menu button:focus-visible {
+    background: rgba(198, 255, 0, 0.06);
+    color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-products__row-menu button.abo-admin-products__row-menu-danger:hover,
+.abo-admin-products__row-menu button.abo-admin-products__row-menu-danger:focus-visible {
+    background: rgba(255, 122, 92, 0.08);
+    color: var(--abo-admin-coral);
+}
+
+/* ─── States (skeleton / empty / no-results) ─────────────────── */
+
+.abo-admin-products__state {
+    padding: 1.1rem 1.2rem;
+}
+
+.abo-admin-products__state .abo-admin-btn {
+    margin-top: 0.8rem;
+}
+
+.abo-admin-products__skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.abo-admin-products__skeleton-row {
+    display: grid;
+    grid-template-columns: 22px 1fr 80px 60px 90px 70px;
+    gap: 1rem;
+    align-items: center;
+    padding: 0.7rem 0.5rem;
+    border-bottom: 1px solid var(--abo-admin-border);
+}
+
+.abo-admin-products__skeleton-cell {
+    background: linear-gradient(90deg,
+        rgba(255, 255, 255, 0.04) 0%,
+        rgba(255, 255, 255, 0.10) 50%,
+        rgba(255, 255, 255, 0.04) 100%);
+    background-size: 200% 100%;
+    border-radius: 3px;
+    animation: abo-admin-products-shimmer 1.4s linear infinite;
+}
+
+@keyframes abo-admin-products-shimmer {
+    from { background-position: 200% 0; }
+    to   { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .abo-admin-products__skeleton-cell { animation: none; }
+}
+
+/* ─── Pagination ─────────────────────────────────────────────── */
+
+.abo-admin-products__pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.abo-admin-products__pagination-info {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.abo-admin-products__pagination-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.abo-admin-products__page-btn {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--abo-admin-border);
+    color: var(--abo-admin-gray);
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    min-width: 34px;
+    height: 34px;
+    padding: 0 0.6rem;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: border-color 180ms var(--abo-admin-ease, ease), color 180ms var(--abo-admin-ease, ease), background 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-products__page-btn:hover:not([disabled]),
+.abo-admin-products__page-btn:focus-visible {
+    color: var(--abo-admin-text, #F4F6F0);
+    border-color: var(--abo-admin-gray);
+    outline: none;
+}
+
+.abo-admin-products__page-btn.is-active {
+    background: var(--abo-lime);
+    color: var(--abo-black, #050607);
+    border-color: var(--abo-lime);
+}
+
+.abo-admin-products__page-btn[disabled] {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ─── Modal ──────────────────────────────────────────────────── */
+
+.abo-admin-products__modal {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.abo-admin-products__modal[hidden] { display: none; }
+
+.abo-admin-products__modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(5, 6, 7, 0.72);
+    backdrop-filter: none;
+}
+
+.abo-admin-products__modal-card {
+    position: relative;
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    padding: 1.4rem 1.5rem 1.2rem;
+    max-width: 420px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    box-shadow: var(--abo-admin-shadow, 0 8px 30px rgba(0, 0, 0, 0.45));
+}
+
+.abo-admin-products__modal-title {
+    margin: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    text-transform: uppercase;
+    font-size: 1rem;
+    letter-spacing: 0.02em;
+}
+
+.abo-admin-products__modal-body {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.abo-admin-products__modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+}
+
+.abo-admin-products__modal-confirm {
+    appearance: none;
+    background: var(--abo-admin-coral);
+    border: 1px solid var(--abo-admin-coral);
+    color: var(--abo-admin-text, #F4F6F0);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.55rem 1rem;
+    min-height: 38px;
+    border-radius: 0;
+    cursor: pointer;
+    transition: background 180ms var(--abo-admin-ease, ease), border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-products__modal-confirm:hover,
+.abo-admin-products__modal-confirm:focus-visible {
+    background: #FF6B4A;
+    border-color: #FF6B4A;
+    outline: none;
+}
+
+/* ─── Toast ──────────────────────────────────────────────────── */
+
+.abo-admin-products__toast {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 120;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.7rem 1rem;
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-lime);
+    border-radius: var(--abo-admin-radius);
+    box-shadow: var(--abo-admin-shadow, 0 8px 30px rgba(0, 0, 0, 0.45));
+    color: var(--abo-admin-text, #F4F6F0);
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.abo-admin-products__toast[hidden] { display: none; }
+
+.abo-admin-products__toast-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--abo-lime);
+    flex-shrink: 0;
+}
+
+/* ─── Form bar ───────────────────────────────────────────────── */
+
+.abo-admin-products__formbar {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.abo-admin-products__formbar-back {
+    color: var(--abo-admin-gray);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    padding: 0.35rem 0.55rem;
+    border-radius: 4px;
+    transition: color 180ms var(--abo-admin-ease, ease), background 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-products__formbar-back:hover,
+.abo-admin-products__formbar-back:focus-visible {
+    color: var(--abo-lime);
+    background: rgba(198, 255, 0, 0.06);
+    outline: none;
+}
+
+.abo-admin-products__formbar-title {
+    margin: 0;
+    flex: 1 1 auto;
+    min-width: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 900;
+    font-style: italic;
+    text-transform: uppercase;
+    font-size: clamp(1.4rem, 3vw, 1.8rem);
+    line-height: 1;
+    letter-spacing: -0.02em;
+}
+
+.abo-admin-products__formbar-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+/* ─── Form grid + columns ────────────────────────────────────── */
+
+.abo-admin-products__form-grid {
+    display: grid;
+    grid-template-columns: 1.8fr 1fr;
+    gap: 0.75rem;
+    align-items: start;
+}
+
+@media (max-width: 1100px) {
+    .abo-admin-products__form-grid { grid-template-columns: 1fr; }
+}
+
+.abo-admin-products__form-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+/* ─── Language switch (EN / AR) ──────────────────────────────── */
+
+.abo-admin-products__lang {
+    display: inline-flex;
+    align-self: flex-start;
+    border: 1px solid var(--abo-admin-border);
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--abo-admin-bg);
+}
+
+.abo-admin-products__lang button {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--abo-admin-gray);
+    font: inherit;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    padding: 0.3rem 0.7rem;
+    cursor: pointer;
+    transition: color 180ms var(--abo-admin-ease, ease), background 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-products__lang button + button { border-left: 1px solid var(--abo-admin-border); }
+
+.abo-admin-products__lang button:hover,
+.abo-admin-products__lang button:focus-visible {
+    color: var(--abo-admin-text, #F4F6F0);
+    outline: none;
+}
+
+.abo-admin-products__lang button.is-active {
+    background: var(--abo-lime);
+    color: var(--abo-black, #050607);
+}
+
+/* ─── Form field (label + input/textarea/select) ──────────────── */
+
+.abo-admin-products__field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.abo-admin-products__field label {
+    color: var(--abo-admin-gray);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.abo-admin-products__field input,
+.abo-admin-products__field textarea,
+.abo-admin-products__field select {
+    appearance: none;
+    background: var(--abo-admin-bg);
+    color: var(--abo-admin-text, #F4F6F0);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    font: inherit;
+    font-size: 0.9rem;
+    padding: 0.55rem 0.75rem;
+    width: 100%;
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-products__field textarea {
+    min-height: 100px;
+    resize: vertical;
+    font-family: var(--font-sans, 'Inter', system-ui, sans-serif);
+    line-height: 1.5;
+}
+
+.abo-admin-products__field input:hover,
+.abo-admin-products__field textarea:hover,
+.abo-admin-products__field select:hover {
+    border-color: var(--abo-admin-gray);
+}
+
+.abo-admin-products__field input:focus-visible,
+.abo-admin-products__field textarea:focus-visible,
+.abo-admin-products__field select:focus-visible {
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-products__field input::placeholder,
+.abo-admin-products__field textarea::placeholder {
+    color: rgba(141, 146, 138, 0.7);
+}
+
+.abo-admin-products__field select {
+    padding-right: 2rem;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' stroke='%238D928A' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 0.7rem center;
+    background-size: 10px;
+}
+
+/* ─── Hint + helper text ─────────────────────────────────────── */
+
+.abo-admin-products__hint {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.abo-admin-products__helper {
+    margin: 0.2rem 0 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+/* ─── Image slots ────────────────────────────────────────────── */
+
+.abo-admin-products__images {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 0.5rem;
+}
+
+.abo-admin-products__image-slot {
+    position: relative;
+    aspect-ratio: 38 / 44;
+    background: var(--abo-admin-bg);
+    border: 1px dashed var(--abo-admin-border);
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--abo-admin-gray);
+    font-size: 0.85rem;
+    cursor: pointer;
+    overflow: hidden;
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-products__image-slot:hover,
+.abo-admin-products__image-slot:focus-within {
+    border-color: var(--abo-lime);
+}
+
+.abo-admin-products__image-slot[data-state="filled"] {
+    border-style: solid;
+    background-size: cover;
+    background-position: center;
+}
+
+.abo-admin-products__image-slot img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.abo-admin-products__image-slot--add {
+    cursor: pointer;
+    color: var(--abo-admin-gray);
+    font-size: 1.6rem;
+    line-height: 1;
+}
+
+.abo-admin-products__image-slot--add:hover,
+.abo-admin-products__image-slot--add:focus-visible {
+    color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-products__image-cover {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    background: var(--abo-lime);
+    color: var(--abo-black, #050607);
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    padding: 2px 6px;
+    border-radius: 2px;
+}
+
+.abo-admin-products__image-remove {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 22px;
+    height: 22px;
+    background: rgba(5, 6, 7, 0.72);
+    color: var(--abo-admin-text, #F4F6F0);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: 50%;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-products__image-slot:hover .abo-admin-products__image-remove,
+.abo-admin-products__image-slot:focus-within .abo-admin-products__image-remove {
+    opacity: 1;
+}
+
+.abo-admin-products__image-remove:hover,
+.abo-admin-products__image-remove:focus-visible {
+    color: var(--abo-admin-coral);
+    border-color: var(--abo-admin-coral);
+    outline: none;
+}
+
+.abo-admin-products__image-colour {
+    position: absolute;
+    bottom: 6px;
+    left: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 2px 6px;
+    background: rgba(5, 6, 7, 0.72);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: 2px;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+}
+
+.abo-admin-products__image-colour-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--swatch, var(--abo-admin-gray));
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.abo-admin-products__image-slot.is-dragging {
+    opacity: 0.4;
+}
+
+.abo-admin-products__image-slot.is-drop-target {
+    border-color: var(--abo-lime);
+    background: rgba(198, 255, 0, 0.05);
+}
+
+/* ─── Colour picker (per-image attach) ───────────────────────── */
+
+.abo-admin-products__colour-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: center;
+}
+
+.abo-admin-products__colour-chip {
+    appearance: none;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    color: var(--abo-admin-text, #F4F6F0);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.3rem 0.6rem;
+    border-radius: 999px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: border-color 180ms var(--abo-admin-ease, ease), background 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-products__colour-chip:hover,
+.abo-admin-products__colour-chip:focus-visible {
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-products__colour-chip.is-active {
+    background: rgba(198, 255, 0, 0.08);
+    border-color: var(--abo-lime);
+    color: var(--abo-lime);
+}
+
+.abo-admin-products__colour-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--swatch, var(--abo-admin-gray));
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    flex-shrink: 0;
+}
+
+/* ─── Variants: chips (colours + sizes) ──────────────────────── */
+
+.abo-admin-products__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.abo-admin-products__chip {
+    appearance: none;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    color: var(--abo-admin-text, #F4F6F0);
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: border-color 180ms var(--abo-admin-ease, ease), background 180ms var(--abo-admin-ease, ease), color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-products__chip:hover,
+.abo-admin-products__chip:focus-visible {
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-products__chip.is-active {
+    background: rgba(198, 255, 0, 0.08);
+    border-color: var(--abo-lime);
+    color: var(--abo-lime);
+}
+
+.abo-admin-products__chip-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--swatch, var(--abo-admin-gray));
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    flex-shrink: 0;
+}
+
+/* ─── "Set stock for all" bulk-set input ─────────────────────── */
+
+.abo-admin-products__bulk-set {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.6rem;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+}
+
+.abo-admin-products__bulk-set label {
+    color: var(--abo-admin-gray);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
+.abo-admin-products__bulk-set input {
+    flex: 1 1 auto;
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font: inherit;
+    font-size: 0.9rem;
+    text-align: right;
+    width: 80px;
+    outline: none;
+    font-variant-numeric: tabular-nums;
+}
+
+.abo-admin-products__bulk-set input::-webkit-outer-spin-button,
+.abo-admin-products__bulk-set input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* ─── Variants table ─────────────────────────────────────────── */
+
+.abo-admin-products__variants {
+    min-width: 480px;
+}
+
+.abo-admin-products__variants td {
+    vertical-align: middle;
+}
+
+.abo-admin-products__variant-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.abo-admin-products__variant-cell-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--swatch, var(--abo-admin-gray));
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    flex-shrink: 0;
+}
+
+.abo-admin-products__variant-cell input[type="text"],
+.abo-admin-products__variant-cell input[type="number"] {
+    width: 100%;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    color: var(--abo-admin-text, #F4F6F0);
+    font: inherit;
+    font-size: 0.85rem;
+    padding: 0.35rem 0.55rem;
+    border-radius: 3px;
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-products__variant-cell input:hover { border-color: var(--abo-admin-gray); }
+.abo-admin-products__variant-cell input:focus-visible {
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-products__variant-cell input[type="number"] {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.abo-admin-products__variant-cell--low input[type="number"] {
+    color: var(--abo-admin-coral);
+    border-color: var(--abo-admin-coral);
+}
+
+.abo-admin-products__variant-cell input::-webkit-outer-spin-button,
+.abo-admin-products__variant-cell input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* ─── Status segmented (form) ────────────────────────────────── */
+
+.abo-admin-products__segmented { width: 100%; }
+
+.abo-admin-products__segmented button { flex: 1 1 0; }
+
+/* ─── Live margin / profit ───────────────────────────────────── */
+
+.abo-admin-products__margin {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    padding: 0.7rem 0.9rem;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+}
+
+.abo-admin-products__margin > div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.abo-admin-products__margin-label {
+    color: var(--abo-admin-gray);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.abo-admin-products__margin-value {
+    color: var(--abo-lime);
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    font-size: 1.2rem;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ─── Tags input ─────────────────────────────────────────────── */
+
+.abo-admin-products__tags {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.55rem;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    min-height: 38px;
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-products__tags:focus-within { border-color: var(--abo-lime); }
+
+.abo-admin-products__taglist {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: contents;
+}
+
+.abo-admin-products__tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.5rem;
+    background: rgba(198, 255, 0, 0.08);
+    border: 1px solid var(--abo-lime);
+    border-radius: 999px;
+    color: var(--abo-lime);
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.abo-admin-products__tag-remove {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    font-size: 0.9rem;
+}
+
+.abo-admin-products__tag-remove:hover,
+.abo-admin-products__tag-remove:focus-visible {
+    color: var(--abo-admin-coral);
+    outline: none;
+}
+
+.abo-admin-products__taginput {
+    flex: 1 1 100px;
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font: inherit;
+    font-size: 0.85rem;
+    min-width: 100px;
+    outline: none;
+}
+
+.abo-admin-products__taginput::placeholder {
+    color: rgba(141, 146, 138, 0.7);
+}
+
+/* ─── Store preview card ─────────────────────────────────────── */
+
+.abo-admin-products__preview {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    padding: 0.7rem;
+}
+
+.abo-admin-products__preview-img {
+    aspect-ratio: 38 / 44;
+    background: linear-gradient(135deg, #1A1D1F 0%, #2A2F33 100%);
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--abo-admin-gray);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    margin-bottom: 0.2rem;
+}
+
+.abo-admin-products__preview-name {
+    margin: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 700;
+    font-style: italic;
+    text-transform: uppercase;
+    font-size: 0.95rem;
+    line-height: 1.2;
+}
+
+.abo-admin-products__preview-price {
+    margin: 0;
+    color: var(--abo-lime);
+    font-weight: 700;
+    font-size: 0.95rem;
+    font-variant-numeric: tabular-nums;
+    display: flex;
+    align-items: baseline;
+    gap: 0.45rem;
+}
+
+.abo-admin-products__preview-compare {
+    color: var(--abo-admin-gray);
+    text-decoration: line-through;
+    font-size: 0.82rem;
+    font-weight: 500;
+}
+
+/* ─── Screen-reader only utility (matches the global pattern) ── */
+
+.abo-admin-products__sr {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}

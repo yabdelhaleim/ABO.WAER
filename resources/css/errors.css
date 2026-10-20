@@ -1,0 +1,119 @@
+/*
+ * ABO — Custom error pages (404 / 403 / 500).
+ *
+ * Scope: the three views in resources/views/errors/ extend
+ * layouts.store, so this file only styles the error body — the nav,
+ * announcement bar and footer come from the shared layout. That is what
+ * keeps an error page looking like the store instead of Laravel's
+ * default white Ignition/error screen.
+ *
+ * Reuses the existing brand tokens and .store-btn / .store-btn--ghost
+ * button classes; no new colors, no new typefaces.
+ * Animate only transform / opacity. Reduced motion drops the drift.
+ */
+
+.error-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    min-height: 62vh;
+    padding: clamp(2.5rem, 8vw, 5rem) clamp(1rem, 5vw, 2rem);
+    text-align: center;
+}
+
+/* ─── Eyebrow (404) ─────────────────────────────────────────────── */
+
+.error-page__eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.7rem;
+    margin: 0;
+    color: var(--abo-gray);
+    font-family: var(--font-sans);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+}
+
+.error-page__eyebrow-line {
+    display: inline-block;
+    width: 28px;
+    height: 1px;
+    background: var(--abo-lime);
+}
+
+/* ─── Status code ───────────────────────────────────────────────── */
+
+.error-page__code {
+    display: block;
+    margin: 0;
+    color: var(--abo-white);
+    font-family: var(--font-display, 'Space Grotesk', sans-serif);
+    font-weight: 900;
+    font-style: italic;
+    text-transform: uppercase;
+    font-size: clamp(4.5rem, 18vw, 11rem);
+    line-height: 0.85;
+    letter-spacing: -0.04em;
+}
+
+/* The lime wash behind the digits — brand accent, no extra color. */
+.error-page__code--accent {
+    color: transparent;
+    -webkit-text-stroke: 2px var(--abo-lime);
+    text-stroke: 2px var(--abo-lime);
+}
+
+/* ─── Title + copy ──────────────────────────────────────────────── */
+
+.error-page__title {
+    margin: 0;
+    color: var(--abo-white);
+    font-family: var(--font-display, 'Space Grotesk', sans-serif);
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: clamp(1.35rem, 3.5vw, 2rem);
+    line-height: 1.15;
+    letter-spacing: 0.02em;
+}
+
+.error-page__lede {
+    margin: 0;
+    max-width: 46ch;
+    color: var(--abo-gray);
+    font-family: var(--font-sans);
+    font-size: clamp(0.95rem, 1.4vw, 1.05rem);
+    line-height: 1.7;
+}
+
+/* ─── Actions ───────────────────────────────────────────────────── */
+
+.error-page__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+/* ─── Slow lime drift behind the digits ─────────────────────────── */
+
+.error-page__code--drift {
+    animation: error-code-drift 7s ease-in-out infinite;
+}
+
+@keyframes error-code-drift {
+    0%,
+    100% { transform: translateY(0); }
+    50%  { transform: translateY(-8px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .error-page__code--drift {
+        animation: none !important;
+        transform: none !important;
+    }
+}

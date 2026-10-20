@@ -1,0 +1,28 @@
+# ABO — robots.txt
+#
+# Served as a static file by the web server (before Laravel is reached),
+# so it cannot use Blade syntax — the sitemap URL below is a literal.
+# Keep it in sync with APP_URL on the production environment.
+
+User-agent: *
+Allow: /
+
+# Admin panel — no reason for a crawler to index any of it.
+Disallow: /admin/
+
+# Customer-private flows. These are session-bound and answer a redirect to
+# /login for anonymous crawlers, so indexing them only produces soft 404s.
+Disallow: /checkout/
+Disallow: /cart/
+Disallow: /account/
+Disallow: /orders
+Disallow: /login
+Disallow: /register
+
+# Campaign tracking pixels fire from email clients; nothing to index.
+Disallow: /campaigns/
+
+# Crawl budget guide — the catalog changes often, admin and carts never do.
+Crawl-delay: 1
+
+Sitemap: https://abostore.com/sitemap.xml

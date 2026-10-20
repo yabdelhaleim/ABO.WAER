@@ -1,0 +1,1274 @@
+/*
+ * ABO Admin · Banners — page-local stylesheet.
+ *
+ * Conventions (matches the existing admin scope):
+ *   - All class names are prefixed with `abo-admin-banners-`.
+ *   - Brand tokens are reused from the global stylesheet via
+ *     var(--abo-lime), var(--abo-bg), var(--abo-admin-panel), etc.
+ *   - No new colours. Lime accent is --abo-lime; danger is the
+ *     existing --abo-admin-coral token.
+ *   - Square corners everywhere (buttons, inputs, toggles, cards).
+ *   - Animate only transform / opacity. Reduced motion is respected.
+ *
+ * Loaded only on /admin/banners, never on the storefront or on
+ * any other admin page. The page-local stylesheet is appended to
+ * the admin layout via @stack('head').
+ */
+
+/* ─── Title split (BAN + NERS) ───────────────────────────────── */
+
+.abo-admin-banners__title-lime {
+    color: var(--abo-lime);
+    margin-left: 0.18em;
+}
+
+/* ─── Placement tabs ─────────────────────────────────────────── */
+
+.abo-admin-banners__tabs {
+    display: flex;
+    align-items: stretch;
+    gap: 0.2rem;
+    border-bottom: 1px solid var(--abo-admin-border);
+    overflow-x: auto;
+    scrollbar-width: thin;
+    margin: 0;
+}
+
+.abo-admin-banners__tab {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    color: var(--abo-admin-gray);
+    font: inherit;
+    font-size: 0.92rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 0.65rem 1rem 0.65rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: color 180ms var(--abo-admin-ease, ease), border-color 180ms var(--abo-admin-ease, ease);
+    margin-bottom: -1px;
+    white-space: nowrap;
+}
+
+.abo-admin-banners__tab:hover,
+.abo-admin-banners__tab:focus-visible {
+    color: var(--abo-admin-text, #F4F6F0);
+    outline: none;
+}
+
+.abo-admin-banners__tab.is-active {
+    color: var(--abo-lime);
+    border-bottom-color: var(--abo-lime);
+}
+
+.abo-admin-banners__tab-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 18px;
+    padding: 0 6px;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+    color: inherit;
+    opacity: 0.85;
+}
+
+/* ─── Two-column row + slide-over on tablet/mobile ───────────── */
+
+.abo-admin-banners__layout {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 0.75rem;
+    align-items: start;
+    min-width: 0;
+}
+
+@media (max-width: 1100px) {
+    .abo-admin-banners__layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+.abo-admin-banners__col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+/* ─── Left column: list card ────────────────────────────────── */
+
+.abo-admin-banners__list-card {
+    padding: 0.6rem 0.5rem 0.5rem;
+    gap: 0.5rem;
+}
+
+.abo-admin-banners__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.abo-admin-banners__row {
+    position: relative;
+    display: grid;
+    grid-template-columns: 22px 96px minmax(0, 1fr) auto auto auto;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.55rem 0.6rem;
+    border-left: 2px solid transparent;
+    border-radius: 2px;
+    cursor: pointer;
+    background: transparent;
+    transition: background 150ms var(--abo-admin-ease, ease), border-color 150ms var(--abo-admin-ease, ease);
+    min-width: 0;
+}
+
+.abo-admin-banners__row + .abo-admin-banners__row {
+    margin-top: 1px;
+}
+
+.abo-admin-banners__row:hover,
+.abo-admin-banners__row:focus-within {
+    background: #151515;
+}
+
+.abo-admin-banners__row.is-selected {
+    border-left-color: var(--abo-lime);
+    background: #14170a;
+}
+
+.abo-admin-banners__row.is-dragging {
+    opacity: 0.4;
+}
+
+.abo-admin-banners__row.is-drop-before::before,
+.abo-admin-banners__row.is-drop-after::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    height: 2px;
+    background: var(--abo-lime);
+    border-radius: 1px;
+}
+
+.abo-admin-banners__row.is-drop-before::before { top: -1px; }
+.abo-admin-banners__row.is-drop-after::after  { bottom: -1px; }
+
+/* Announcement row swaps the wide thumb for a compact icon */
+.abo-admin-banners__row--announcement {
+    grid-template-columns: 22px 36px minmax(0, 1fr) auto auto auto;
+}
+
+/* ─── Drag handle ───────────────────────────────────────────── */
+
+.abo-admin-banners__handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    color: var(--abo-admin-gray);
+    cursor: grab;
+    flex-shrink: 0;
+    transition: color 150ms var(--abo-admin-ease, ease);
+    border-radius: 2px;
+}
+
+.abo-admin-banners__handle:hover,
+.abo-admin-banners__row:focus-within .abo-admin-banners__handle {
+    color: var(--abo-admin-text, #F4F6F0);
+}
+
+.abo-admin-banners__handle:active { cursor: grabbing; }
+
+.abo-admin-banners__handle svg {
+    width: 12px;
+    height: 12px;
+    fill: currentColor;
+}
+
+/* ─── Thumb (96x54 for hero/promo, small text icon for announcements) ── */
+
+.abo-admin-banners__thumb {
+    width: 96px;
+    height: 54px;
+    background: #1a1a1a;
+    border: 1px solid var(--abo-admin-border);
+    border-radius: 2px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--abo-admin-gray);
+    overflow: hidden;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.abo-admin-banners__thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.abo-admin-banners__thumb-icon {
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    font-size: 0.95rem;
+    color: var(--abo-admin-gray);
+    opacity: 0.65;
+}
+
+/* Compact thumb for announcements */
+.abo-admin-banners__row--announcement .abo-admin-banners__thumb {
+    width: 36px;
+    height: 22px;
+}
+
+.abo-admin-banners__row--announcement .abo-admin-banners__thumb-icon {
+    font-size: 0.7rem;
+    opacity: 0.6;
+}
+
+/* ─── Meta (title + schedule) ───────────────────────────────── */
+
+.abo-admin-banners__meta {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.abo-admin-banners__name {
+    margin: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-size: 0.92rem;
+    font-weight: 600;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.abo-admin-banners__schedule {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.74rem;
+    line-height: 1.3;
+    letter-spacing: 0.02em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ─── Status pill — outline only, never color alone ─────────── */
+
+.abo-admin-banners__status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border: 1px solid currentColor;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.abo-admin-banners__status--live       { color: var(--abo-lime); }
+.abo-admin-banners__status--scheduled { color: var(--abo-admin-text, #F4F6F0); }
+.abo-admin-banners__status--expired   { color: var(--abo-admin-coral); }
+.abo-admin-banners__status--hidden    { color: var(--abo-admin-gray); }
+
+/* Tiny dot + text so it never reads color-only */
+.abo-admin-banners__status::before {
+    content: "";
+    display: inline-block;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+/* ─── Row toggle (28x14 lime-on, square corners) ───────────── */
+
+.abo-admin-banners__toggle {
+    position: relative;
+    display: inline-block;
+    width: 28px;
+    height: 14px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.abo-admin-banners__toggle input {
+    position: absolute;
+    opacity: 0;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    margin: 0;
+}
+
+.abo-admin-banners__toggle-track {
+    position: absolute;
+    inset: 0;
+    background: var(--abo-admin-border);
+    border-radius: 2px;
+    transition: background 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-banners__toggle-thumb {
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: 12px;
+    height: 12px;
+    background: var(--abo-admin-gray);
+    border-radius: 1px;
+    transition: transform 180ms var(--abo-admin-ease, ease), background 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-banners__toggle input:checked + .abo-admin-banners__toggle-track {
+    background: var(--abo-lime);
+}
+
+.abo-admin-banners__toggle input:checked + .abo-admin-banners__toggle-track + .abo-admin-banners__toggle-thumb {
+    transform: translateX(14px);
+    background: var(--abo-black, #050607);
+}
+
+/* ─── Hero-only counter under the list ──────────────────────── */
+
+.abo-admin-banners__counter {
+    margin: 0.6rem 0.6rem 0.1rem;
+    color: var(--abo-admin-gray);
+    font-size: 0.78rem;
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
+}
+
+.abo-admin-banners__counter--warn {
+    color: var(--abo-admin-coral);
+}
+
+/* ─── Helper text ───────────────────────────────────────────── */
+
+.abo-admin-banners__helper {
+    margin: 0.6rem 0.6rem 0.3rem;
+    color: var(--abo-admin-gray);
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+/* ─── States: empty / loading skeleton ─────────────────────── */
+
+.abo-admin-banners__state {
+    padding: 1.4rem 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+    text-align: center;
+}
+
+.abo-admin-banners__state p {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.9rem;
+}
+
+.abo-admin-banners__state .abo-admin-btn {
+    margin-top: 0.3rem;
+}
+
+.abo-admin-banners__skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 0.4rem;
+}
+
+.abo-admin-banners__skeleton-row {
+    display: grid;
+    grid-template-columns: 22px 96px 1fr 120px 70px 28px;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.55rem 0.6rem;
+}
+
+.abo-admin-banners__skeleton-cell {
+    background: linear-gradient(90deg,
+        rgba(255, 255, 255, 0.04) 0%,
+        rgba(255, 255, 255, 0.10) 50%,
+        rgba(255, 255, 255, 0.04) 100%);
+    background-size: 200% 100%;
+    border-radius: 3px;
+    height: 12px;
+    animation: abo-admin-banners-shimmer 1.4s linear infinite;
+}
+
+@keyframes abo-admin-banners-shimmer {
+    from { background-position: 200% 0; }
+    to   { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .abo-admin-banners__skeleton-cell { animation: none; }
+}
+
+/* ─── Right column: edit panel ─────────────────────────────── */
+
+.abo-admin-banners__panel {
+    position: sticky;
+    top: 80px;
+}
+
+.abo-admin-banners__panel-overlay {
+    display: none;
+}
+
+@media (max-width: 1100px) {
+    .abo-admin-banners__panel {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: min(420px, 100%);
+        z-index: 90;
+        transform: translateX(100%);
+        transition: transform 220ms var(--abo-admin-ease, ease);
+        background: var(--abo-admin-bg);
+        border-left: 1px solid var(--abo-admin-border);
+        overflow-y: auto;
+        padding: 1rem 1rem 2rem;
+    }
+    .abo-admin-banners__panel.is-open {
+        transform: translateX(0);
+        box-shadow: -8px 0 30px rgba(0, 0, 0, 0.45);
+    }
+    .abo-admin-banners__panel-overlay {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(5, 6, 7, 0.55);
+        z-index: 85;
+    }
+    .abo-admin-banners__panel-overlay[hidden] { display: none; }
+}
+
+.abo-admin-banners__panel-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--abo-admin-border);
+    background: var(--abo-admin-panel);
+    border-radius: var(--abo-admin-radius) var(--abo-admin-radius) 0 0;
+}
+
+@media (max-width: 1100px) {
+    .abo-admin-banners__panel-head { border-radius: 0; }
+}
+
+.abo-admin-banners__panel-title {
+    margin: 0;
+    flex: 1 1 auto;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    text-transform: uppercase;
+    font-size: 0.92rem;
+    letter-spacing: 0.06em;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.abo-admin-banners__panel-close {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--abo-admin-border);
+    color: var(--abo-admin-gray);
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color 150ms var(--abo-admin-ease, ease), color 150ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-banners__panel-close:hover,
+.abo-admin-banners__panel-close:focus-visible {
+    color: var(--abo-lime);
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-banners__panel-close svg {
+    width: 14px;
+    height: 14px;
+}
+
+.abo-admin-banners__dirty-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--abo-admin-coral);
+    display: none;
+    flex-shrink: 0;
+}
+
+.abo-admin-banners__dirty-dot.is-visible {
+    display: inline-block;
+}
+
+.abo-admin-banners__panel-body {
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-admin-border);
+    border-top: 0;
+    border-radius: 0 0 var(--abo-admin-radius) var(--abo-admin-radius);
+    padding: 1rem 1.1rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+@media (max-width: 1100px) {
+    .abo-admin-banners__panel-body {
+        border-radius: 0;
+        border: 0;
+    }
+}
+
+/* ─── No-selection placeholder ─────────────────────────────── */
+
+.abo-admin-banners__panel-empty {
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    padding: 2rem 1.2rem;
+    color: var(--abo-admin-gray);
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+/* ─── Form fields (mirrors categories.css pattern) ─────────── */
+
+.abo-admin-banners__field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.abo-admin-banners__field-label {
+    color: var(--abo-admin-gray);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.abo-admin-banners__field > label {
+    color: var(--abo-admin-gray);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.abo-admin-banners__field input,
+.abo-admin-banners__field textarea,
+.abo-admin-banners__field select {
+    appearance: none;
+    background: var(--abo-admin-bg);
+    color: var(--abo-admin-text, #F4F6F0);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    font: inherit;
+    font-size: 0.9rem;
+    padding: 0.55rem 0.75rem;
+    width: 100%;
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-banners__field input:hover,
+.abo-admin-banners__field textarea:hover,
+.abo-admin-banners__field select:hover {
+    border-color: var(--abo-admin-gray);
+}
+
+.abo-admin-banners__field input:focus-visible,
+.abo-admin-banners__field textarea:focus-visible,
+.abo-admin-banners__field select:focus-visible {
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-banners__field input::placeholder,
+.abo-admin-banners__field textarea::placeholder {
+    color: rgba(141, 146, 138, 0.7);
+}
+
+.abo-admin-banners__field select {
+    padding-right: 2rem;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' stroke='%238D928A' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 0.7rem center;
+    background-size: 10px;
+    cursor: pointer;
+}
+
+.abo-admin-banners__field-hint {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.74rem;
+    line-height: 1.4;
+}
+
+.abo-admin-banners__field-error {
+    margin: 0;
+    color: var(--abo-admin-coral);
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+/* ─── EN / AR pill switch (reused pattern) ─────────────────── */
+
+.abo-admin-banners__lang {
+    display: inline-flex;
+    align-self: flex-start;
+    border: 1px solid var(--abo-admin-border);
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--abo-admin-bg);
+}
+
+.abo-admin-banners__lang button {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--abo-admin-gray);
+    font: inherit;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    padding: 0.3rem 0.7rem;
+    cursor: pointer;
+    transition: color 150ms var(--abo-admin-ease, ease), background 150ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-banners__lang button + button {
+    border-left: 1px solid var(--abo-admin-border);
+}
+
+.abo-admin-banners__lang button:hover,
+.abo-admin-banners__lang button:focus-visible {
+    color: var(--abo-admin-text, #F4F6F0);
+    outline: none;
+}
+
+.abo-admin-banners__lang button.is-active {
+    background: var(--abo-lime);
+    color: var(--abo-black, #050607);
+}
+
+/* ─── Image pickers (Desktop + Mobile) — side-by-side, stack ≤900 ── */
+
+.abo-admin-banners__images {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+}
+
+@media (max-width: 900px) {
+    .abo-admin-banners__images {
+        grid-template-columns: 1fr;
+    }
+}
+
+.abo-admin-banners__image {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.abo-admin-banners__image-label {
+    color: var(--abo-admin-gray);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+/* 16:7 desktop preview */
+.abo-admin-banners__image-frame {
+    position: relative;
+    width: 100%;
+    background: #1a1a1a;
+    border: 1px dashed var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--abo-admin-gray);
+    overflow: hidden;
+}
+
+.abo-admin-banners__image-frame--desktop {
+    aspect-ratio: 16 / 7;
+}
+
+.abo-admin-banners__image-frame--mobile {
+    aspect-ratio: 4 / 5;
+}
+
+.abo-admin-banners__image-frame img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.abo-admin-banners__image-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--abo-admin-gray);
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+}
+
+.abo-admin-banners__image-placeholder svg {
+    width: 22px;
+    height: 22px;
+}
+
+.abo-admin-banners__image-actions {
+    display: flex;
+    gap: 0.35rem;
+}
+
+.abo-admin-banners__image-file {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Mirror of categories.css cover-btn (local pattern). */
+.abo-admin-banners__cover-btn {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--abo-admin-border);
+    color: var(--abo-admin-text, #F4F6F0);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.45rem 0.75rem;
+    border-radius: 0;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 150ms var(--abo-admin-ease, ease), color 150ms var(--abo-admin-ease, ease);
+    flex: 1 1 0;
+}
+
+.abo-admin-banners__cover-btn:hover,
+.abo-admin-banners__cover-btn:focus-visible {
+    color: var(--abo-lime);
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-banners__cover-btn--danger {
+    color: var(--abo-admin-coral);
+    border-color: var(--abo-admin-coral);
+    flex: 0 0 auto;
+}
+
+.abo-admin-banners__cover-btn--danger:hover,
+.abo-admin-banners__cover-btn--danger:focus-visible {
+    background: rgba(255, 122, 92, 0.08);
+    color: var(--abo-admin-coral);
+}
+
+.abo-admin-banners__cover-btn[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* ─── Look section (Text color / position / overlay) — segmented ── */
+
+.abo-admin-banners__look-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+    border: 1px solid var(--abo-admin-border);
+    background: var(--abo-admin-bg);
+    border-radius: var(--abo-admin-radius);
+    padding: 0.7rem 0.8rem;
+}
+
+.abo-admin-banners__look-cell {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.abo-admin-banners__look-cell-label {
+    color: var(--abo-admin-gray);
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.abo-admin-banners__segmented {
+    background: var(--abo-admin-bg);
+}
+
+/* ─── Schedule row (Starts / Ends) ─────────────────────────── */
+
+.abo-admin-banners__schedule-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+}
+
+@media (max-width: 540px) {
+    .abo-admin-banners__schedule-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ─── Panel switch (Active) — same style as categories.css ── */
+
+.abo-admin-banners__switch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.65rem 0.8rem;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+}
+
+.abo-admin-banners__switch-label {
+    color: var(--abo-admin-text, #F4F6F0);
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.abo-admin-banners__switch-hint {
+    margin: 0.15rem 0 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.72rem;
+    line-height: 1.4;
+}
+
+.abo-admin-banners__switch input {
+    position: absolute;
+    opacity: 0;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    margin: 0;
+}
+
+.abo-admin-banners__switch .abo-admin-banners__toggle {
+    flex-shrink: 0;
+}
+
+/* ─── Live preview ──────────────────────────────────────────── */
+
+.abo-admin-banners__preview {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.7rem 0.8rem;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+}
+
+.abo-admin-banners__preview-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.abo-admin-banners__preview-label {
+    color: var(--abo-admin-gray);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.abo-admin-banners__preview-toggle {
+    align-self: flex-end;
+}
+
+.abo-admin-banners__preview-frame {
+    background: #0a0a0a;
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    padding: 0.4rem;
+    overflow: hidden;
+    position: relative;
+}
+
+.abo-admin-banners__preview-banner {
+    position: relative;
+    aspect-ratio: 16 / 7;
+    background: #1a1a1a;
+    color: var(--abo-admin-text, #F4F6F0);
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    padding: 0.6rem 0.8rem;
+}
+
+.abo-admin-banners__preview-frame--mobile .abo-admin-banners__preview-banner {
+    aspect-ratio: 4 / 5;
+    padding: 0.5rem 0.6rem;
+}
+
+.abo-admin-banners__preview-banner img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.abo-admin-banners__preview-overlay {
+    position: absolute;
+    inset: 0;
+    background: transparent;
+    pointer-events: none;
+}
+
+.abo-admin-banners__preview-overlay--light {
+    background: rgba(255, 255, 255, 0.45);
+}
+
+.abo-admin-banners__preview-overlay--dark {
+    background: rgba(0, 0, 0, 0.55);
+}
+
+.abo-admin-banners__preview-text {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    z-index: 1;
+    min-width: 0;
+}
+
+.abo-admin-banners__preview-title {
+    margin: 0;
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.abo-admin-banners__preview-frame--mobile .abo-admin-banners__preview-title {
+    font-size: 0.72rem;
+}
+
+.abo-admin-banners__preview-subtitle {
+    margin: 0;
+    font-size: 0.7rem;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: 0.9;
+}
+
+.abo-admin-banners__preview-btn {
+    margin-top: 0.2rem;
+    align-self: flex-start;
+    background: var(--abo-lime);
+    color: var(--abo-black, #050607);
+    border-radius: 0;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    display: inline-flex;
+}
+
+.abo-admin-banners__preview-text-pos--left   { align-items: flex-start; text-align: left; margin-right: auto; }
+.abo-admin-banners__preview-text-pos--center { align-items: center;    text-align: center; margin: 0 auto; }
+.abo-admin-banners__preview-text-pos--right  { align-items: flex-end;  text-align: right; margin-left: auto; }
+
+/* Color of the preview text is driven by --banners-text-color
+   set inline by JS (light: var(--abo-admin-text), dark: #0a0a0a). */
+.abo-admin-banners__preview-banner {
+    color: var(--banners-text-color, var(--abo-admin-text, #F4F6F0));
+}
+
+/* Announcement preview (thin lime-bordered bar) */
+.abo-admin-banners__preview-announcement {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 0.6rem;
+    background: transparent;
+    color: var(--abo-admin-text, #F4F6F0);
+    border: 1px solid var(--abo-lime);
+    border-radius: 2px;
+    font-size: 0.74rem;
+    line-height: 1.25;
+    font-weight: 600;
+    text-align: center;
+    min-height: 32px;
+}
+
+/* ─── Action buttons ───────────────────────────────────────── */
+
+.abo-admin-banners__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.2rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid var(--abo-admin-border);
+}
+
+.abo-admin-banners__actions .abo-admin-btn--primary {
+    flex: 1 1 auto;
+}
+
+.abo-admin-banners__delete {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--abo-admin-coral);
+    color: var(--abo-admin-coral);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.55rem 1rem;
+    border-radius: 0;
+    cursor: pointer;
+    min-height: 38px;
+    clip-path: polygon(0 0, 100% 0, 100% 70%, 94% 100%, 0 100%);
+    padding-right: 1.4rem;
+    transition: background 180ms var(--abo-admin-ease, ease), color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-banners__delete:hover:not([disabled]),
+.abo-admin-banners__delete:focus-visible:not([disabled]) {
+    background: var(--abo-admin-coral);
+    color: var(--abo-admin-text, #F4F6F0);
+    outline: none;
+}
+
+.abo-admin-banners__delete[disabled] {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.abo-admin-banners__delete-note {
+    margin: 0;
+    color: var(--abo-admin-coral);
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+/* ─── Modal (delete-confirm) ───────────────────────────────── */
+
+.abo-admin-banners__modal {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.abo-admin-banners__modal[hidden] { display: none; }
+
+.abo-admin-banners__modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(5, 6, 7, 0.72);
+}
+
+.abo-admin-banners__modal-card {
+    position: relative;
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    padding: 1.4rem 1.5rem 1.2rem;
+    max-width: 420px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+}
+
+.abo-admin-banners__modal-title {
+    margin: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    text-transform: uppercase;
+    font-size: 1rem;
+    letter-spacing: 0.02em;
+}
+
+.abo-admin-banners__modal-body {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.abo-admin-banners__modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+}
+
+.abo-admin-banners__modal-confirm {
+    appearance: none;
+    background: var(--abo-admin-coral);
+    border: 1px solid var(--abo-admin-coral);
+    color: var(--abo-admin-text, #F4F6F0);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.55rem 1rem;
+    min-height: 38px;
+    border-radius: 0;
+    cursor: pointer;
+    transition: background 180ms var(--abo-admin-ease, ease), border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-banners__modal-confirm:hover,
+.abo-admin-banners__modal-confirm:focus-visible {
+    background: #FF6B4A;
+    border-color: #FF6B4A;
+    outline: none;
+}
+
+/* ─── Toast (single shared instance) ───────────────────────── */
+
+.abo-admin-banners__toast {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 120;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.7rem 1rem;
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-lime);
+    border-radius: var(--abo-admin-radius);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+    color: var(--abo-admin-text, #F4F6F0);
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.abo-admin-banners__toast[hidden] { display: none; }
+
+.abo-admin-banners__toast-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--abo-lime);
+    flex-shrink: 0;
+}
+
+.abo-admin-banners__toast-dot--coral { background: var(--abo-admin-coral); }
+.abo-admin-banners__toast-dot--lime  { background: var(--abo-lime); }
+
+/* ─── Focus ring (matches admin.css site-wide rule) ───────── */
+
+:where(
+    .abo-admin-banners__search input,
+    .abo-admin-banners__search-clear,
+    .abo-admin-banners__handle,
+    .abo-admin-banners__row,
+    .abo-admin-banners__toggle input,
+    .abo-admin-banners__tab,
+    .abo-admin-banners__field input,
+    .abo-admin-banners__field textarea,
+    .abo-admin-banners__field select,
+    .abo-admin-banners__lang button,
+    .abo-admin-banners__switch input,
+    .abo-admin-banners__segmented button,
+    .abo-admin-banners__cover-btn,
+    .abo-admin-banners__delete,
+    .abo-admin-banners__modal-confirm,
+    .abo-admin-banners__panel-close
+):focus-visible {
+    outline: 2px solid var(--abo-lime);
+    outline-offset: 2px;
+}
+
+/* Reduced motion: keep only essential transitions */
+@media (prefers-reduced-motion: reduce) {
+    .abo-admin-banners__panel,
+    .abo-admin-banners__tab,
+    .abo-admin-banners__row,
+    .abo-admin-banners__handle,
+    .abo-admin-banners__toggle-track,
+    .abo-admin-banners__toggle-thumb {
+        transition: none;
+    }
+}

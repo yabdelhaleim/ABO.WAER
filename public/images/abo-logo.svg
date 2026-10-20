@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="ABO">
+    <defs>
+        <clipPath id="abo-circle">
+            <circle cx="50" cy="50" r="49"/>
+        </clipPath>
+    </defs>
+    <circle cx="50" cy="50" r="49" fill="#050505"/>
+    <g fill="#FFFFFF" clip-path="url(#abo-circle)">
+        <!-- A: triangle with crossbar -->
+        <path d="M 18 72 L 30 28 L 38 28 L 22 72 Z M 24 56 L 36 56 L 36 62 L 24 62 Z"/>
+        <!-- B: stylized -->
+        <path d="M 44 28 L 60 28 Q 70 28 70 38 Q 70 44 65 47 Q 72 49 72 57 Q 72 72 58 72 L 44 72 Z M 52 36 L 52 46 L 58 46 Q 63 46 63 41 Q 63 36 58 36 Z M 52 54 L 52 64 L 59 64 Q 64 64 64 59 Q 64 54 59 54 Z"/>
+        <!-- O: clean circle -->
+        <circle cx="83" cy="50" r="14"/>
+        <circle cx="83" cy="50" r="6" fill="#050505"/>
+    </g>
+</svg>

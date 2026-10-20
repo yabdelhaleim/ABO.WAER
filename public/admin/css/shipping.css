@@ -1,0 +1,1278 @@
+/*
+ * ABO Admin · Shipping — page-local stylesheet.
+ *
+ * Conventions (matches the existing admin scope):
+ *   - All class names are prefixed with `abo-admin-shipping-`.
+ *   - Brand tokens are reused from the global stylesheet via
+ *     var(--abo-lime), var(--abo-bg), var(--abo-admin-panel), etc.
+ *   - No new colours. Coral comes from the existing --abo-admin-coral
+ *     token in admin.css. The lime 2px left border on the selected
+ *     tree row, the lime drop indicator and the lime accent on
+ *     "PING" come from --abo-lime.
+ *   - Square corners everywhere (buttons, inputs, toggles, chips, cards).
+ *   - Animate only transform / opacity. Reduced motion is respected.
+ *
+ * Loaded only on /admin/shipping, never on the storefront or on
+ * other admin pages. The page-local stylesheet is appended to the
+ * admin layout via @stack('head') so the cascade is consistent.
+ */
+
+/* ─── Title split (SHIP + PING) ──────────────────────────────── */
+
+.abo-admin-shipping__title-lime {
+    color: var(--abo-lime);
+    margin-left: 0.18em;
+}
+
+/* ─── Global settings card ───────────────────────────────────── */
+
+.abo-admin-shipping__settings {
+    gap: 1.1rem;
+}
+
+.abo-admin-shipping__settings-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.abo-admin-shipping__settings-title {
+    margin: 0;
+    color: var(--abo-admin-text);
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    text-transform: uppercase;
+    font-size: 0.92rem;
+    letter-spacing: 0.04em;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.abo-admin-shipping__settings-save {
+    /* matches abo-admin-btn--primary but kept here for clarity */
+}
+
+.abo-admin-shipping__settings-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.9rem;
+}
+
+@media (max-width: 1100px) {
+    .abo-admin-shipping__settings-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .abo-admin-shipping__settings-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.abo-admin-shipping__settings-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.85rem 1rem;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    min-width: 0;
+}
+
+.abo-admin-shipping__settings-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.abo-admin-shipping__settings-row--inline {
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.abo-admin-shipping__settings-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.18rem;
+    min-width: 0;
+}
+
+.abo-admin-shipping__settings-label > label,
+.abo-admin-shipping__settings-sublabel {
+    color: var(--abo-admin-gray);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.abo-admin-shipping__settings-hint {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.74rem;
+    line-height: 1.4;
+}
+
+.abo-admin-shipping__settings-hint--soft {
+    margin-top: 0.1rem;
+    color: rgba(141, 146, 138, 0.8);
+    font-size: 0.72rem;
+}
+
+/* ─── Currency input (EGP prefix + number) ───────────────────── */
+
+.abo-admin-shipping__currency {
+    display: inline-flex;
+    align-items: stretch;
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    background: var(--abo-admin-bg);
+    overflow: hidden;
+    min-width: 130px;
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-shipping__currency:focus-within {
+    border-color: var(--abo-lime);
+}
+
+.abo-admin-shipping__currency-prefix {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 0.65rem;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--abo-admin-gray);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    border-right: 1px solid var(--abo-admin-border);
+    flex-shrink: 0;
+}
+
+.abo-admin-shipping__number {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--abo-admin-text);
+    font: inherit;
+    font-size: 0.9rem;
+    font-variant-numeric: tabular-nums;
+    padding: 0.45rem 0.7rem;
+    width: 100%;
+    min-width: 0;
+    outline: none;
+    text-align: left;
+}
+
+.abo-admin-shipping__number::-webkit-outer-spin-button,
+.abo-admin-shipping__number::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.abo-admin-shipping__currency[data-disabled="true"] {
+    opacity: 0.45;
+    pointer-events: none;
+}
+
+/* Inline error message (coral) for invalid number inputs */
+.abo-admin-shipping__field-error {
+    margin: 0;
+    color: var(--abo-admin-coral);
+    font-size: 0.74rem;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+/* ─── Range row (From / To inputs) ───────────────────────────── */
+
+.abo-admin-shipping__range {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+
+.abo-admin-shipping__range-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0 0.5rem;
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    background: var(--abo-admin-bg);
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+    min-width: 0;
+}
+
+.abo-admin-shipping__range-cell:focus-within {
+    border-color: var(--abo-lime);
+}
+
+.abo-admin-shipping__range-label {
+    color: var(--abo-admin-gray);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+}
+
+.abo-admin-shipping__range-suffix {
+    color: var(--abo-admin-gray);
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    flex-shrink: 0;
+}
+
+/* ─── Language switch (EN / AR) ──────────────────────────────── */
+
+.abo-admin-shipping__lang {
+    display: inline-flex;
+    align-self: flex-start;
+    border: 1px solid var(--abo-admin-border);
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--abo-admin-bg);
+}
+
+.abo-admin-shipping__lang button {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--abo-admin-gray);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    padding: 0.3rem 0.7rem;
+    cursor: pointer;
+    transition: color 150ms var(--abo-admin-ease, ease), background 150ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-shipping__lang button + button {
+    border-left: 1px solid var(--abo-admin-border);
+}
+
+.abo-admin-shipping__lang button:hover,
+.abo-admin-shipping__lang button:focus-visible {
+    color: var(--abo-admin-text);
+    outline: none;
+}
+
+.abo-admin-shipping__lang button.is-active {
+    background: var(--abo-lime);
+    color: var(--abo-black, #050607);
+}
+
+/* ─── 28x14 active toggle (square, lime-on) ──────────────────── */
+
+.abo-admin-shipping__toggle {
+    position: relative;
+    display: inline-block;
+    width: 28px;
+    height: 14px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.abo-admin-shipping__toggle input {
+    position: absolute;
+    opacity: 0;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    margin: 0;
+}
+
+.abo-admin-shipping__toggle-track {
+    position: absolute;
+    inset: 0;
+    background: var(--abo-admin-border);
+    border-radius: 2px;
+    transition: background 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-shipping__toggle-thumb {
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: 12px;
+    height: 12px;
+    background: var(--abo-admin-gray);
+    border-radius: 1px;
+    transition: transform 180ms var(--abo-admin-ease, ease), background 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-shipping__toggle input:checked + .abo-admin-shipping__toggle-track {
+    background: var(--abo-lime);
+}
+
+.abo-admin-shipping__toggle input:checked + .abo-admin-shipping__toggle-track + .abo-admin-shipping__toggle-thumb {
+    transform: translateX(14px);
+    background: var(--abo-black, #050607);
+}
+
+/* ─── Two-column layout (1.5fr list / 1fr panel) ─────────────── */
+
+.abo-admin-shipping__layout {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 0.75rem;
+    align-items: start;
+    min-width: 0;
+}
+
+@media (max-width: 1100px) {
+    .abo-admin-shipping__layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+.abo-admin-shipping__col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+/* ─── Toolbar (search + expand/collapse) ─────────────────────── */
+
+.abo-admin-shipping__toolbar {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) auto;
+    gap: 0.6rem;
+    align-items: center;
+}
+
+@media (max-width: 540px) {
+    .abo-admin-shipping__toolbar {
+        grid-template-columns: 1fr;
+    }
+}
+
+.abo-admin-shipping__search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0 0.75rem;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    height: 38px;
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-shipping__search:focus-within {
+    border-color: var(--abo-lime);
+}
+
+.abo-admin-shipping__search-icon {
+    width: 16px;
+    height: 16px;
+    color: var(--abo-admin-gray);
+    flex-shrink: 0;
+}
+
+.abo-admin-shipping__search input {
+    flex: 1 1 auto;
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--abo-admin-text);
+    font: inherit;
+    font-size: 0.9rem;
+    height: 100%;
+    outline: none;
+    min-width: 0;
+}
+
+.abo-admin-shipping__search input::placeholder {
+    color: rgba(141, 146, 138, 0.7);
+}
+
+/* ─── Tree card ──────────────────────────────────────────────── */
+
+.abo-admin-shipping__tree-card {
+    padding: 0.4rem 0.4rem 0.4rem;
+    gap: 0;
+}
+
+.abo-admin-shipping__tree {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.abo-admin-shipping__group {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ─── Row base (zone + governorate) ──────────────────────────── */
+
+.abo-admin-shipping__row {
+    position: relative;
+    display: grid;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.7rem 0.7rem;
+    border-left: 2px solid transparent;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background 150ms var(--abo-admin-ease, ease), border-color 150ms var(--abo-admin-ease, ease), opacity 150ms var(--abo-admin-ease, ease);
+    min-width: 0;
+}
+
+/* Zone row grid: caret, name, gov-count, fee, time, active toggle */
+.abo-admin-shipping__row--zone {
+    grid-template-columns: 22px minmax(0, 1fr) auto 80px 90px auto;
+}
+
+.abo-admin-shipping__row + .abo-admin-shipping__row {
+    margin-top: 1px;
+}
+
+.abo-admin-shipping__row:hover {
+    background: #151515;
+}
+
+.abo-admin-shipping__row.is-selected {
+    border-left-color: var(--abo-lime);
+    background: #14170a;
+}
+
+.abo-admin-shipping__row.is-dragging {
+    opacity: 0.4;
+}
+
+.abo-admin-shipping__row.is-drop-before::before,
+.abo-admin-shipping__row.is-drop-after::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    height: 2px;
+    background: var(--abo-lime);
+    border-radius: 1px;
+}
+
+.abo-admin-shipping__row.is-drop-before::before {
+    top: -1px;
+}
+
+.abo-admin-shipping__row.is-drop-after::after {
+    bottom: -1px;
+}
+
+.abo-admin-shipping__row.is-drop-target {
+    background: rgba(198, 255, 0, 0.07);
+    outline: 1px dashed var(--abo-lime);
+    outline-offset: -1px;
+}
+
+/* Muted governorates (zone inactive) */
+.abo-admin-shipping__row--gov.is-muted {
+    color: var(--abo-admin-gray);
+    opacity: 0.6;
+}
+
+.abo-admin-shipping__row--gov.is-muted .abo-admin-shipping__row-name,
+.abo-admin-shipping__row--gov.is-muted .abo-admin-shipping__row-fee,
+.abo-admin-shipping__row--gov.is-muted .abo-admin-shipping__row-time {
+    color: var(--abo-admin-gray);
+}
+
+.abo-admin-shipping__row--gov.is-muted .abo-admin-shipping__row-zone-off {
+    display: inline-flex;
+}
+
+/* Governorate row grid: spacer, name, fee, time, COD, toggle */
+.abo-admin-shipping__row--gov {
+    grid-template-columns: 22px 22px minmax(0, 1fr) 90px 100px auto auto;
+    padding-left: 0.85rem;
+    padding-right: 0.7rem;
+}
+
+.abo-admin-shipping__group--govs {
+    background: #0e0e0e;
+    margin: 1px 0.5rem 0.3rem 0.5rem;
+    border-left: 1px solid var(--abo-admin-border);
+    border-radius: 2px;
+    padding: 2px 0;
+}
+
+/* ─── Caret + meta ───────────────────────────────────────────── */
+
+.abo-admin-shipping__caret {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    color: var(--abo-admin-gray);
+    flex-shrink: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: color 150ms var(--abo-admin-ease, ease), background 150ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-shipping__caret:hover,
+.abo-admin-shipping__caret:focus-visible {
+    color: var(--abo-lime);
+    background: rgba(198, 255, 0, 0.06);
+    outline: none;
+}
+
+.abo-admin-shipping__caret svg {
+    width: 12px;
+    height: 12px;
+    transition: transform 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-shipping__caret[aria-expanded="true"] svg {
+    transform: rotate(90deg);
+}
+
+.abo-admin-shipping__caret--placeholder {
+    cursor: default;
+    pointer-events: none;
+    opacity: 0.4;
+}
+
+.abo-admin-shipping__row-name {
+    margin: 0;
+    color: var(--abo-admin-text);
+    font-size: 0.92rem;
+    font-weight: 600;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+}
+
+.abo-admin-shipping__row-zone-off {
+    display: none;
+    align-items: center;
+    padding: 0.05rem 0.4rem;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--abo-admin-coral);
+    border: 1px solid var(--abo-admin-coral);
+    border-radius: 999px;
+    flex-shrink: 0;
+}
+
+.abo-admin-shipping__row-meta {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.74rem;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+}
+
+.abo-admin-shipping__row-fee {
+    margin: 0;
+    color: var(--abo-admin-text);
+    font-size: 0.86rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.abo-admin-shipping__row-fee--inherit {
+    color: var(--abo-admin-gray);
+    font-weight: 500;
+    font-size: 0.78rem;
+}
+
+.abo-admin-shipping__row-time {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.78rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.abo-admin-shipping__row-cod {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.1rem 0.5rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--abo-admin-gray);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: 2px;
+    flex-shrink: 0;
+    transition: color 150ms var(--abo-admin-ease, ease), border-color 150ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-shipping__row-cod.is-on {
+    color: var(--abo-lime);
+    border-color: var(--abo-lime);
+}
+
+.abo-admin-shipping__row-cod-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+}
+
+/* ─── Helper text under the tree ─────────────────────────────── */
+
+.abo-admin-shipping__helper {
+    margin: 0.6rem 0.7rem 0.3rem;
+    color: var(--abo-admin-gray);
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+/* ─── States: empty / no-results / skeleton ───────────────────── */
+
+.abo-admin-shipping__state {
+    padding: 1.4rem 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+    text-align: center;
+}
+
+.abo-admin-shipping__state p {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.9rem;
+}
+
+.abo-admin-shipping__state .abo-admin-btn {
+    margin-top: 0.3rem;
+}
+
+.abo-admin-shipping__skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 0.4rem;
+}
+
+.abo-admin-shipping__skeleton-row {
+    display: grid;
+    grid-template-columns: 18px 1fr 70px 60px 28px;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.7rem 0.6rem;
+}
+
+.abo-admin-shipping__skeleton-cell {
+    background: linear-gradient(90deg,
+        rgba(255, 255, 255, 0.04) 0%,
+        rgba(255, 255, 255, 0.10) 50%,
+        rgba(255, 255, 255, 0.04) 100%);
+    background-size: 200% 100%;
+    border-radius: 3px;
+    height: 12px;
+    animation: abo-admin-shipping-shimmer 1.4s linear infinite;
+}
+
+.abo-admin-shipping__skeleton-cell--toggle {
+    width: 28px;
+    height: 14px;
+}
+
+@keyframes abo-admin-shipping-shimmer {
+    from { background-position: 200% 0; }
+    to   { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .abo-admin-shipping__skeleton-cell { animation: none; }
+}
+
+/* ─── Right column: edit panel ───────────────────────────────── */
+
+.abo-admin-shipping__panel {
+    position: sticky;
+    top: 80px;
+}
+
+.abo-admin-shipping__panel-overlay {
+    display: none;
+}
+
+@media (max-width: 1100px) {
+    .abo-admin-shipping__panel {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: min(460px, 100%);
+        z-index: 90;
+        transform: translateX(100%);
+        transition: transform 220ms var(--abo-admin-ease, ease);
+        background: var(--abo-admin-bg);
+        border-left: 1px solid var(--abo-admin-border);
+        overflow-y: auto;
+        padding: 0;
+    }
+    .abo-admin-shipping__panel.is-open {
+        transform: translateX(0);
+        box-shadow: -8px 0 30px rgba(0, 0, 0, 0.45);
+    }
+    .abo-admin-shipping__panel-overlay {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(5, 6, 7, 0.55);
+        z-index: 85;
+    }
+    .abo-admin-shipping__panel-overlay[hidden] {
+        display: none;
+    }
+}
+
+.abo-admin-shipping__panel-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--abo-admin-border);
+    background: var(--abo-admin-panel);
+    border-radius: var(--abo-admin-radius) var(--abo-admin-radius) 0 0;
+}
+
+@media (max-width: 1100px) {
+    .abo-admin-shipping__panel-head {
+        border-radius: 0;
+    }
+}
+
+.abo-admin-shipping__panel-title {
+    margin: 0;
+    flex: 1 1 auto;
+    color: var(--abo-admin-text);
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    text-transform: uppercase;
+    font-size: 0.92rem;
+    letter-spacing: 0.06em;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.abo-admin-shipping__panel-close {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--abo-admin-border);
+    color: var(--abo-admin-gray);
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color 150ms var(--abo-admin-ease, ease), color 150ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-shipping__panel-close:hover,
+.abo-admin-shipping__panel-close:focus-visible {
+    color: var(--abo-lime);
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-shipping__panel-close svg {
+    width: 14px;
+    height: 14px;
+}
+
+.abo-admin-shipping__dirty-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--abo-admin-coral);
+    display: none;
+    flex-shrink: 0;
+}
+
+.abo-admin-shipping__dirty-dot.is-visible {
+    display: inline-block;
+}
+
+.abo-admin-shipping__panel-body {
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-admin-border);
+    border-top: 0;
+    border-radius: 0 0 var(--abo-admin-radius) var(--abo-admin-radius);
+    padding: 1rem 1.1rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+@media (max-width: 1100px) {
+    .abo-admin-shipping__panel-body {
+        border-radius: 0;
+        border: 0;
+    }
+}
+
+/* ─── Form fields inside the panel ───────────────────────────── */
+
+.abo-admin-shipping__field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.abo-admin-shipping__field > label {
+    color: var(--abo-admin-gray);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.abo-admin-shipping__field input,
+.abo-admin-shipping__field textarea,
+.abo-admin-shipping__field select {
+    appearance: none;
+    background: var(--abo-admin-bg);
+    color: var(--abo-admin-text);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    font: inherit;
+    font-size: 0.9rem;
+    padding: 0.55rem 0.75rem;
+    width: 100%;
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-shipping__field input:hover,
+.abo-admin-shipping__field textarea:hover,
+.abo-admin-shipping__field select:hover {
+    border-color: var(--abo-admin-gray);
+}
+
+.abo-admin-shipping__field input:focus-visible,
+.abo-admin-shipping__field textarea:focus-visible,
+.abo-admin-shipping__field select:focus-visible {
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-shipping__field input::placeholder,
+.abo-admin-shipping__field textarea::placeholder {
+    color: rgba(141, 146, 138, 0.7);
+}
+
+.abo-admin-shipping__field textarea {
+    min-height: 84px;
+    resize: vertical;
+    line-height: 1.5;
+}
+
+.abo-admin-shipping__field select {
+    padding-right: 2rem;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' stroke='%238D928A' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 0.7rem center;
+    background-size: 10px;
+    cursor: pointer;
+}
+
+.abo-admin-shipping__field-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.abo-admin-shipping__gov-name {
+    margin: 0;
+    color: var(--abo-admin-text);
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    text-transform: uppercase;
+    font-size: 1rem;
+    letter-spacing: 0.02em;
+}
+
+/* ─── Radio group (inherit / custom fee) ─────────────────────── */
+
+.abo-admin-shipping__radios {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.abo-admin-shipping__radio {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    background: var(--abo-admin-bg);
+    cursor: pointer;
+    transition: border-color 150ms var(--abo-admin-ease, ease), background 150ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-shipping__radio:hover {
+    border-color: var(--abo-admin-gray);
+}
+
+.abo-admin-shipping__radio input {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+    pointer-events: none;
+}
+
+.abo-admin-shipping__radio-mark {
+    width: 14px;
+    height: 14px;
+    border: 1px solid var(--abo-admin-gray);
+    border-radius: 50%;
+    flex-shrink: 0;
+    position: relative;
+    transition: border-color 150ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-shipping__radio input:checked + .abo-admin-shipping__radio-mark {
+    border-color: var(--abo-lime);
+}
+
+.abo-admin-shipping__radio input:checked + .abo-admin-shipping__radio-mark::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--abo-lime);
+}
+
+.abo-admin-shipping__radio:has(input:checked) {
+    border-color: var(--abo-lime);
+    background: rgba(198, 255, 0, 0.04);
+}
+
+.abo-admin-shipping__radio-text {
+    color: var(--abo-admin-text);
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+/* ─── Governorate chips (read-only list inside the zone panel) ─ */
+
+.abo-admin-shipping__chips {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.abo-admin-shipping__chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.55rem;
+    border: 1px solid var(--abo-admin-border);
+    border-radius: 2px;
+    background: var(--abo-admin-bg);
+    color: var(--abo-admin-text);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+}
+
+.abo-admin-shipping__chip--off {
+    color: var(--abo-admin-gray);
+    opacity: 0.7;
+}
+
+/* ─── Switches (panel toggles) ───────────────────────────────── */
+
+.abo-admin-shipping__switch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.65rem 0.8rem;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+}
+
+.abo-admin-shipping__switch-label {
+    color: var(--abo-admin-text);
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.abo-admin-shipping__switch-hint {
+    margin: 0.15rem 0 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.72rem;
+    line-height: 1.4;
+}
+
+/* ─── Action buttons (Save / Delete) ─────────────────────────── */
+
+.abo-admin-shipping__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.2rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid var(--abo-admin-border);
+}
+
+.abo-admin-shipping__actions .abo-admin-btn--primary {
+    flex: 1 1 auto;
+}
+
+.abo-admin-shipping__delete {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--abo-admin-coral);
+    color: var(--abo-admin-coral);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.55rem 1rem;
+    border-radius: 0;
+    cursor: pointer;
+    min-height: 38px;
+    clip-path: polygon(0 0, 100% 0, 100% 70%, 94% 100%, 0 100%);
+    padding-right: 1.4rem;
+    transition: background 180ms var(--abo-admin-ease, ease), color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-shipping__delete:hover:not([disabled]),
+.abo-admin-shipping__delete:focus-visible:not([disabled]) {
+    background: var(--abo-admin-coral);
+    color: var(--abo-admin-text);
+    outline: none;
+}
+
+.abo-admin-shipping__delete[disabled] {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.abo-admin-shipping__delete-note {
+    margin: 0;
+    color: var(--abo-admin-coral);
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+/* ─── No-selection placeholder ───────────────────────────────── */
+
+.abo-admin-shipping__panel-empty {
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    padding: 2rem 1.2rem;
+    color: var(--abo-admin-gray);
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+/* ─── Modal (delete confirm) ─────────────────────────────────── */
+
+.abo-admin-shipping__modal {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.abo-admin-shipping__modal[hidden] { display: none; }
+
+.abo-admin-shipping__modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(5, 6, 7, 0.72);
+}
+
+.abo-admin-shipping__modal-card {
+    position: relative;
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    padding: 1.4rem 1.5rem 1.2rem;
+    max-width: 420px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+}
+
+.abo-admin-shipping__modal-title {
+    margin: 0;
+    color: var(--abo-admin-text);
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    text-transform: uppercase;
+    font-size: 1rem;
+    letter-spacing: 0.02em;
+}
+
+.abo-admin-shipping__modal-body {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.abo-admin-shipping__modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+}
+
+.abo-admin-shipping__modal-confirm {
+    appearance: none;
+    background: var(--abo-admin-coral);
+    border: 1px solid var(--abo-admin-coral);
+    color: var(--abo-admin-text);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.55rem 1rem;
+    min-height: 38px;
+    border-radius: 0;
+    cursor: pointer;
+    clip-path: polygon(0 0, 100% 0, 100% 70%, 94% 100%, 0 100%);
+    padding-right: 1.4rem;
+    transition: background 180ms var(--abo-admin-ease, ease), border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-shipping__modal-confirm:hover,
+.abo-admin-shipping__modal-confirm:focus-visible {
+    background: #FF6B4A;
+    border-color: #FF6B4A;
+    outline: none;
+}
+
+/* ─── Toast (single shared instance) ─────────────────────────── */
+
+.abo-admin-shipping__toast {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 120;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.7rem 1rem;
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-lime);
+    border-radius: var(--abo-admin-radius);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+    color: var(--abo-admin-text);
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.abo-admin-shipping__toast[hidden] { display: none; }
+
+.abo-admin-shipping__toast-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--abo-lime);
+    flex-shrink: 0;
+}
+
+.abo-admin-shipping__toast-dot--coral {
+    background: var(--abo-admin-coral);
+}
+
+.abo-admin-shipping__toast-dot--lime {
+    background: var(--abo-lime);
+}
+
+/* ─── Focus ring (matches admin.css site-wide rule) ──────────── */
+
+:where(
+    .abo-admin-shipping__search input,
+    .abo-admin-shipping__caret,
+    .abo-admin-shipping__toggle input,
+    .abo-admin-shipping__row,
+    .abo-admin-shipping__number,
+    .abo-admin-shipping__field input,
+    .abo-admin-shipping__field textarea,
+    .abo-admin-shipping__field select,
+    .abo-admin-shipping__lang button,
+    .abo-admin-shipping__radio,
+    .abo-admin-shipping__radio input,
+    .abo-admin-shipping__delete,
+    .abo-admin-shipping__modal-confirm,
+    .abo-admin-shipping__modal-cancel,
+    .abo-admin-shipping__panel-close,
+    .abo-admin-shipping__settings-save
+):focus-visible {
+    outline: 2px solid var(--abo-lime);
+    outline-offset: 2px;
+}
+
+/* ─── Reduced motion ─────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+    .abo-admin-shipping__panel,
+    .abo-admin-shipping__caret svg,
+    .abo-admin-shipping__toggle-track,
+    .abo-admin-shipping__toggle-thumb {
+        transition: none;
+    }
+}

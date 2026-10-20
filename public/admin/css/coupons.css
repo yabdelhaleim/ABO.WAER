@@ -1,0 +1,1308 @@
+/*
+ * ABO Admin · Coupons — page-local stylesheet.
+ *
+ * Conventions (matches the existing admin scope):
+ *   - All class names are prefixed with `abo-admin-coupons-`.
+ *   - Brand tokens are reused from the global stylesheet via
+ *     var(--abo-lime), var(--abo-bg), var(--abo-admin-panel), etc.
+ *   - No new colours. Coral comes from the existing --abo-admin-coral
+ *     token in admin.css. Lime (#c8ff00) is the brand accent.
+ *   - Square corners everywhere (buttons, inputs, toggles, cards).
+ *   - Animate only transform / opacity. Reduced motion is respected.
+ *
+ * Loaded only on /admin/coupons, never on the storefront or on the
+ * dashboard. The page-local stylesheet is appended to the admin
+ * layout via @stack('head') so the cascade is consistent.
+ */
+
+/* ─── Title split (COU + PONS) ─────────────────────────────── */
+
+.abo-admin-coupons__title-lime {
+    color: var(--abo-lime);
+    margin-left: 0.18em;
+}
+
+/* ─── Two-column layout (1.5fr / 1fr) ────────────────────── */
+
+.abo-admin-coupons__layout {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 0.75rem;
+    align-items: start;
+    min-width: 0;
+}
+
+@media (max-width: 1100px) {
+    .abo-admin-coupons__layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+.abo-admin-coupons__col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+/* ─── Stat cards (Active / Redemptions / Discount) ───────── */
+
+.abo-admin-coupons__stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 1100px) {
+    .abo-admin-coupons__stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 540px) {
+    .abo-admin-coupons__stats {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ─── Status tabs (All / Active / Scheduled / Expired / Disabled) ── */
+
+.abo-admin-coupons__tabs {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    border-bottom: 1px solid var(--abo-admin-border);
+    overflow-x: auto;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+}
+
+.abo-admin-coupons__tab {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--abo-admin-gray);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 0.7rem 1.1rem 0.6rem;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 180ms var(--abo-admin-ease, ease),
+                border-color 180ms var(--abo-admin-ease, ease);
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.abo-admin-coupons__tab:hover,
+.abo-admin-coupons__tab:focus-visible {
+    color: var(--abo-admin-text);
+    outline: none;
+}
+
+.abo-admin-coupons__tab.is-active {
+    color: var(--abo-text);
+    color: var(--abo-admin-text);
+    border-bottom-color: var(--abo-lime);
+}
+
+.abo-admin-coupons__tab-num {
+    display: inline-block;
+    min-width: 22px;
+    padding: 0.05rem 0.4rem;
+    border: 1px solid var(--abo-admin-border);
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--abo-admin-gray);
+    background: var(--abo-admin-bg);
+    text-align: center;
+}
+
+.abo-admin-coupons__tab.is-active .abo-admin-coupons__tab-num {
+    border-color: var(--abo-lime);
+    color: var(--abo-lime);
+}
+
+/* ─── Toolbar (search + type) ────────────────────────────── */
+
+.abo-admin-coupons__toolbar {
+    display: grid;
+    grid-template-columns: minmax(160px, 1fr) 200px;
+    gap: 0.6rem;
+    align-items: center;
+}
+
+@media (max-width: 540px) {
+    .abo-admin-coupons__toolbar {
+        grid-template-columns: 1fr;
+    }
+}
+
+.abo-admin-coupons__search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0 0.75rem;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    height: 38px;
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-coupons__search:focus-within {
+    border-color: var(--abo-lime);
+}
+
+.abo-admin-coupons__search-icon {
+    width: 16px;
+    height: 16px;
+    color: var(--abo-admin-gray);
+    flex-shrink: 0;
+}
+
+.abo-admin-coupons__search input {
+    flex: 1 1 auto;
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--abo-admin-text);
+    font: inherit;
+    font-size: 0.9rem;
+    height: 100%;
+    outline: none;
+    min-width: 0;
+}
+
+.abo-admin-coupons__search input::placeholder {
+    color: rgba(141, 146, 138, 0.7);
+}
+
+.abo-admin-coupons__select {
+    appearance: none;
+    background-color: var(--abo-admin-bg);
+    color: var(--abo-admin-text);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    font: inherit;
+    font-size: 0.9rem;
+    padding: 0.55rem 2rem 0.55rem 0.75rem;
+    height: 38px;
+    width: 100%;
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' stroke='%238D928A' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 0.7rem center;
+    background-size: 10px;
+    cursor: pointer;
+}
+
+.abo-admin-coupons__select:hover {
+    border-color: var(--abo-admin-gray);
+}
+
+.abo-admin-coupons__select:focus-visible {
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+/* ─── List card + rows ──────────────────────────────────── */
+
+.abo-admin-coupons__list-card {
+    padding: 0.6rem 0.5rem 0.5rem;
+    gap: 0;
+}
+
+.abo-admin-coupons__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.abo-admin-coupons__row {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(120px, auto) minmax(64px, auto) minmax(120px, 1fr) minmax(110px, 1fr) minmax(78px, auto) 32px;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.65rem 0.75rem;
+    border-left: 2px solid transparent;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background 150ms var(--abo-admin-ease, ease),
+                border-color 150ms var(--abo-admin-ease, ease);
+    min-width: 0;
+}
+
+@media (max-width: 720px) {
+    .abo-admin-coupons__row {
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+            "code    toggle"
+            "type    type"
+            "usage   usage"
+            "valid   valid"
+            "status  status";
+        gap: 0.35rem;
+        padding: 0.7rem 0.75rem;
+    }
+    .abo-admin-coupons__row-cell--code    { grid-area: code; }
+    .abo-admin-coupons__row-cell--type    { grid-area: type; }
+    .abo-admin-coupons__row-cell--usage   { grid-area: usage; }
+    .abo-admin-coupons__row-cell--valid   { grid-area: valid; }
+    .abo-admin-coupons__row-cell--status  { grid-area: status; }
+    .abo-admin-coupons__row-cell--toggle  { grid-area: toggle; justify-self: end; }
+}
+
+.abo-admin-coupons__row + .abo-admin-coupons__row {
+    margin-top: 1px;
+}
+
+.abo-admin-coupons__row:hover,
+.abo-admin-coupons__row:focus-visible {
+    background: #151515;
+    outline: none;
+}
+
+.abo-admin-coupons__row.is-selected {
+    border-left-color: var(--abo-lime);
+    background: #14170a;
+}
+
+.abo-admin-coupons__code {
+    margin: 0;
+    color: var(--abo-admin-text);
+    font-family: var(--font-mono, 'JetBrains Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace);
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.abo-admin-coupons__type-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.18rem 0.55rem;
+    border: 1px solid currentColor;
+    border-radius: 0;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.abo-admin-coupons__type-badge--percentage { color: var(--abo-lime); }
+.abo-admin-coupons__type-badge--fixed      { color: var(--abo-admin-text); }
+.abo-admin-coupons__type-badge--shipping   { color: var(--abo-admin-sky, #6FA9C7); }
+
+.abo-admin-coupons__value {
+    margin: 0;
+    color: var(--abo-admin-text);
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    font-size: 0.95rem;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+}
+
+.abo-admin-coupons__usage {
+    display: flex;
+    flex-direction: column;
+    gap: 0.18rem;
+    min-width: 0;
+}
+
+.abo-admin-coupons__usage-text {
+    margin: 0;
+    color: var(--abo-admin-text);
+    font-size: 0.82rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.abo-admin-coupons__usage-bar {
+    height: 2px;
+    background: rgba(255, 255, 255, 0.06);
+    overflow: hidden;
+}
+
+.abo-admin-coupons__usage-fill {
+    display: block;
+    height: 100%;
+    width: var(--w, 0%);
+    background: var(--abo-lime);
+}
+
+.abo-admin-coupons__usage-fill--coral {
+    background: var(--abo-admin-coral);
+}
+
+.abo-admin-coupons__valid {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.78rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.abo-admin-coupons__status {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.55rem;
+    border: 1px solid currentColor;
+    border-radius: 0;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.abo-admin-coupons__status--active    { color: var(--abo-lime); }
+.abo-admin-coupons__status--scheduled { color: var(--abo-admin-text); }
+.abo-admin-coupons__status--expired   { color: var(--abo-admin-coral); }
+.abo-admin-coupons__status--disabled  { color: var(--abo-admin-gray); }
+.abo-admin-coupons__status--limit     { color: var(--abo-admin-coral); }
+
+/* Row toggle (28x14, lime-on, square corners). Same pattern as
+   the categories / colors-sizes pages. */
+.abo-admin-coupons__row-toggle {
+    position: relative;
+    display: inline-block;
+    width: 28px;
+    height: 14px;
+    cursor: pointer;
+    flex-shrink: 0;
+    justify-self: end;
+}
+
+.abo-admin-coupons__row-toggle input {
+    position: absolute;
+    opacity: 0;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    margin: 0;
+}
+
+.abo-admin-coupons__row-toggle-track {
+    position: absolute;
+    inset: 0;
+    background: var(--abo-admin-border);
+    border-radius: 2px;
+    transition: background 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-coupons__row-toggle-thumb {
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: 12px;
+    height: 12px;
+    background: var(--abo-admin-gray);
+    border-radius: 1px;
+    transition: transform 180ms var(--abo-admin-ease, ease),
+                background 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-coupons__row-toggle input:checked + .abo-admin-coupons__row-toggle-track {
+    background: var(--abo-lime);
+}
+
+.abo-admin-coupons__row-toggle input:checked + .abo-admin-coupons__row-toggle-track
+    + .abo-admin-coupons__row-toggle-thumb {
+    transform: translateX(14px);
+    background: var(--abo-black, #050607);
+}
+
+/* ─── Helper line + results count ──────────────────────── */
+
+.abo-admin-coupons__helper {
+    margin: 0.6rem 0.6rem 0.3rem;
+    color: var(--abo-admin-gray);
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+.abo-admin-coupons__results {
+    margin: 0.4rem 0.6rem 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.74rem;
+    letter-spacing: 0.04em;
+    font-variant-numeric: tabular-nums;
+}
+
+.abo-admin-coupons__results:empty {
+    display: none;
+}
+
+/* ─── States: empty / no-results / skeleton ──────────────── */
+
+.abo-admin-coupons__state {
+    padding: 1.4rem 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+    text-align: center;
+}
+
+/* The HTML5 `hidden` attribute must always win over the explicit
+   `display: flex` on the state containers above (the class selector
+   would otherwise out-specify the UA `[hidden] { display: none }`). */
+.abo-admin-coupons__state[hidden],
+.abo-admin-coupons__results[hidden],
+.abo-admin-coupons__list[hidden] {
+    display: none;
+}
+
+.abo-admin-coupons__state p {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.9rem;
+}
+
+.abo-admin-coupons__state .abo-admin-btn {
+    margin-top: 0.3rem;
+}
+
+.abo-admin-coupons__skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 0.4rem;
+    width: 100%;
+}
+
+.abo-admin-coupons__skeleton-row {
+    display: grid;
+    grid-template-columns: minmax(120px, auto) minmax(64px, auto) minmax(120px, 1fr) minmax(110px, 1fr) minmax(78px, auto) 32px;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.65rem 0.75rem;
+}
+
+@media (max-width: 720px) {
+    .abo-admin-coupons__skeleton-row {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.abo-admin-coupons__skeleton-cell {
+    display: block;
+    background: linear-gradient(90deg,
+        rgba(255, 255, 255, 0.04) 0%,
+        rgba(255, 255, 255, 0.10) 50%,
+        rgba(255, 255, 255, 0.04) 100%);
+    background-size: 200% 100%;
+    border-radius: 3px;
+    height: 12px;
+    animation: abo-admin-coupons-shimmer 1.4s linear infinite;
+}
+
+@keyframes abo-admin-coupons-shimmer {
+    from { background-position: 200% 0; }
+    to   { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .abo-admin-coupons__skeleton-cell { animation: none; }
+}
+
+/* ─── Right column: edit panel ──────────────────────────── */
+
+.abo-admin-coupons__panel {
+    position: sticky;
+    top: 80px;
+}
+
+.abo-admin-coupons__panel-overlay {
+    display: none;
+}
+
+@media (max-width: 1100px) {
+    .abo-admin-coupons__panel {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: min(440px, 100%);
+        z-index: 90;
+        transform: translateX(100%);
+        transition: transform 220ms var(--abo-admin-ease, ease);
+        background: var(--abo-admin-bg);
+        border-left: 1px solid var(--abo-admin-border);
+        overflow-y: auto;
+        padding: 0;
+    }
+    .abo-admin-coupons__panel.is-open {
+        transform: translateX(0);
+        box-shadow: -8px 0 30px rgba(0, 0, 0, 0.45);
+    }
+    .abo-admin-coupons__panel-overlay {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(5, 6, 7, 0.55);
+        z-index: 85;
+    }
+    .abo-admin-coupons__panel-overlay[hidden] {
+        display: none;
+    }
+}
+
+.abo-admin-coupons__panel-empty {
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    padding: 2rem 1.2rem;
+    color: var(--abo-admin-gray);
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+.abo-admin-coupons__panel-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--abo-admin-border);
+    background: var(--abo-admin-panel);
+    border-radius: var(--abo-admin-radius) var(--abo-admin-radius) 0 0;
+}
+
+@media (max-width: 1100px) {
+    .abo-admin-coupons__panel-head {
+        border-radius: 0;
+    }
+}
+
+.abo-admin-coupons__panel-title {
+    margin: 0;
+    flex: 1 1 auto;
+    color: var(--abo-admin-text);
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    text-transform: uppercase;
+    font-size: 0.92rem;
+    letter-spacing: 0.06em;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.abo-admin-coupons__panel-close {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--abo-admin-border);
+    color: var(--abo-admin-gray);
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color 150ms var(--abo-admin-ease, ease),
+                color 150ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-coupons__panel-close:hover,
+.abo-admin-coupons__panel-close:focus-visible {
+    color: var(--abo-lime);
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-coupons__panel-close svg {
+    width: 14px;
+    height: 14px;
+}
+
+.abo-admin-coupons__dirty-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--abo-admin-coral);
+    display: none;
+    flex-shrink: 0;
+}
+
+.abo-admin-coupons__dirty-dot.is-visible {
+    display: inline-block;
+}
+
+.abo-admin-coupons__panel-body {
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-admin-border);
+    border-top: 0;
+    border-radius: 0 0 var(--abo-admin-radius) var(--abo-admin-radius);
+    padding: 1rem 1.1rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+@media (max-width: 1100px) {
+    .abo-admin-coupons__panel-body {
+        border-radius: 0;
+        border: 0;
+    }
+}
+
+/* ─── Form fields ──────────────────────────────────────── */
+
+.abo-admin-coupons__field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.abo-admin-coupons__field > label,
+.abo-admin-coupons__field-label {
+    color: var(--abo-admin-gray);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.abo-admin-coupons__field input,
+.abo-admin-coupons__field select {
+    appearance: none;
+    background: var(--abo-admin-bg);
+    color: var(--abo-admin-text);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    font: inherit;
+    font-size: 0.9rem;
+    padding: 0.55rem 0.75rem;
+    width: 100%;
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-coupons__field input[type="date"] {
+    font-family: inherit;
+    color-scheme: dark;
+}
+
+.abo-admin-coupons__field input:hover,
+.abo-admin-coupons__field select:hover {
+    border-color: var(--abo-admin-gray);
+}
+
+.abo-admin-coupons__field input:focus-visible,
+.abo-admin-coupons__field select:focus-visible {
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-coupons__field input::placeholder {
+    color: rgba(141, 146, 138, 0.7);
+}
+
+.abo-admin-coupons__field select {
+    padding-right: 2rem;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' stroke='%238D928A' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 0.7rem center;
+    background-size: 10px;
+    cursor: pointer;
+}
+
+/* Code field — monospace + Generate button */
+.abo-admin-coupons__code-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.5rem;
+    align-items: stretch;
+}
+
+.abo-admin-coupons__code-row input {
+    font-family: var(--font-mono, 'JetBrains Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.abo-admin-coupons__generate {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--abo-admin-border);
+    color: var(--abo-admin-text);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    padding: 0.45rem 0.85rem;
+    border-radius: 0;
+    cursor: pointer;
+    transition: border-color 150ms var(--abo-admin-ease, ease),
+                color 150ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-coupons__generate:hover,
+.abo-admin-coupons__generate:focus-visible {
+    color: var(--abo-lime);
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+/* Field hint / error */
+.abo-admin-coupons__field-hint {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.72rem;
+    line-height: 1.4;
+}
+
+.abo-admin-coupons__field-error {
+    margin: 0;
+    color: var(--abo-admin-coral);
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+/* ─── Radio chips (3 chips) + Segmented variant ──────────── */
+
+.abo-admin-coupons__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.abo-admin-coupons__chip {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--abo-admin-border);
+    color: var(--abo-admin-gray);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    padding: 0.45rem 0.85rem;
+    border-radius: 0;
+    cursor: pointer;
+    transition: color 150ms var(--abo-admin-ease, ease),
+                border-color 150ms var(--abo-admin-ease, ease),
+                background 150ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-coupons__chip:hover,
+.abo-admin-coupons__chip:focus-visible {
+    color: var(--abo-admin-text);
+    border-color: var(--abo-admin-gray);
+    outline: none;
+}
+
+.abo-admin-coupons__chip.is-active {
+    color: var(--abo-black, #050607);
+    background: var(--abo-lime);
+    border-color: var(--abo-lime);
+}
+
+.abo-admin-coupons__chips--segmented {
+    display: inline-flex;
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    overflow: hidden;
+    flex-wrap: wrap;
+    background: var(--abo-admin-bg);
+}
+
+.abo-admin-coupons__chips--segmented .abo-admin-coupons__chip {
+    border: 0;
+    border-radius: 0;
+    flex: 1 1 auto;
+    text-align: center;
+    background: transparent;
+}
+
+.abo-admin-coupons__chips--segmented .abo-admin-coupons__chip + .abo-admin-coupons__chip {
+    border-left: 1px solid var(--abo-admin-border);
+}
+
+.abo-admin-coupons__chips--segmented .abo-admin-coupons__chip.is-active {
+    background: var(--abo-lime);
+    color: var(--abo-black, #050607);
+}
+
+/* ─── Value row (prefix / suffix + input) ────────────────── */
+
+.abo-admin-coupons__value-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    overflow: hidden;
+    background: var(--abo-admin-bg);
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-coupons__value-row:focus-within {
+    border-color: var(--abo-lime);
+}
+
+.abo-admin-coupons__value-prefix,
+.abo-admin-coupons__value-suffix {
+    color: var(--abo-admin-gray);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 0 0.75rem;
+    background: transparent;
+    align-self: stretch;
+    display: inline-flex;
+    align-items: center;
+    border-color: var(--abo-admin-border);
+}
+
+.abo-admin-coupons__value-prefix {
+    border-right: 1px solid var(--abo-admin-border);
+}
+
+.abo-admin-coupons__value-suffix {
+    border-left: 1px solid var(--abo-admin-border);
+}
+
+.abo-admin-coupons__value-row input {
+    appearance: none;
+    background: transparent;
+    color: var(--abo-admin-text);
+    border: 0;
+    font: inherit;
+    font-size: 0.9rem;
+    padding: 0.55rem 0.75rem;
+    width: 100%;
+    outline: none;
+    min-width: 0;
+}
+
+.abo-admin-coupons__value-row input::placeholder {
+    color: rgba(141, 146, 138, 0.7);
+}
+
+/* ─── 2-column row (usage pair / date pair) ──────────────── */
+
+.abo-admin-coupons__grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+}
+
+@media (max-width: 480px) {
+    .abo-admin-coupons__grid-2 {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ─── Multi-select (categories / products) ───────────────── */
+
+.abo-admin-coupons__scope-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.abo-admin-coupons__select-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.abo-admin-coupons__select-wrap label {
+    color: var(--abo-admin-gray);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.abo-admin-coupons__multiselect {
+    appearance: none;
+    background-color: var(--abo-admin-bg);
+    color: var(--abo-admin-text);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    font: inherit;
+    font-size: 0.88rem;
+    padding: 0.4rem 0.6rem;
+    width: 100%;
+    min-height: 124px;
+    line-height: 1.4;
+}
+
+.abo-admin-coupons__multiselect:focus-visible {
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-coupons__multiselect option {
+    padding: 0.2rem 0.3rem;
+}
+
+/* Selected chips below the select */
+.abo-admin-coupons__chips-selected {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    min-height: 28px;
+}
+
+.abo-admin-coupons__chip-selected {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.4rem 0.25rem 0.6rem;
+    border: 1px solid var(--abo-admin-border);
+    border-radius: 999px;
+    color: var(--abo-admin-text);
+    background: var(--abo-admin-bg);
+    font-size: 0.76rem;
+    line-height: 1;
+}
+
+.abo-admin-coupons__chip-remove {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--abo-admin-gray);
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: color 150ms var(--abo-admin-ease, ease),
+                background 150ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-coupons__chip-remove:hover,
+.abo-admin-coupons__chip-remove:focus-visible {
+    color: var(--abo-admin-text);
+    background: rgba(255, 255, 255, 0.06);
+    outline: none;
+}
+
+.abo-admin-coupons__chip-remove svg {
+    width: 10px;
+    height: 10px;
+}
+
+/* ─── Switches (panel toggles) ─────────────────────────── */
+
+.abo-admin-coupons__switch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.65rem 0.8rem;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+}
+
+.abo-admin-coupons__switch-label {
+    color: var(--abo-admin-text);
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.abo-admin-coupons__switch-hint {
+    margin: 0.15rem 0 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.72rem;
+    line-height: 1.4;
+}
+
+.abo-admin-coupons__toggle {
+    position: relative;
+    display: inline-block;
+    width: 28px;
+    height: 14px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.abo-admin-coupons__toggle input {
+    position: absolute;
+    opacity: 0;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    margin: 0;
+}
+
+.abo-admin-coupons__toggle-track {
+    position: absolute;
+    inset: 0;
+    background: var(--abo-admin-border);
+    border-radius: 2px;
+    transition: background 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-coupons__toggle-thumb {
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: 12px;
+    height: 12px;
+    background: var(--abo-admin-gray);
+    border-radius: 1px;
+    transition: transform 180ms var(--abo-admin-ease, ease),
+                background 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-coupons__toggle input:checked + .abo-admin-coupons__toggle-track {
+    background: var(--abo-lime);
+}
+
+.abo-admin-coupons__toggle input:checked + .abo-admin-coupons__toggle-track
+    + .abo-admin-coupons__toggle-thumb {
+    transform: translateX(14px);
+    background: var(--abo-black, #050607);
+}
+
+/* ─── Action buttons ───────────────────────────────────── */
+
+.abo-admin-coupons__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.2rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid var(--abo-admin-border);
+}
+
+.abo-admin-coupons__actions .abo-admin-btn--primary {
+    flex: 1 1 auto;
+}
+
+.abo-admin-coupons__delete {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--abo-admin-coral);
+    color: var(--abo-admin-coral);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.55rem 1rem;
+    border-radius: 0;
+    cursor: pointer;
+    min-height: 38px;
+    clip-path: polygon(0 0, 100% 0, 100% 70%, 94% 100%, 0 100%);
+    padding-right: 1.4rem;
+    transition: background 180ms var(--abo-admin-ease, ease),
+                color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-coupons__delete:hover:not([disabled]),
+.abo-admin-coupons__delete:focus-visible:not([disabled]) {
+    background: var(--abo-admin-coral);
+    color: var(--abo-admin-text);
+    outline: none;
+}
+
+.abo-admin-coupons__delete[disabled] {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.abo-admin-coupons__delete-note {
+    margin: 0;
+    color: var(--abo-admin-coral);
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+/* ─── Live summary line ─────────────────────────────────── */
+
+.abo-admin-coupons__summary {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.82rem;
+    line-height: 1.45;
+    padding-top: 0.4rem;
+}
+
+.abo-admin-coupons__summary:empty {
+    display: none;
+}
+
+/* ─── Modal (delete-confirm) ────────────────────────────── */
+
+.abo-admin-coupons__modal {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.abo-admin-coupons__modal[hidden] { display: none; }
+
+.abo-admin-coupons__modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(5, 6, 7, 0.72);
+}
+
+.abo-admin-coupons__modal-card {
+    position: relative;
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    padding: 1.4rem 1.5rem 1.2rem;
+    max-width: 420px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+}
+
+.abo-admin-coupons__modal-title {
+    margin: 0;
+    color: var(--abo-admin-text);
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    text-transform: uppercase;
+    font-size: 1rem;
+    letter-spacing: 0.02em;
+}
+
+.abo-admin-coupons__modal-body {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.abo-admin-coupons__modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+}
+
+.abo-admin-coupons__modal-confirm {
+    appearance: none;
+    background: var(--abo-admin-coral);
+    border: 1px solid var(--abo-admin-coral);
+    color: var(--abo-admin-text);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.55rem 1rem;
+    min-height: 38px;
+    border-radius: 0;
+    cursor: pointer;
+    transition: background 180ms var(--abo-admin-ease, ease),
+                border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-coupons__modal-confirm:hover,
+.abo-admin-coupons__modal-confirm:focus-visible {
+    background: #ff6b4a;
+    border-color: #ff6b4a;
+    outline: none;
+}
+
+/* ─── Toast (single shared instance) ────────────────────── */
+
+.abo-admin-coupons__toast {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 120;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.7rem 1rem;
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-lime);
+    border-radius: var(--abo-admin-radius);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+    color: var(--abo-admin-text);
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.abo-admin-coupons__toast[hidden] { display: none; }
+
+.abo-admin-coupons__toast-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--abo-lime);
+    flex-shrink: 0;
+}
+
+.abo-admin-coupons__toast-dot--coral {
+    background: var(--abo-admin-coral);
+}
+
+.abo-admin-coupons__toast-dot--lime {
+    background: var(--abo-lime);
+}
+
+/* ─── Focus ring (matches admin.css site-wide rule) ────── */
+
+:where(
+    .abo-admin-coupons__tab,
+    .abo-admin-coupons__search input,
+    .abo-admin-coupons__select,
+    .abo-admin-coupons__row,
+    .abo-admin-coupons__row-toggle input,
+    .abo-admin-coupons__chips-selected .abo-admin-coupons__chip-remove,
+    .abo-admin-coupons__field input,
+    .abo-admin-coupons__field select,
+    .abo-admin-coupons__multiselect,
+    .abo-admin-coupons__chip,
+    .abo-admin-coupons__generate,
+    .abo-admin-coupons__panel-close,
+    .abo-admin-coupons__panel-overlay,
+    .abo-admin-coupons__toggle input,
+    .abo-admin-coupons__delete,
+    .abo-admin-coupons__modal-confirm,
+    .abo-admin-coupons__modal-cancel
+):focus-visible {
+    outline: 2px solid var(--abo-lime);
+    outline-offset: 2px;
+}
+
+/* Reduced motion: disable non-essential transitions */
+@media (prefers-reduced-motion: reduce) {
+    .abo-admin-coupons__panel,
+    .abo-admin-coupons__row-toggle-thumb,
+    .abo-admin-coupons__toggle-thumb,
+    .abo-admin-coupons__skeleton-cell {
+        transition: none;
+        animation: none;
+    }
+}

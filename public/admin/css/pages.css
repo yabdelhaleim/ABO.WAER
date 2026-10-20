@@ -1,0 +1,1169 @@
+/*
+ * ABO Admin · Pages — page-local stylesheet.
+ *
+ * Conventions (matches the existing admin scope):
+ *   - All class names are prefixed with `abo-admin-pages-`.
+ *   - Brand tokens are reused from the global stylesheet via
+ *     var(--abo-lime), var(--abo-bg), var(--abo-admin-panel), etc.
+ *   - No new colours. The "coral" tone comes from the existing
+ *     --abo-admin-coral token in admin.css.
+ *   - Square corners where the rest of the shell already uses
+ *     them; small radius only on the modal, toast, slide-over,
+ *     and chip-style elements.
+ *   - Animate only transform / opacity. Reduced motion respected.
+ *   - Lime 2px focus ring on every interactive element.
+ *
+ * Loaded only on /admin/pages (the v2 placeholder route), never
+ * on the storefront or on the dashboard / products / categories /
+ * colors-sizes / size-guides / orders / shipping / coupons /
+ * customers / admins pages. The page-local stylesheet is appended
+ * to the admin layout via @stack('head').
+ */
+
+/* ─── Title split (PA + GES) ───────────────────────────────── */
+
+.abo-admin-pages__title-lime {
+    color: var(--abo-lime);
+    margin-left: 0.15em;
+}
+
+/* ─── Add button (lime, square outline) ────────────────────── */
+
+.abo-admin-pages__add-btn {
+    background: var(--abo-lime);
+    color: var(--abo-black, #050607);
+    border-color: var(--abo-lime);
+}
+
+.abo-admin-pages__add-btn:hover,
+.abo-admin-pages__add-btn:focus-visible {
+    background: var(--abo-lime-hover, #D7FF57);
+    color: var(--abo-black, #050607);
+    border-color: var(--abo-lime-hover, #D7FF57);
+    outline: none;
+}
+
+/* ─── Two-column layout (list + editor) ────────────────────── */
+
+.abo-admin-pages__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+    gap: 1rem;
+    align-items: start;
+}
+
+@media (max-width: 980px) {
+    .abo-admin-pages__layout { grid-template-columns: 1fr; }
+}
+
+.abo-admin-pages__list-pane,
+.abo-admin-pages__editor-pane {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* ─── List toolbar (search + status filter) ────────────────── */
+
+.abo-admin-pages__toolbar {
+    display: grid;
+    grid-template-columns: minmax(160px, 1fr) minmax(140px, 180px);
+    align-items: center;
+    gap: 0.6rem;
+}
+
+@media (max-width: 540px) {
+    .abo-admin-pages__toolbar { grid-template-columns: 1fr; }
+}
+
+.abo-admin-pages__filter-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0 0.75rem;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    height: 38px;
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-pages__filter-search:focus-within { border-color: var(--abo-lime); }
+
+.abo-admin-pages__filter-icon {
+    width: 16px;
+    height: 16px;
+    color: var(--abo-admin-gray);
+    flex-shrink: 0;
+}
+
+.abo-admin-pages__filter-search input {
+    flex: 1 1 auto;
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font: inherit;
+    font-size: 0.9rem;
+    height: 100%;
+    outline: none;
+    min-width: 0;
+}
+
+.abo-admin-pages__filter-search input::placeholder {
+    color: rgba(141, 146, 138, 0.7);
+}
+
+.abo-admin-pages__select {
+    appearance: none;
+    background: var(--abo-admin-bg);
+    color: var(--abo-admin-text, #F4F6F0);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    font: inherit;
+    font-size: 0.9rem;
+    height: 38px;
+    padding: 0 2rem 0 0.75rem;
+    width: 100%;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' stroke='%238D928A' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 0.7rem center;
+    background-size: 10px;
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-pages__select:hover,
+.abo-admin-pages__select:focus-visible {
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+/* ─── List card ────────────────────────────────────────────── */
+
+.abo-admin-pages__list-card { padding: 0; overflow: hidden; }
+
+.abo-admin-pages__list {
+    list-style: none;
+    margin: 0;
+    padding: 0.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    max-height: 540px;
+    overflow-y: auto;
+}
+
+.abo-admin-pages__list:focus-visible {
+    outline: 2px solid var(--abo-lime);
+    outline-offset: -2px;
+}
+
+.abo-admin-pages__row {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.7rem 0.75rem;
+    border: 0;
+    border-left: 2px solid transparent;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    border-radius: var(--abo-admin-radius);
+    transition: background 180ms var(--abo-admin-ease, ease), border-color 180ms var(--abo-admin-ease, ease);
+    font: inherit;
+}
+
+.abo-admin-pages__row:hover,
+.abo-admin-pages__row:focus-visible {
+    background: #151515;
+    outline: none;
+}
+
+.abo-admin-pages__row[aria-selected="true"] {
+    background: #14170a;
+    border-left-color: var(--abo-lime);
+}
+
+.abo-admin-pages__row-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    color: var(--abo-admin-gray);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    font-size: 0.7rem;
+    flex-shrink: 0;
+}
+
+.abo-admin-pages__row-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.18rem;
+    min-width: 0;
+}
+
+.abo-admin-pages__row-title {
+    margin: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.abo-admin-pages__row-path {
+    color: var(--abo-admin-gray);
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.abo-admin-pages__row-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.25rem;
+    flex-shrink: 0;
+}
+
+/* Type tag (SYSTEM / CUSTOM) */
+.abo-admin-pages__type {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.12rem 0.5rem;
+    border: 1px solid var(--abo-admin-border);
+    background: transparent;
+    color: var(--abo-admin-gray);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    line-height: 1.4;
+}
+
+.abo-admin-pages__type--custom {
+    color: var(--abo-lime);
+    border-color: var(--abo-lime);
+}
+
+/* Status tag (Published / Draft) */
+.abo-admin-pages__status {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.14rem 0.5rem;
+    border: 1px solid currentColor;
+    background: transparent;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    line-height: 1.4;
+}
+
+.abo-admin-pages__status--published { color: var(--abo-lime); }
+.abo-admin-pages__status--draft     { color: var(--abo-admin-gray); }
+
+.abo-admin-pages__row-updated {
+    color: var(--abo-admin-gray);
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.abo-admin-pages__list-note {
+    margin: 0;
+    padding: 0.75rem 0.9rem 0.85rem;
+    border-top: 1px solid var(--abo-admin-border);
+    color: var(--abo-admin-gray);
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+/* ─── States (no-results / skeleton / empty) ────────────────── */
+
+.abo-admin-pages__state {
+    padding: 1rem 1.1rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.abo-admin-pages__state .abo-admin-btn {
+    align-self: flex-start;
+    margin-top: 0.4rem;
+}
+
+.abo-admin-pages__skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.4rem;
+}
+
+.abo-admin-pages__skeleton-row {
+    display: grid;
+    grid-template-columns: 28px 1fr 80px;
+    gap: 0.6rem;
+    align-items: center;
+    padding: 0.5rem 0.5rem;
+}
+
+.abo-admin-pages__skeleton-cell {
+    background: linear-gradient(90deg,
+        rgba(255, 255, 255, 0.04) 0%,
+        rgba(255, 255, 255, 0.10) 50%,
+        rgba(255, 255, 255, 0.04) 100%);
+    background-size: 200% 100%;
+    border-radius: 3px;
+    height: 14px;
+    animation: abo-admin-pages-shimmer 1.4s linear infinite;
+}
+
+@keyframes abo-admin-pages-shimmer {
+    from { background-position: 200% 0; }
+    to   { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .abo-admin-pages__skeleton-cell { animation: none; }
+}
+
+/* ─── Editor placeholder (no page selected) ─────────────────── */
+
+.abo-admin-pages__editor-placeholder {
+    padding: 3rem 1.5rem;
+    border: 1px dashed var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    text-align: center;
+    color: var(--abo-admin-gray);
+    background: var(--abo-admin-panel);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.abo-admin-pages__placeholder-title {
+    margin: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    text-transform: uppercase;
+    font-size: 1rem;
+    letter-spacing: 0.04em;
+}
+
+.abo-admin-pages__placeholder-body {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.88rem;
+}
+
+.abo-admin-pages__placeholder-link {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--abo-lime);
+    font: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    padding: 0;
+}
+
+/* ─── Editor ───────────────────────────────────────────────── */
+
+.abo-admin-pages__editor { padding: 0; overflow: hidden; }
+
+.abo-admin-pages__editor-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.95rem 1.1rem 0.85rem;
+    border-bottom: 1px solid var(--abo-admin-border);
+    background: var(--abo-admin-panel);
+}
+
+.abo-admin-pages__editor-head > div:first-child {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.abo-admin-pages__editor-eyebrow {
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--abo-admin-gray);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+}
+
+.abo-admin-pages__editor-title {
+    margin: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    text-transform: uppercase;
+    font-size: 1.1rem;
+    letter-spacing: 0.02em;
+    line-height: 1.1;
+    word-break: break-word;
+}
+
+.abo-admin-pages__editor-close {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--abo-admin-border);
+    color: var(--abo-admin-gray);
+    width: 32px;
+    height: 32px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: border-color 180ms var(--abo-admin-ease, ease), color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-pages__editor-close svg { width: 14px; height: 14px; }
+
+.abo-admin-pages__editor-close:hover,
+.abo-admin-pages__editor-close:focus-visible {
+    color: var(--abo-lime);
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+@media (max-width: 980px) {
+    .abo-admin-pages__editor-close { display: inline-flex; }
+}
+
+.abo-admin-pages__editor-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    padding: 1rem 1.1rem 1.2rem;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.abo-admin-pages__editor-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.85rem 1.1rem;
+    border-top: 1px solid var(--abo-admin-border);
+    background: var(--abo-admin-panel);
+    flex-wrap: wrap;
+}
+
+.abo-admin-pages__editor-foot-right {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: auto;
+    flex-wrap: wrap;
+}
+
+/* ─── Editor blocks (title / slug / content / contact / SEO / settings) ─── */
+
+.abo-admin-pages__block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    padding: 0.9rem 1rem;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+}
+
+.abo-admin-pages__block-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+}
+
+.abo-admin-pages__block-head--inner { margin-top: 0.4rem; }
+
+.abo-admin-pages__block-label {
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--abo-admin-gray);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+}
+
+.abo-admin-pages__block-sub {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+}
+
+/* ─── EN/AR language switch ───────────────────────────────── */
+
+.abo-admin-pages__lang-switch {
+    display: inline-flex;
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    overflow: hidden;
+    background: var(--abo-admin-bg);
+}
+
+.abo-admin-pages__lang-switch button {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    border-left: 1px solid var(--abo-admin-border);
+    color: var(--abo-admin-gray);
+    font: inherit;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.3rem 0.6rem;
+    cursor: pointer;
+    transition: color 180ms var(--abo-admin-ease, ease), background 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-pages__lang-switch button:first-child { border-left: 0; }
+
+.abo-admin-pages__lang-switch button:hover,
+.abo-admin-pages__lang-switch button:focus-visible {
+    color: var(--abo-admin-text, #F4F6F0);
+    outline: none;
+}
+
+.abo-admin-pages__lang-switch button.is-active {
+    background: var(--abo-lime);
+    color: var(--abo-black, #050607);
+}
+
+/* ─── Field inputs ─────────────────────────────────────────── */
+
+.abo-admin-pages__field-input,
+.abo-admin-pages__field-textarea {
+    appearance: none;
+    background: var(--abo-admin-panel);
+    color: var(--abo-admin-text, #F4F6F0);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    font: inherit;
+    font-size: 0.92rem;
+    padding: 0.55rem 0.75rem;
+    width: 100%;
+    line-height: 1.5;
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-pages__field-textarea { resize: vertical; min-height: 80px; }
+
+.abo-admin-pages__field-input:hover,
+.abo-admin-pages__field-textarea:hover { border-color: var(--abo-admin-gray); }
+
+.abo-admin-pages__field-input:focus-visible,
+.abo-admin-pages__field-textarea:focus-visible {
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-pages__field-input--rtl { direction: rtl; text-align: right; }
+
+.abo-admin-pages__field-input[readonly] {
+    color: var(--abo-admin-gray);
+    background: rgba(255, 255, 255, 0.02);
+    cursor: not-allowed;
+}
+
+.abo-admin-pages__field-note {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+.abo-admin-pages__field-note--coral { color: var(--abo-admin-coral); }
+
+/* ─── Slug row ─────────────────────────────────────────────── */
+
+.abo-admin-pages__slug-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.abo-admin-pages__slug-prefix {
+    color: var(--abo-admin-gray);
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
+.abo-admin-pages__field-input--slug { font-family: monospace; }
+
+.abo-admin-pages__lock-icon {
+    display: inline-flex;
+    color: var(--abo-admin-gray);
+    vertical-align: middle;
+}
+
+.abo-admin-pages__lock-icon svg { width: 12px; height: 12px; }
+
+/* ─── Content editor toolbar + content area ────────────────── */
+
+.abo-admin-pages__toolbar-strip {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.4rem;
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-admin-border);
+    border-bottom: 0;
+    border-radius: var(--abo-admin-radius) var(--abo-admin-radius) 0 0;
+    flex-wrap: wrap;
+}
+
+.abo-admin-pages__tb-btn {
+    appearance: none;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--abo-admin-gray);
+    font: inherit;
+    font-size: 0.85rem;
+    min-width: 30px;
+    height: 30px;
+    padding: 0 0.4rem;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: color 180ms var(--abo-admin-ease, ease), background 180ms var(--abo-admin-ease, ease), border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-pages__tb-btn:hover,
+.abo-admin-pages__tb-btn:focus-visible {
+    color: var(--abo-admin-text, #F4F6F0);
+    background: rgba(255, 255, 255, 0.04);
+    outline: none;
+    border-color: var(--abo-admin-border);
+}
+
+.abo-admin-pages__tb-btn.is-active {
+    color: var(--abo-lime);
+    background: rgba(198, 255, 0, 0.08);
+    border-color: var(--abo-lime);
+}
+
+.abo-admin-pages__content {
+    min-height: 220px;
+    max-height: 380px;
+    overflow-y: auto;
+    background: var(--abo-admin-panel);
+    color: var(--abo-admin-text, #F4F6F0);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: 0 0 var(--abo-admin-radius) var(--abo-admin-radius);
+    padding: 0.9rem 1rem;
+    font: inherit;
+    font-size: 0.92rem;
+    line-height: 1.6;
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-pages__content:focus-visible {
+    outline: none;
+    border-color: var(--abo-lime);
+}
+
+.abo-admin-pages__content--rtl { direction: rtl; text-align: right; }
+
+.abo-admin-pages__content h2 {
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    text-transform: uppercase;
+    font-size: 1.05rem;
+    margin: 0.6rem 0 0.4rem;
+    color: var(--abo-admin-text, #F4F6F0);
+}
+
+.abo-admin-pages__content h3 {
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-size: 0.92rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0.6rem 0 0.4rem;
+    color: var(--abo-admin-text, #F4F6F0);
+}
+
+.abo-admin-pages__content p { margin: 0 0 0.55rem; }
+.abo-admin-pages__content ul,
+.abo-admin-pages__content ol { margin: 0 0 0.55rem 1.2rem; }
+.abo-admin-pages__content--rtl ul,
+.abo-admin-pages__content--rtl ol { margin: 0 1.2rem 0.55rem 0; }
+.abo-admin-pages__content li { margin-bottom: 0.2rem; }
+.abo-admin-pages__content a { color: var(--abo-lime); }
+.abo-admin-pages__content strong { color: var(--abo-admin-text, #F4F6F0); }
+
+/* ─── Contact details block ────────────────────────────────── */
+
+.abo-admin-pages__contact-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+}
+
+@media (max-width: 640px) {
+    .abo-admin-pages__contact-grid { grid-template-columns: 1fr; }
+}
+
+.abo-admin-pages__field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.abo-admin-pages__field--full { grid-column: 1 / -1; }
+
+.abo-admin-pages__field label {
+    color: var(--abo-admin-gray);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+/* ─── SEO counter + collapse ───────────────────────────────── */
+
+.abo-admin-pages__counter {
+    color: var(--abo-admin-gray);
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+.abo-admin-pages__counter--coral { color: var(--abo-admin-coral); }
+
+.abo-admin-pages__collapse-btn {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--abo-admin-gray);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.3rem;
+}
+
+.abo-admin-pages__collapse-btn:hover,
+.abo-admin-pages__collapse-btn:focus-visible {
+    color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-pages__collapse-arrow {
+    transition: transform 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-pages__collapse-btn[aria-expanded="true"] .abo-admin-pages__collapse-arrow {
+    transform: rotate(180deg);
+}
+
+/* ─── Switches (Published, Show in footer) ─────────────────── */
+
+.abo-admin-pages__switch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+}
+
+.abo-admin-pages__switch-label {
+    margin: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-size: 0.92rem;
+    font-weight: 600;
+}
+
+.abo-admin-pages__switch-note {
+    margin: 0.15rem 0 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+.abo-admin-pages__switch {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.abo-admin-pages__switch input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.abo-admin-pages__switch-track {
+    display: inline-block;
+    position: relative;
+    width: 42px;
+    height: 22px;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: 999px;
+    transition: background 180ms var(--abo-admin-ease, ease), border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-pages__switch-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: var(--abo-admin-gray);
+    border-radius: 50%;
+    transition: transform 180ms var(--abo-admin-ease, ease), background 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-pages__switch input:checked + .abo-admin-pages__switch-track {
+    background: var(--abo-lime);
+    border-color: var(--abo-lime);
+}
+
+.abo-admin-pages__switch input:checked + .abo-admin-pages__switch-track .abo-admin-pages__switch-thumb {
+    transform: translateX(20px);
+    background: var(--abo-black, #050607);
+}
+
+.abo-admin-pages__switch input:focus-visible + .abo-admin-pages__switch-track {
+    outline: 2px solid var(--abo-lime);
+    outline-offset: 2px;
+}
+
+.abo-admin-pages__switch input:disabled + .abo-admin-pages__switch-track {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ─── Delete (coral outline) button ─────────────────────────── */
+
+.abo-admin-pages__delete-btn {
+    appearance: none;
+    background: transparent;
+    color: var(--abo-admin-coral);
+    border: 1px solid var(--abo-admin-coral);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.55rem 1rem;
+    min-height: 38px;
+    border-radius: 0;
+    cursor: pointer;
+    transition: background 180ms var(--abo-admin-ease, ease), color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-pages__delete-btn:hover:not([disabled]),
+.abo-admin-pages__delete-btn:focus-visible:not([disabled]) {
+    background: var(--abo-admin-coral);
+    color: var(--abo-admin-text, #F4F6F0);
+    outline: none;
+}
+
+.abo-admin-pages__delete-btn[disabled] {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ─── Dirty dot ────────────────────────────────────────────── */
+
+.abo-admin-pages__dirty {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--abo-lime);
+    flex-shrink: 0;
+}
+
+.abo-admin-pages__dirty[hidden] { display: none; }
+
+/* ─── Modals (preview + delete) ────────────────────────────── */
+
+.abo-admin-pages__modal {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.abo-admin-pages__modal[hidden] { display: none; }
+
+.abo-admin-pages__modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(5, 6, 7, 0.72);
+}
+
+.abo-admin-pages__modal-card {
+    position: relative;
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    padding: 1.2rem 1.4rem;
+    max-width: 460px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    box-shadow: var(--abo-admin-shadow, 0 8px 30px rgba(0, 0, 0, 0.45));
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+}
+
+.abo-admin-pages__modal-card--wide {
+    max-width: 880px;
+}
+
+.abo-admin-pages__modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.abo-admin-pages__modal-title {
+    margin: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    text-transform: uppercase;
+    font-size: 1.05rem;
+    letter-spacing: 0.02em;
+}
+
+.abo-admin-pages__drawer-close {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--abo-admin-border);
+    color: var(--abo-admin-gray);
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color 180ms var(--abo-admin-ease, ease), color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-pages__drawer-close svg { width: 14px; height: 14px; }
+
+.abo-admin-pages__drawer-close:hover,
+.abo-admin-pages__drawer-close:focus-visible {
+    color: var(--abo-lime);
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-pages__modal-body {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.abo-admin-pages__modal-foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+}
+
+.abo-admin-pages__modal-confirm {
+    appearance: none;
+    background: transparent;
+    color: var(--abo-admin-coral);
+    border: 1px solid var(--abo-admin-coral);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.55rem 1rem;
+    min-height: 38px;
+    border-radius: 0;
+    cursor: pointer;
+    transition: background 180ms var(--abo-admin-ease, ease), color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-pages__modal-confirm:hover,
+.abo-admin-pages__modal-confirm:focus-visible {
+    background: var(--abo-admin-coral);
+    color: var(--abo-admin-text, #F4F6F0);
+    outline: none;
+}
+
+/* ─── Preview frame (store-like mock) ──────────────────────── */
+
+.abo-admin-pages__preview-frame {
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    padding: 1.4rem 1.5rem;
+    color: var(--abo-admin-text, #F4F6F0);
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.abo-admin-pages__preview-frame h2 {
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    text-transform: uppercase;
+    font-size: 1.2rem;
+    margin: 0 0 0.6rem;
+    color: var(--abo-lime);
+}
+
+.abo-admin-pages__preview-frame p { margin: 0 0 0.5rem; line-height: 1.6; }
+.abo-admin-pages__preview-frame ul,
+.abo-admin-pages__preview-frame ol { margin: 0 0 0.6rem 1.2rem; }
+.abo-admin-pages__preview-frame--rtl ul,
+.abo-admin-pages__preview-frame--rtl ol { margin: 0 1.2rem 0.6rem 0; }
+
+.abo-admin-pages__preview-frame-meta {
+    color: var(--abo-admin-gray);
+    font-size: 0.82rem;
+    margin: 0 0 0.8rem;
+}
+
+/* ─── Toast ────────────────────────────────────────────────── */
+
+.abo-admin-pages__toast {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 120;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.7rem 1rem;
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-lime);
+    border-radius: var(--abo-admin-radius);
+    box-shadow: var(--abo-admin-shadow, 0 8px 30px rgba(0, 0, 0, 0.45));
+    color: var(--abo-admin-text, #F4F6F0);
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.abo-admin-pages__toast[hidden] { display: none; }
+
+.abo-admin-pages__toast-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--abo-lime);
+    flex-shrink: 0;
+}
+
+/* ─── Focus ring (lime, page-local) ────────────────────────── */
+
+:where(
+        .abo-admin-pages__add-btn,
+        .abo-admin-pages__filter-search,
+        .abo-admin-pages__select,
+        .abo-admin-pages__row,
+        .abo-admin-pages__editor-close,
+        .abo-admin-pages__lang-switch button,
+        .abo-admin-pages__field-input,
+        .abo-admin-pages__field-textarea,
+        .abo-admin-pages__tb-btn,
+        .abo-admin-pages__content,
+        .abo-admin-pages__collapse-btn,
+        .abo-admin-pages__switch input,
+        .abo-admin-pages__switch-track,
+        .abo-admin-pages__delete-btn,
+        .abo-admin-pages__drawer-close,
+        .abo-admin-pages__modal-confirm,
+        .abo-admin-pages__placeholder-link
+):focus-visible {
+    outline: 2px solid var(--abo-lime);
+    outline-offset: 2px;
+}
+
+/* ─── Editor "slide-over" on tablet / mobile ───────────────── */
+
+@media (max-width: 980px) {
+    .abo-admin-pages__editor-pane {
+        position: fixed;
+        inset: 0;
+        z-index: 95;
+        background: var(--abo-admin-bg);
+        padding: clamp(0.75rem, 2vw, 1.25rem);
+        transform: translateX(100%);
+        transition: transform 240ms var(--abo-admin-ease, ease);
+        display: none;
+        overflow-y: auto;
+    }
+
+    .abo-admin-pages__editor-pane.is-open {
+        display: flex;
+        transform: translateX(0);
+    }
+
+    .abo-admin-pages__editor-pane.is-open ~ * {
+        pointer-events: none;
+    }
+
+    .abo-admin-pages__editor { max-width: 100%; }
+    .abo-admin-pages__editor-body { max-height: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .abo-admin-pages__editor-pane { transition: none; }
+    .abo-admin-pages__skeleton-cell { animation: none; }
+    .abo-admin-pages__collapse-arrow { transition: none; }
+}

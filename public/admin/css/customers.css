@@ -1,0 +1,1401 @@
+/*
+ * ABO Admin · Customers — page-local stylesheet.
+ *
+ * Conventions (matches the existing admin scope):
+ *   - All class names are prefixed with `abo-admin-customers-`.
+ *   - Brand tokens are reused from the global stylesheet via
+ *     var(--abo-lime), var(--abo-bg), var(--abo-admin-panel), etc.
+ *   - No new colours. The "coral" tone comes from the existing
+ *     --abo-admin-coral token in admin.css.
+ *   - Square corners where the rest of the shell already uses
+ *     them; small radius only on pills, modal, toast, slide-over.
+ *   - Animate only transform / opacity. Reduced motion respected.
+ *
+ * Loaded only on /admin/customers, never on the storefront or on
+ * the dashboard / products / categories / colors-sizes / size-guides
+ * / orders / shipping / coupons pages. The page-local stylesheet
+ * is appended to the admin layout via @stack('head') so the
+ * cascade is consistent.
+ */
+
+/* ─── Title split (CUS + TOMERS) ─────────────────────────────── */
+
+.abo-admin-customers__title-lime {
+    color: var(--abo-lime);
+    margin-left: 0.15em;
+}
+
+/* ─── Segment tabs (All / New / Returning / VIP / …) ────────── */
+
+.abo-admin-customers__tabs {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    border-bottom: 1px solid var(--abo-admin-border);
+    overflow-x: auto;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+}
+
+.abo-admin-customers__tabs::-webkit-scrollbar {
+    height: 4px;
+}
+
+.abo-admin-customers__tabs::-webkit-scrollbar-thumb {
+    background: var(--abo-admin-border);
+}
+
+.abo-admin-customers__tabs button {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    color: var(--abo-admin-gray);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.7rem 1rem;
+    cursor: pointer;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: color 180ms var(--abo-admin-ease, ease), border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-customers__tabs button:hover,
+.abo-admin-customers__tabs button:focus-visible {
+    color: var(--abo-admin-text, #F4F6F0);
+    outline: none;
+}
+
+.abo-admin-customers__tabs button.is-active {
+    color: var(--abo-admin-text, #F4F6F0);
+    border-bottom-color: var(--abo-lime);
+}
+
+.abo-admin-customers__tabs button span {
+    color: var(--abo-admin-gray);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.74rem;
+    padding: 0.05rem 0.4rem;
+    border: 1px solid var(--abo-admin-border);
+    border-radius: 999px;
+}
+
+.abo-admin-customers__tabs button.is-active span {
+    color: var(--abo-lime);
+    border-color: var(--abo-lime);
+}
+
+/* ─── Toolbar ───────────────────────────────────────────────── */
+
+.abo-admin-customers__toolbar {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) minmax(160px, 220px) minmax(180px, 240px) auto;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+@media (max-width: 1100px) {
+    .abo-admin-customers__toolbar {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 540px) {
+    .abo-admin-customers__toolbar {
+        grid-template-columns: 1fr;
+    }
+}
+
+.abo-admin-customers__filter-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0 0.75rem;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    height: 38px;
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-customers__filter-search:focus-within {
+    border-color: var(--abo-lime);
+}
+
+.abo-admin-customers__filter-icon {
+    width: 16px;
+    height: 16px;
+    color: var(--abo-admin-gray);
+    flex-shrink: 0;
+}
+
+.abo-admin-customers__filter-search input {
+    flex: 1 1 auto;
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font: inherit;
+    font-size: 0.9rem;
+    height: 100%;
+    outline: none;
+    min-width: 0;
+}
+
+.abo-admin-customers__filter-search input::placeholder {
+    color: rgba(141, 146, 138, 0.7);
+}
+
+.abo-admin-customers__select {
+    appearance: none;
+    background: var(--abo-admin-bg);
+    color: var(--abo-admin-text, #F4F6F0);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    font: inherit;
+    font-size: 0.9rem;
+    height: 38px;
+    padding: 0 2rem 0 0.75rem;
+    width: 100%;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' stroke='%238D928A' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 0.7rem center;
+    background-size: 10px;
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-customers__select:hover,
+.abo-admin-customers__select:focus-visible {
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-customers__clear {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--abo-lime);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    padding: 0.55rem 0.4rem;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    transition: color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-customers__clear:hover,
+.abo-admin-customers__clear:focus-visible {
+    color: var(--abo-lime-hover, #D7FF57);
+    outline: none;
+}
+
+.abo-admin-customers__clear[hidden] {
+    display: none;
+}
+
+/* ─── Customers table ───────────────────────────────────────── */
+
+.abo-admin-customers__table-card {
+    padding: 0;
+    overflow: hidden;
+}
+
+.abo-admin-customers__table-wrap {
+    overflow-x: auto;
+}
+
+.abo-admin-customers__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+    min-width: 900px;
+}
+
+.abo-admin-customers__table th,
+.abo-admin-customers__table td {
+    text-align: left;
+    padding: 0.7rem 0.5rem;
+    border-bottom: 1px solid var(--abo-admin-border);
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.abo-admin-customers__table th {
+    color: var(--abo-admin-gray);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.abo-admin-customers__row {
+    transition: background 180ms var(--abo-admin-ease, ease);
+    cursor: pointer;
+}
+
+.abo-admin-customers__row:hover,
+.abo-admin-customers__row:focus-within {
+    background: #151515;
+}
+
+.abo-admin-customers__row:last-child td {
+    border-bottom: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .abo-admin-customers__row:hover,
+    .abo-admin-customers__row:focus-within {
+        background: transparent;
+    }
+}
+
+/* Customer cell (initials + name + email) */
+.abo-admin-customers__customer {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    min-width: 220px;
+}
+
+.abo-admin-customers__avatar-sm {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    background: var(--abo-admin-border);
+    color: var(--abo-admin-text, #F4F6F0);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+    border-radius: 2px;
+}
+
+.abo-admin-customers__customer-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    line-height: 1.3;
+    min-width: 0;
+}
+
+.abo-admin-customers__customer-name {
+    color: var(--abo-admin-text, #F4F6F0);
+    font-weight: 600;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.abo-admin-customers__customer-email {
+    color: var(--abo-admin-gray);
+    font-size: 0.78rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 240px;
+}
+
+.abo-admin-customers__phone {
+    color: var(--abo-admin-text, #F4F6F0);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.88rem;
+}
+
+.abo-admin-customers__gov {
+    color: var(--abo-admin-text, #F4F6F0);
+    font-size: 0.88rem;
+}
+
+.abo-admin-customers__orders-cell {
+    color: var(--abo-admin-text, #F4F6F0);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.abo-admin-customers__spend-cell {
+    color: var(--abo-admin-text, #F4F6F0);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
+}
+
+.abo-admin-customers__date-cell {
+    color: var(--abo-admin-gray);
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.abo-admin-customers__date-cell--muted {
+    color: var(--abo-admin-gray);
+    opacity: 0.65;
+}
+
+.abo-admin-customers__th-sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.abo-admin-customers__th-sortable:hover {
+    color: var(--abo-admin-text, #F4F6F0);
+}
+
+.abo-admin-customers__sort-arrow {
+    margin-left: 0.3rem;
+    color: var(--abo-admin-border);
+    font-size: 0.82rem;
+}
+
+.abo-admin-customers__th-sortable[aria-sort="ascending"] .abo-admin-customers__sort-arrow,
+.abo-admin-customers__th-sortable[aria-sort="descending"] .abo-admin-customers__sort-arrow {
+    color: var(--abo-lime);
+}
+
+.abo-admin-customers__th-actions {
+    width: 56px;
+    text-align: right;
+    padding-right: 1.1rem;
+}
+
+.abo-admin-customers__view-btn {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--abo-admin-border);
+    color: var(--abo-admin-gray);
+    width: 30px;
+    height: 30px;
+    border-radius: var(--abo-admin-radius);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 180ms var(--abo-admin-ease, ease), color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-customers__view-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+.abo-admin-customers__view-btn:hover,
+.abo-admin-customers__view-btn:focus-visible {
+    border-color: var(--abo-lime);
+    color: var(--abo-lime);
+    outline: none;
+}
+
+/* ─── Segment badges (square, uppercase) ────────────────────── */
+
+.abo-admin-customers__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 0;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    line-height: 1.3;
+    border: 1px solid currentColor;
+    white-space: nowrap;
+}
+
+.abo-admin-customers__badge--new {
+    background: var(--abo-lime);
+    color: var(--abo-black, #050607);
+    border-color: var(--abo-lime);
+}
+
+.abo-admin-customers__badge--returning {
+    color: var(--abo-admin-text, #F4F6F0);
+    background: transparent;
+}
+
+.abo-admin-customers__badge--vip {
+    color: var(--abo-lime);
+    background: transparent;
+    border-color: var(--abo-lime);
+}
+
+.abo-admin-customers__badge--vip svg {
+    width: 10px;
+    height: 10px;
+}
+
+.abo-admin-customers__badge--noorders {
+    color: var(--abo-admin-gray);
+    background: transparent;
+    border-color: var(--abo-admin-border);
+}
+
+.abo-admin-customers__badge--blocked {
+    color: var(--abo-admin-coral);
+    background: transparent;
+    border-color: var(--abo-admin-coral);
+}
+
+/* ─── States (skeleton / empty / no-results) ────────────────── */
+
+.abo-admin-customers__state {
+    padding: 1.1rem 1.2rem;
+}
+
+.abo-admin-customers__state .abo-admin-btn {
+    margin-top: 0.8rem;
+}
+
+.abo-admin-customers__skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.abo-admin-customers__skeleton-row {
+    display: grid;
+    grid-template-columns: 36px 1fr 90px 80px 36px 80px 80px 70px 30px;
+    gap: 0.8rem;
+    align-items: center;
+    padding: 0.7rem 0.5rem;
+    border-bottom: 1px solid var(--abo-admin-border);
+}
+
+.abo-admin-customers__skeleton-cell {
+    background: linear-gradient(90deg,
+        rgba(255, 255, 255, 0.04) 0%,
+        rgba(255, 255, 255, 0.10) 50%,
+        rgba(255, 255, 255, 0.04) 100%);
+    background-size: 200% 100%;
+    border-radius: 3px;
+    height: 14px;
+    animation: abo-admin-customers-shimmer 1.4s linear infinite;
+}
+
+@keyframes abo-admin-customers-shimmer {
+    from { background-position: 200% 0; }
+    to   { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .abo-admin-customers__skeleton-cell { animation: none; }
+}
+
+/* ─── Pagination ────────────────────────────────────────────── */
+
+.abo-admin-customers__pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.abo-admin-customers__pagination-info {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.abo-admin-customers__pagination-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.abo-admin-customers__page-btn {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--abo-admin-border);
+    color: var(--abo-admin-gray);
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    min-width: 34px;
+    height: 34px;
+    padding: 0 0.6rem;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: border-color 180ms var(--abo-admin-ease, ease), color 180ms var(--abo-admin-ease, ease), background 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-customers__page-btn:hover:not([disabled]),
+.abo-admin-customers__page-btn:focus-visible {
+    color: var(--abo-admin-text, #F4F6F0);
+    border-color: var(--abo-admin-gray);
+    outline: none;
+}
+
+.abo-admin-customers__page-btn.is-active {
+    background: var(--abo-lime);
+    color: var(--abo-black, #050607);
+    border-color: var(--abo-lime);
+}
+
+.abo-admin-customers__page-btn[disabled] {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ─── Mobile stacked cards (rendered next to the table) ─────── */
+
+.abo-admin-customers__cards {
+    display: none;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+@media (max-width: 720px) {
+    .abo-admin-customers__table { display: none; }
+    .abo-admin-customers__cards { display: flex; }
+}
+
+.abo-admin-customers__card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.85rem 1rem;
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    cursor: pointer;
+    transition: border-color 180ms var(--abo-admin-ease, ease), background 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-customers__card:hover,
+.abo-admin-customers__card:focus-within {
+    border-color: var(--abo-lime);
+    background: #151515;
+}
+
+.abo-admin-customers__card-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.abo-admin-customers__card-head {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-width: 0;
+}
+
+.abo-admin-customers__card-name {
+    color: var(--abo-admin-text, #F4F6F0);
+    font-weight: 600;
+    font-size: 0.95rem;
+    line-height: 1.2;
+}
+
+.abo-admin-customers__card-meta {
+    color: var(--abo-admin-gray);
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.abo-admin-customers__card-stats {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    color: var(--abo-admin-gray);
+    font-size: 0.82rem;
+}
+
+.abo-admin-customers__card-stats strong {
+    color: var(--abo-admin-text, #F4F6F0);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 720px) {
+    .abo-admin-customers__pagination { gap: 0.6rem; }
+    .abo-admin-customers__th-sortable .abo-admin-customers__sort-arrow { display: none; }
+}
+
+/* ─── Modal (block customer) ────────────────────────────────── */
+
+.abo-admin-customers__modal {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.abo-admin-customers__modal[hidden] { display: none; }
+
+.abo-admin-customers__modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(5, 6, 7, 0.72);
+}
+
+.abo-admin-customers__modal-card {
+    position: relative;
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    padding: 1.4rem 1.5rem 1.2rem;
+    max-width: 420px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    box-shadow: var(--abo-admin-shadow, 0 8px 30px rgba(0, 0, 0, 0.45));
+}
+
+.abo-admin-customers__modal-title {
+    margin: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    text-transform: uppercase;
+    font-size: 1rem;
+    letter-spacing: 0.02em;
+}
+
+.abo-admin-customers__modal-body {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.abo-admin-customers__modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+}
+
+.abo-admin-customers__modal-confirm {
+    appearance: none;
+    background: transparent;
+    color: var(--abo-admin-coral);
+    border: 1px solid var(--abo-admin-coral);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.55rem 1rem;
+    min-height: 38px;
+    border-radius: 0;
+    cursor: pointer;
+    transition: background 180ms var(--abo-admin-ease, ease), color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-customers__modal-confirm:hover,
+.abo-admin-customers__modal-confirm:focus-visible {
+    background: var(--abo-admin-coral);
+    color: var(--abo-admin-text, #F4F6F0);
+    outline: none;
+}
+
+/* ─── Toast ─────────────────────────────────────────────────── */
+
+.abo-admin-customers__toast {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 120;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.7rem 1rem;
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-lime);
+    border-radius: var(--abo-admin-radius);
+    box-shadow: var(--abo-admin-shadow, 0 8px 30px rgba(0, 0, 0, 0.45));
+    color: var(--abo-admin-text, #F4F6F0);
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.abo-admin-customers__toast[hidden] { display: none; }
+
+.abo-admin-customers__toast-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--abo-lime);
+    flex-shrink: 0;
+}
+
+/* ─── Slide-over (customer detail) ──────────────────────────── */
+
+.abo-admin-customers__drawer {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    display: flex;
+    align-items: stretch;
+    justify-content: flex-end;
+}
+
+.abo-admin-customers__drawer[hidden] { display: none; }
+
+.abo-admin-customers__drawer-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(5, 6, 7, 0.55);
+    opacity: 0;
+    transition: opacity 220ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-customers__drawer.is-open .abo-admin-customers__drawer-overlay {
+    opacity: 1;
+}
+
+.abo-admin-customers__drawer-panel {
+    position: relative;
+    width: 560px;
+    max-width: 100%;
+    background: var(--abo-admin-bg);
+    border-left: 1px solid var(--abo-admin-border);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 260ms var(--abo-admin-ease, ease);
+    box-shadow: -8px 0 30px rgba(0, 0, 0, 0.45);
+    outline: none;
+    overflow: hidden;
+}
+
+.abo-admin-customers__drawer.is-open .abo-admin-customers__drawer-panel {
+    transform: translateX(0);
+}
+
+@media (max-width: 640px) {
+    .abo-admin-customers__drawer-panel {
+        width: 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .abo-admin-customers__drawer-overlay,
+    .abo-admin-customers__drawer-panel {
+        transition: none;
+    }
+}
+
+.abo-admin-customers__drawer-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.9rem 1rem 0.8rem;
+    border-bottom: 1px solid var(--abo-admin-border);
+    background: var(--abo-admin-panel);
+}
+
+.abo-admin-customers__drawer-head-text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.abo-admin-customers__drawer-head-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.abo-admin-customers__drawer-head-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+.abo-admin-customers__avatar {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    background: var(--abo-admin-border);
+    color: var(--abo-admin-text, #F4F6F0);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    font-size: 1rem;
+    border-radius: 2px;
+    letter-spacing: 0.02em;
+}
+
+.abo-admin-customers__drawer-title {
+    margin: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    text-transform: uppercase;
+    font-size: 0.95rem;
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+}
+
+.abo-admin-customers__drawer-since {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.abo-admin-customers__drawer-head-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.abo-admin-customers__drawer-close {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--abo-admin-border);
+    color: var(--abo-admin-gray);
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color 180ms var(--abo-admin-ease, ease), color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-customers__drawer-close svg {
+    width: 14px;
+    height: 14px;
+}
+
+.abo-admin-customers__drawer-close:hover,
+.abo-admin-customers__drawer-close:focus-visible {
+    color: var(--abo-lime);
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-customers__drawer-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 1rem 1.1rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.abo-admin-customers__block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.9rem 1rem;
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+}
+
+.abo-admin-customers__block--danger {
+    border-color: rgba(255, 122, 92, 0.3);
+}
+
+.abo-admin-customers__block-label {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+}
+
+.abo-admin-customers__block-sub {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+}
+
+/* Contact block */
+.abo-admin-customers__contact-row {
+    margin: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-size: 0.92rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.abo-admin-customers__contact-link {
+    color: var(--abo-admin-text, #F4F6F0);
+    text-decoration: none;
+}
+
+.abo-admin-customers__contact-link:hover {
+    color: var(--abo-lime);
+}
+
+.abo-admin-customers__contact-link--muted {
+    color: var(--abo-admin-gray);
+}
+
+.abo-admin-customers__lang-row {
+    margin: 0.4rem 0 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.abo-admin-customers__lang-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem 0.55rem;
+    border: 1px solid var(--abo-admin-border);
+    border-radius: 999px;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+/* Stats block */
+.abo-admin-customers__stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.6rem;
+}
+
+.abo-admin-customers__stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.6rem 0.7rem;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+}
+
+.abo-admin-customers__stat-label {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+}
+
+.abo-admin-customers__stat-value {
+    margin: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    font-size: 1.05rem;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Addresses block */
+.abo-admin-customers__addresses {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.abo-admin-customers__address {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 0.6rem 0.75rem;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    position: relative;
+}
+
+.abo-admin-customers__address-label {
+    color: var(--abo-admin-gray);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.abo-admin-customers__address-text {
+    color: var(--abo-admin-text, #F4F6F0);
+    font-size: 0.88rem;
+    line-height: 1.4;
+}
+
+.abo-admin-customers__address-default {
+    position: absolute;
+    top: 0.6rem;
+    right: 0.7rem;
+    display: inline-flex;
+    align-items: center;
+    padding: 0.05rem 0.45rem;
+    border: 1px solid var(--abo-lime);
+    color: var(--abo-lime);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    border-radius: 999px;
+}
+
+/* Order history block */
+.abo-admin-customers__orders {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.abo-admin-customers__order-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.55rem 0.7rem;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    font-size: 0.85rem;
+}
+
+.abo-admin-customers__order-num {
+    color: var(--abo-lime);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+}
+
+.abo-admin-customers__order-date {
+    color: var(--abo-admin-gray);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.78rem;
+}
+
+.abo-admin-customers__order-total {
+    color: var(--abo-admin-text, #F4F6F0);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.88rem;
+}
+
+.abo-admin-customers__order-view {
+    color: var(--abo-lime);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-decoration: none;
+}
+
+.abo-admin-customers__order-view:hover,
+.abo-admin-customers__order-view:focus-visible {
+    text-decoration: underline;
+    outline: none;
+}
+
+.abo-admin-customers__orders-empty {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.88rem;
+}
+
+/* Order history badge variants — re-use the orders page
+   status names so the visual language stays consistent. */
+.abo-admin-customers__order-row .abo-admin-orders__badge {
+    padding: 0.1rem 0.45rem;
+    font-size: 0.62rem;
+}
+
+/* Tags block */
+.abo-admin-customers__tags {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.abo-admin-customers__tags:empty {
+    display: none;
+}
+
+.abo-admin-customers__tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.45rem 0.25rem 0.6rem;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: 999px;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-size: 0.78rem;
+    font-weight: 500;
+}
+
+.abo-admin-customers__tag-remove {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--abo-admin-gray);
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 50%;
+    padding: 0;
+    transition: color 180ms var(--abo-admin-ease, ease), background 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-customers__tag-remove svg {
+    width: 10px;
+    height: 10px;
+}
+
+.abo-admin-customers__tag-remove:hover,
+.abo-admin-customers__tag-remove:focus-visible {
+    color: var(--abo-lime);
+    background: rgba(198, 255, 0, 0.08);
+    outline: none;
+}
+
+.abo-admin-customers__tag-form {
+    margin-top: 0.3rem;
+}
+
+.abo-admin-customers__tag-input {
+    appearance: none;
+    background: var(--abo-admin-bg);
+    color: var(--abo-admin-text, #F4F6F0);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    font: inherit;
+    font-size: 0.88rem;
+    padding: 0.55rem 0.75rem;
+    width: 100%;
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-customers__tag-input::placeholder {
+    color: rgba(141, 146, 138, 0.7);
+}
+
+.abo-admin-customers__tag-input:hover {
+    border-color: var(--abo-admin-gray);
+}
+
+.abo-admin-customers__tag-input:focus-visible {
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+/* Internal note */
+.abo-admin-customers__note-input {
+    appearance: none;
+    background: var(--abo-admin-bg);
+    color: var(--abo-admin-text, #F4F6F0);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: var(--abo-admin-radius);
+    font: inherit;
+    font-size: 0.88rem;
+    padding: 0.55rem 0.75rem;
+    width: 100%;
+    resize: vertical;
+    min-height: 80px;
+    line-height: 1.5;
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-customers__note-input::placeholder {
+    color: rgba(141, 146, 138, 0.7);
+}
+
+.abo-admin-customers__note-input:hover {
+    border-color: var(--abo-admin-gray);
+}
+
+.abo-admin-customers__note-input:focus-visible {
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-customers__note-save {
+    align-self: flex-start;
+}
+
+/* Danger zone */
+.abo-admin-customers__danger {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--abo-admin-coral);
+    color: var(--abo-admin-coral);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.55rem 1rem;
+    min-height: 38px;
+    border-radius: 0;
+    cursor: pointer;
+    align-self: flex-start;
+    transition: background 180ms var(--abo-admin-ease, ease), color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-customers__danger:hover,
+.abo-admin-customers__danger:focus-visible {
+    background: var(--abo-admin-coral);
+    color: var(--abo-admin-text, #F4F6F0);
+    outline: none;
+}
+
+/* When the customer is already blocked, the danger button is a
+   normal outlined button (not coral) — that visual flip is
+   driven by the .is-unblock modifier set by JS. */
+.abo-admin-customers__danger.is-unblock {
+    border-color: var(--abo-admin-border);
+    color: var(--abo-admin-text, #F4F6F0);
+}
+
+.abo-admin-customers__danger.is-unblock:hover,
+.abo-admin-customers__danger.is-unblock:focus-visible {
+    background: transparent;
+    color: var(--abo-lime);
+    border-color: var(--abo-lime);
+}
+
+.abo-admin-customers__danger-note {
+    margin: 0.2rem 0 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+/* Drawer footer */
+.abo-admin-customers__drawer-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.7rem 1rem;
+    border-top: 1px solid var(--abo-admin-border);
+    background: var(--abo-admin-panel);
+}
+
+.abo-admin-customers__drawer-prev,
+.abo-admin-customers__drawer-next {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--abo-admin-border);
+    color: var(--abo-admin-text, #F4F6F0);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.45rem 0.7rem;
+    min-height: 34px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: border-color 180ms var(--abo-admin-ease, ease), color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-customers__drawer-prev svg,
+.abo-admin-customers__drawer-next svg {
+    width: 12px;
+    height: 12px;
+}
+
+.abo-admin-customers__drawer-prev:hover,
+.abo-admin-customers__drawer-prev:focus-visible,
+.abo-admin-customers__drawer-next:hover,
+.abo-admin-customers__drawer-next:focus-visible {
+    border-color: var(--abo-lime);
+    color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-customers__drawer-prev[disabled],
+.abo-admin-customers__drawer-next[disabled] {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.abo-admin-customers__drawer-pos {
+    color: var(--abo-admin-gray);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+}
+
+/* ─── Focus ring (lime, page-local — matches admin.css pattern) */
+
+:where(
+        /* Tabs */
+        .abo-admin-customers__tabs button,
+        /* Toolbar */
+        .abo-admin-customers__filter-search,
+        .abo-admin-customers__select,
+        .abo-admin-customers__clear,
+        /* Table */
+        .abo-admin-customers__view-btn,
+        .abo-admin-customers__th-sortable,
+        /* Pagination */
+        .abo-admin-customers__page-btn,
+        /* Modal */
+        .abo-admin-customers__modal-confirm,
+        /* Slide-over */
+        .abo-admin-customers__drawer-close,
+        .abo-admin-customers__tag-input,
+        .abo-admin-customers__note-input,
+        .abo-admin-customers__danger,
+        .abo-admin-customers__drawer-prev,
+        .abo-admin-customers__drawer-next,
+        .abo-admin-customers__tag-remove,
+        /* Mobile cards */
+        .abo-admin-customers__card
+):focus-visible {
+    outline: 2px solid var(--abo-lime);
+    outline-offset: 2px;
+}

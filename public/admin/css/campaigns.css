@@ -1,0 +1,1229 @@
+/*
+ * ABO Admin · Campaigns — page-local stylesheet.
+ *
+ * Conventions (matches the existing admin scope):
+ *   - All class names are prefixed with `abo-admin-campaigns-`.
+ *   - Brand tokens are reused from the global + admin stylesheets:
+ *     var(--abo-lime), var(--abo-admin-bg), var(--abo-admin-panel),
+ *     var(--abo-admin-border), var(--abo-admin-text),
+ *     var(--abo-admin-gray), var(--abo-admin-radius),
+ *     var(--abo-admin-ease), var(--font-display), var(--font-sans).
+ *   - The spec calls for #ff6b4a coral and #ffb84a amber; both are
+ *     declared as local page-scope tokens below to avoid shadowing
+ *     the global palette used by other admin pages.
+ *   - Square corners on cards, buttons, slide-over, inputs. Small
+ *     radius only on the modal, toast and pills.
+ *   - Flat: no gradients, no shadows on cards (only the modal/toast
+ *     and the slide-over on small viewports get a subtle shadow
+ *     matching the products page).
+ *   - Animate only transform / opacity. Reduced motion is respected.
+ *
+ * Loaded only on /admin/campaigns. Never on the storefront or on
+ * other admin pages.
+ */
+
+/* ─── Local tokens ──────────────────────────────────────────── */
+
+.abo-admin-campaigns {
+    /* Page-scope palette. These match the visual brief literally and
+       override only the coral / amber accents so other admin pages
+       keep their existing tones. */
+    --abo-campaigns-coral: #FF6B4A;
+    --abo-campaigns-amber: #FFB84A;
+    --abo-campaigns-card:  #111111;
+    --abo-campaigns-hair:  #262626;
+}
+
+/* ─── Title split (CAM + PAIGNS) ─────────────────────────────── */
+
+.abo-admin-campaigns__title-lime {
+    color: var(--abo-lime);
+    margin-left: 0.15em;
+}
+
+/* ─── KPI cards: clickable filter, lime highlight ───────────── */
+
+.abo-admin-campaigns__kpis {
+    /* abo-admin-attention is already a CSS grid (auto-fit). */
+}
+
+.abo-admin-campaigns__kpis .abo-admin-attention__card {
+    appearance: none;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+}
+
+.abo-admin-campaigns__kpis .abo-admin-attention__card[aria-pressed="true"] {
+    background: rgba(198, 255, 0, 0.06);
+    border-color: var(--abo-lime);
+}
+
+/* ─── Filter bar ───────────────────────────────────────────── */
+
+.abo-admin-campaigns__filters {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) 160px minmax(280px, 1fr) 200px;
+    gap: 0.6rem;
+    align-items: center;
+}
+
+@media (max-width: 1100px) {
+    .abo-admin-campaigns__filters {
+        grid-template-columns: 1fr 1fr;
+    }
+    .abo-admin-campaigns__filters > .abo-admin-campaigns__tabs {
+        grid-column: 1 / -1;
+        overflow-x: auto;
+    }
+}
+
+@media (max-width: 540px) {
+    .abo-admin-campaigns__filters {
+        grid-template-columns: 1fr;
+    }
+}
+
+.abo-admin-campaigns__filter-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0 0.75rem;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: 0;
+    height: 38px;
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-campaigns__filter-search:focus-within {
+    border-color: var(--abo-lime);
+}
+
+.abo-admin-campaigns__filter-icon {
+    width: 16px;
+    height: 16px;
+    color: var(--abo-admin-gray);
+    flex-shrink: 0;
+}
+
+.abo-admin-campaigns__filter-search input {
+    flex: 1 1 auto;
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font: inherit;
+    font-size: 0.9rem;
+    height: 100%;
+    outline: none;
+    min-width: 0;
+}
+
+.abo-admin-campaigns__filter-search input::placeholder {
+    color: rgba(141, 146, 138, 0.7);
+}
+
+.abo-admin-campaigns__select {
+    appearance: none;
+    background: var(--abo-admin-bg);
+    color: var(--abo-admin-text, #F4F6F0);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: 0;
+    font: inherit;
+    font-size: 0.9rem;
+    height: 38px;
+    padding: 0 2rem 0 0.75rem;
+    width: 100%;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' stroke='%238D928A' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 0.7rem center;
+    background-size: 10px;
+    transition: border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-campaigns__select:hover,
+.abo-admin-campaigns__select:focus-visible {
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+/* ─── Status tabs (inside the filter bar) ──────────────────── */
+
+.abo-admin-campaigns__tabs {
+    display: flex;
+    gap: 0.25rem;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    padding: 3px;
+    border-radius: 0;
+    width: 100%;
+}
+
+.abo-admin-campaigns__tabs button {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--abo-admin-gray);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.45rem 0.7rem;
+    cursor: pointer;
+    flex: 1 1 0;
+    min-width: 0;
+    transition: color 180ms var(--abo-admin-ease, ease), background 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-campaigns__tabs button:hover,
+.abo-admin-campaigns__tabs button:focus-visible {
+    color: var(--abo-admin-text);
+    outline: none;
+}
+
+.abo-admin-campaigns__tabs button.is-active {
+    background: var(--abo-lime);
+    color: var(--abo-black, #050607);
+}
+
+/* ─── Table ─────────────────────────────────────────────────── */
+
+.abo-admin-campaigns__table-wrap {
+    /* reuses abo-admin-orders__wrap; just clip to radius */
+    border-radius: 0;
+}
+
+.abo-admin-campaigns__table {
+    /* abo-admin-orders__table already gives row hover; just tune */
+    table-layout: auto;
+}
+
+.abo-admin-campaigns__table th {
+    white-space: nowrap;
+}
+
+.abo-admin-campaigns__th-num,
+.abo-admin-campaigns__th-bar {
+    text-align: right;
+}
+
+.abo-admin-campaigns__table tbody tr {
+    cursor: default;
+}
+
+.abo-admin-campaigns__name-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.18rem;
+    min-width: 0;
+}
+
+.abo-admin-campaigns__name {
+    color: var(--abo-admin-text);
+    font-weight: 600;
+    font-size: 0.9rem;
+    line-height: 1.3;
+}
+
+.abo-admin-campaigns__preview {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.78rem;
+    max-width: 28ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.abo-admin-campaigns__schedule-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+    min-width: 0;
+}
+
+.abo-admin-campaigns__schedule-date {
+    color: var(--abo-admin-text);
+    font-size: 0.86rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.abo-admin-campaigns__schedule-time {
+    color: var(--abo-admin-gray);
+    font-size: 0.76rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.abo-admin-campaigns__sent {
+    font-variant-numeric: tabular-nums;
+    color: var(--abo-admin-text);
+    font-weight: 600;
+}
+
+.abo-admin-campaigns__metric {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    min-width: 100px;
+}
+
+.abo-admin-campaigns__metric-bar {
+    width: 64px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.06);
+    overflow: hidden;
+    border-radius: 2px;
+}
+
+.abo-admin-campaigns__metric-fill {
+    display: block;
+    height: 100%;
+    width: var(--w, 0%);
+    background: var(--abo-lime);
+    transition: width 220ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-campaigns__metric-fill--muted {
+    background: var(--abo-admin-gray);
+}
+
+.abo-admin-campaigns__metric-value {
+    color: var(--abo-admin-text);
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    min-width: 2.6rem;
+    text-align: right;
+}
+
+/* Status pill variants — colour the base .abo-admin-pill */
+
+.abo-admin-pill--active-scheduled,
+.abo-admin-campaigns__pill--active {
+    color: var(--abo-lime);
+}
+
+.abo-admin-campaigns__pill--scheduled {
+    color: var(--abo-campaigns-amber, #FFB84A);
+}
+
+.abo-admin-campaigns__pill--draft {
+    color: var(--abo-admin-gray);
+}
+
+.abo-admin-campaigns__pill--ended {
+    color: var(--abo-admin-text);
+    background: rgba(255, 255, 255, 0.04);
+    border-color: var(--abo-admin-border);
+}
+
+.abo-admin-campaigns__pill--type {
+    color: var(--abo-admin-text);
+    border-color: var(--abo-admin-border);
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+}
+
+.abo-admin-campaigns__pill--type .abo-admin-campaigns__pill-icon {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--abo-admin-gray);
+}
+
+.abo-admin-campaigns__pill--type[data-type="push"]  .abo-admin-campaigns__pill-icon { background: var(--abo-lime); }
+.abo-admin-campaigns__pill--type[data-type="email"] .abo-admin-campaigns__pill-icon { background: var(--abo-campaigns-amber); }
+.abo-admin-campaigns__pill--type[data-type="sms"]   .abo-admin-campaigns__pill-icon { background: var(--abo-campaigns-coral); }
+
+/* Row kebab menu */
+
+.abo-admin-campaigns__row-menu {
+    position: relative;
+    display: inline-block;
+}
+
+.abo-admin-campaigns__row-menu-btn {
+    appearance: none;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--abo-admin-gray);
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color 150ms var(--abo-admin-ease, ease), border-color 150ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-campaigns__row-menu-btn:hover,
+.abo-admin-campaigns__row-menu-btn:focus-visible,
+.abo-admin-campaigns__row-menu.is-open .abo-admin-campaigns__row-menu-btn {
+    color: var(--abo-lime);
+    border-color: var(--abo-admin-border);
+    outline: none;
+}
+
+.abo-admin-campaigns__row-menu-btn svg { width: 16px; height: 16px; }
+
+.abo-admin-campaigns__row-menu-pop {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    min-width: 160px;
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    z-index: 10;
+    padding: 0.3rem 0;
+}
+
+.abo-admin-campaigns__row-menu-pop[hidden] { display: none; }
+
+.abo-admin-campaigns__row-menu-pop button {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--abo-admin-text);
+    font: inherit;
+    font-size: 0.85rem;
+    text-align: left;
+    padding: 0.55rem 0.85rem;
+    cursor: pointer;
+    transition: background 150ms var(--abo-admin-ease, ease), color 150ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-campaigns__row-menu-pop button:hover,
+.abo-admin-campaigns__row-menu-pop button:focus-visible {
+    background: rgba(198, 255, 0, 0.06);
+    color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-campaigns__row-menu-pop button.is-danger {
+    color: var(--abo-campaigns-coral);
+}
+
+.abo-admin-campaigns__row-menu-pop button.is-danger:hover,
+.abo-admin-campaigns__row-menu-pop button.is-danger:focus-visible {
+    background: rgba(255, 107, 74, 0.08);
+    color: var(--abo-campaigns-coral);
+}
+
+/* ─── States (skeleton / empty / noresults) ────────────────── */
+
+.abo-admin-campaigns__state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 1rem 0;
+}
+
+.abo-admin-campaigns__state[hidden] { display: none; }
+
+.abo-admin-campaigns__skeleton {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.abo-admin-campaigns__skeleton-row {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+    padding: 0.55rem 0;
+    border-bottom: 1px solid var(--abo-admin-border);
+}
+
+.abo-admin-campaigns__skeleton-cell {
+    display: block;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.04));
+    background-size: 200% 100%;
+    border-radius: 2px;
+    animation: abo-admin-campaigns-shimmer 1.4s linear infinite;
+}
+
+@keyframes abo-admin-campaigns-shimmer {
+    from { background-position: 200% 0; }
+    to   { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .abo-admin-campaigns__skeleton-cell { animation: none; }
+}
+
+/* ─── Pagination ────────────────────────────────────────────── */
+
+.abo-admin-campaigns__pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.4rem 0 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.85rem;
+    flex-wrap: wrap;
+}
+
+.abo-admin-campaigns__pagination-info { margin: 0; }
+
+.abo-admin-campaigns__pagination-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    gap: 0.25rem;
+}
+
+.abo-admin-campaigns__page-btn {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--abo-admin-border);
+    color: var(--abo-admin-gray);
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    min-width: 32px;
+    height: 32px;
+    padding: 0 0.6rem;
+    cursor: pointer;
+    transition: color 150ms var(--abo-admin-ease, ease), border-color 150ms var(--abo-admin-ease, ease), background 150ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-campaigns__page-btn:hover,
+.abo-admin-campaigns__page-btn:focus-visible {
+    color: var(--abo-lime);
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-campaigns__page-btn.is-active {
+    background: var(--abo-lime);
+    color: var(--abo-black, #050607);
+    border-color: var(--abo-lime);
+}
+
+.abo-admin-campaigns__page-btn[disabled] {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ─── Modal (delete + send-confirm) ─────────────────────────── */
+
+.abo-admin-campaigns__modal {
+    position: fixed;
+    inset: 0;
+    z-index: 110;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.abo-admin-campaigns__modal[hidden] { display: none; }
+
+.abo-admin-campaigns__modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(5, 6, 7, 0.72);
+}
+
+.abo-admin-campaigns__modal-card {
+    position: relative;
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: 0;
+    padding: 1.4rem 1.5rem 1.2rem;
+    max-width: 440px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    box-shadow: var(--abo-admin-shadow, 0 8px 30px rgba(0, 0, 0, 0.45));
+}
+
+.abo-admin-campaigns__modal-title {
+    margin: 0;
+    color: var(--abo-admin-text);
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    text-transform: uppercase;
+    font-size: 1rem;
+    letter-spacing: 0.02em;
+}
+
+.abo-admin-campaigns__modal-body {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.abo-admin-campaigns__modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+}
+
+.abo-admin-campaigns__modal-confirm {
+    appearance: none;
+    background: var(--abo-campaigns-coral);
+    border: 1px solid var(--abo-campaigns-coral);
+    color: #fff;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.55rem 1rem;
+    min-height: 38px;
+    border-radius: 0;
+    cursor: pointer;
+    transition: background 180ms var(--abo-admin-ease, ease), border-color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-campaigns__modal-confirm:hover,
+.abo-admin-campaigns__modal-confirm:focus-visible {
+    background: #FF5532;
+    border-color: #FF5532;
+    outline: none;
+}
+
+.abo-admin-campaigns__modal-confirm--safe {
+    background: var(--abo-lime);
+    border-color: var(--abo-lime);
+    color: var(--abo-black, #050607);
+}
+
+.abo-admin-campaigns__modal-confirm--safe:hover,
+.abo-admin-campaigns__modal-confirm--safe:focus-visible {
+    background: var(--abo-lime-hover, #D7FF57);
+    border-color: var(--abo-lime-hover, #D7FF57);
+}
+
+/* ─── Toast ─────────────────────────────────────────────────── */
+
+.abo-admin-campaigns__toast {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 130;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.7rem 1rem;
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-lime);
+    border-radius: 0;
+    box-shadow: var(--abo-admin-shadow, 0 8px 30px rgba(0, 0, 0, 0.45));
+    color: var(--abo-admin-text);
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.abo-admin-campaigns__toast[hidden] { display: none; }
+
+.abo-admin-campaigns__toast-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--abo-lime);
+    flex-shrink: 0;
+}
+
+/* ─── Slide-over (560px right, full-width on mobile) ────────── */
+
+.abo-admin-campaigns__slideover-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 6, 7, 0.55);
+    z-index: 95;
+}
+
+.abo-admin-campaigns__slideover-overlay[hidden] { display: none; }
+
+.abo-admin-campaigns__slideover {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 560px;
+    max-width: 100%;
+    z-index: 100;
+    background: var(--abo-admin-bg);
+    border-left: 1px solid var(--abo-admin-border);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 220ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-campaigns__slideover[hidden] { display: none; }
+
+.abo-admin-campaigns__slideover.is-open {
+    transform: translateX(0);
+}
+
+.abo-admin-campaigns__slideover-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 1rem 1.2rem;
+    border-bottom: 1px solid var(--abo-admin-border);
+    background: var(--abo-admin-panel);
+}
+
+.abo-admin-campaigns__slideover-eyebrow {
+    margin: 0 0 0.25rem;
+    color: var(--abo-admin-gray);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+}
+
+.abo-admin-campaigns__slideover-title {
+    margin: 0;
+    color: var(--abo-admin-text);
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    text-transform: uppercase;
+    font-size: 1.05rem;
+    letter-spacing: 0.02em;
+}
+
+.abo-admin-campaigns__slideover-close {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--abo-admin-border);
+    color: var(--abo-admin-gray);
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color 150ms var(--abo-admin-ease, ease), color 150ms var(--abo-admin-ease, ease);
+    flex-shrink: 0;
+}
+
+.abo-admin-campaigns__slideover-close:hover,
+.abo-admin-campaigns__slideover-close:focus-visible {
+    color: var(--abo-lime);
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-campaigns__slideover-close svg { width: 14px; height: 14px; }
+
+/* ─── Progress bar (4 steps) ───────────────────────────────── */
+
+.abo-admin-campaigns__progress {
+    list-style: none;
+    margin: 0;
+    padding: 0.85rem 1.2rem;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.4rem;
+    border-bottom: 1px solid var(--abo-admin-border);
+}
+
+.abo-admin-campaigns__progress li {
+    position: relative;
+    text-align: center;
+    color: var(--abo-admin-gray);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 0.45rem 0;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    transition: color 180ms var(--abo-admin-ease, ease), border-color 180ms var(--abo-admin-ease, ease), background 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-campaigns__progress li.is-active {
+    background: var(--abo-lime);
+    color: var(--abo-black, #050607);
+    border-color: var(--abo-lime);
+}
+
+.abo-admin-campaigns__progress li.is-done {
+    color: var(--abo-lime);
+    border-color: var(--abo-lime);
+}
+
+/* ─── Slide-over body + foot ───────────────────────────────── */
+
+.abo-admin-campaigns__slideover-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 1.2rem 1.2rem 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.abo-admin-campaigns__slideover-foot {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.85rem 1.2rem;
+    border-top: 1px solid var(--abo-admin-border);
+    background: var(--abo-admin-panel);
+    flex-wrap: wrap;
+}
+
+.abo-admin-campaigns__slideover-foot [data-abo-admin-campaigns-back-btn] { margin-right: auto; }
+
+.abo-admin-campaigns__slideover-foot [data-abo-admin-campaigns-send-btn] { margin-left: auto; }
+
+/* ─── Step panes ───────────────────────────────────────────── */
+
+.abo-admin-campaigns__pane {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.abo-admin-campaigns__pane[hidden] { display: none; }
+
+/* ─── Form fields ──────────────────────────────────────────── */
+
+.abo-admin-campaigns__field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.abo-admin-campaigns__field label {
+    color: var(--abo-admin-gray);
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.abo-admin-campaigns__field input,
+.abo-admin-campaigns__field textarea,
+.abo-admin-campaigns__field select {
+    appearance: none;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: 0;
+    color: var(--abo-admin-text);
+    font: inherit;
+    font-size: 0.92rem;
+    padding: 0.55rem 0.75rem;
+    min-height: 38px;
+    transition: border-color 150ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-campaigns__field textarea {
+    min-height: 84px;
+    resize: vertical;
+    line-height: 1.4;
+}
+
+.abo-admin-campaigns__field input:focus,
+.abo-admin-campaigns__field textarea:focus,
+.abo-admin-campaigns__field select:focus,
+.abo-admin-campaigns__field input:hover,
+.abo-admin-campaigns__field textarea:hover,
+.abo-admin-campaigns__field select:hover {
+    border-color: var(--abo-lime);
+    outline: none;
+}
+
+.abo-admin-campaigns__field-counter {
+    margin: -0.1rem 0 0;
+    align-self: flex-end;
+    color: var(--abo-admin-gray);
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Language switch */
+
+.abo-admin-campaigns__lang {
+    display: inline-flex;
+    align-self: flex-start;
+    border: 1px solid var(--abo-admin-border);
+    border-radius: 0;
+    overflow: hidden;
+}
+
+.abo-admin-campaigns__lang button {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--abo-admin-gray);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    padding: 0.4rem 0.85rem;
+    cursor: pointer;
+    transition: color 150ms var(--abo-admin-ease, ease), background 150ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-campaigns__lang button + button { border-left: 1px solid var(--abo-admin-border); }
+
+.abo-admin-campaigns__lang button:hover,
+.abo-admin-campaigns__lang button:focus-visible {
+    color: var(--abo-admin-text);
+    outline: none;
+}
+
+.abo-admin-campaigns__lang button.is-active {
+    background: var(--abo-lime);
+    color: var(--abo-black, #050607);
+}
+
+/* Image preview */
+
+.abo-admin-campaigns__image-preview {
+    position: relative;
+    width: 96px;
+    height: 96px;
+    border: 1px solid var(--abo-admin-border);
+    background: var(--abo-admin-bg);
+    margin-top: 0.2rem;
+    overflow: hidden;
+}
+
+.abo-admin-campaigns__image-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.abo-admin-campaigns__image-remove {
+    appearance: none;
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 22px;
+    height: 22px;
+    background: rgba(0, 0, 0, 0.7);
+    border: 1px solid var(--abo-admin-border);
+    color: #fff;
+    cursor: pointer;
+    font-size: 0.95rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 150ms var(--abo-admin-ease, ease), color 150ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-campaigns__image-remove:hover,
+.abo-admin-campaigns__image-remove:focus-visible {
+    border-color: var(--abo-lime);
+    color: var(--abo-lime);
+    outline: none;
+}
+
+/* Phone-style preview */
+
+.abo-admin-campaigns__phone-preview {
+    margin-top: 0.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.abo-admin-campaigns__phone-label {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+}
+
+.abo-admin-campaigns__phone {
+    background: #1c1e22;
+    border: 1px solid var(--abo-admin-border);
+    border-radius: 18px;
+    padding: 0.85rem 0.85rem 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.abo-admin-campaigns__phone-bar {
+    display: flex;
+    justify-content: space-between;
+    color: var(--abo-admin-text);
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 0 0.3rem;
+}
+
+.abo-admin-campaigns__phone-notif {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 0.6rem 0.7rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    color: var(--abo-admin-text);
+}
+
+.abo-admin-campaigns__phone-notif-head {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.78rem;
+    color: var(--abo-admin-gray);
+}
+
+.abo-admin-campaigns__phone-icon {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    background: var(--abo-lime);
+    color: var(--abo-black, #050607);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 800;
+    font-style: italic;
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+}
+
+.abo-admin-campaigns__phone-app {
+    color: var(--abo-admin-text);
+    font-weight: 600;
+    font-size: 0.78rem;
+    margin-right: auto;
+}
+
+.abo-admin-campaigns__phone-now {
+    font-size: 0.72rem;
+}
+
+.abo-admin-campaigns__phone-title {
+    margin: 0;
+    color: var(--abo-admin-text);
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.abo-admin-campaigns__phone-body {
+    margin: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.82rem;
+    line-height: 1.35;
+}
+
+.abo-admin-campaigns__phone-thumb {
+    width: 100%;
+    height: 84px;
+    margin-top: 0.4rem;
+    background-position: center;
+    background-size: cover;
+    border-radius: 8px;
+    border: 1px solid var(--abo-admin-border);
+}
+
+/* Audience radio cards */
+
+.abo-admin-campaigns__radio-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.abo-admin-campaigns__radio-card {
+    display: grid;
+    grid-template-columns: 18px 1fr;
+    grid-template-rows: auto auto auto;
+    column-gap: 0.7rem;
+    row-gap: 0.15rem;
+    padding: 0.85rem 1rem;
+    background: var(--abo-admin-panel);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: 0;
+    cursor: pointer;
+    transition: border-color 150ms var(--abo-admin-ease, ease), background 150ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-campaigns__radio-card:hover {
+    border-color: var(--abo-admin-gray);
+}
+
+.abo-admin-campaigns__radio-card input {
+    grid-row: 1 / span 3;
+    margin: 0.18rem 0 0;
+    accent-color: var(--abo-lime);
+}
+
+.abo-admin-campaigns__radio-card:has(input:checked) {
+    border-color: var(--abo-lime);
+    background: rgba(198, 255, 0, 0.05);
+}
+
+.abo-admin-campaigns__radio-card-title {
+    grid-column: 2;
+    color: var(--abo-admin-text);
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.abo-admin-campaigns__radio-card-desc {
+    grid-column: 2;
+    color: var(--abo-admin-gray);
+    font-size: 0.8rem;
+}
+
+.abo-admin-campaigns__radio-card-reach {
+    grid-column: 2;
+    color: var(--abo-lime);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    margin-top: 0.2rem;
+}
+
+.abo-admin-campaigns__reach {
+    margin: 0.4rem 0 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.88rem;
+}
+
+.abo-admin-campaigns__reach strong {
+    color: var(--abo-admin-text);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    margin: 0 0.2rem;
+}
+
+/* Inline radio (Send now / Schedule) */
+
+.abo-admin-campaigns__radio-inline {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.abo-admin-campaigns__radio-inline-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.55rem 0.85rem;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-radius: 0;
+    color: var(--abo-admin-gray);
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: color 150ms var(--abo-admin-ease, ease), border-color 150ms var(--abo-admin-ease, ease), background 150ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-campaigns__radio-inline-item:hover {
+    color: var(--abo-admin-text);
+    border-color: var(--abo-admin-gray);
+}
+
+.abo-admin-campaigns__radio-inline-item input { accent-color: var(--abo-lime); }
+
+.abo-admin-campaigns__radio-inline-item:has(input:checked) {
+    color: var(--abo-admin-text);
+    border-color: var(--abo-lime);
+    background: rgba(198, 255, 0, 0.04);
+}
+
+.abo-admin-campaigns__schedule-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+}
+
+@media (max-width: 540px) {
+    .abo-admin-campaigns__schedule-fields { grid-template-columns: 1fr; }
+}
+
+/* Review summary */
+
+.abo-admin-campaigns__summary {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+}
+
+.abo-admin-campaigns__summary-row {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 0.75rem;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--abo-admin-border);
+    align-items: baseline;
+}
+
+.abo-admin-campaigns__summary-row:last-child { border-bottom: 0; }
+
+.abo-admin-campaigns__summary dt {
+    color: var(--abo-admin-gray);
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+}
+
+.abo-admin-campaigns__summary dd {
+    margin: 0;
+    color: var(--abo-admin-text);
+    font-size: 0.92rem;
+}
+
+/* ─── Reduced motion ───────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+    .abo-admin-campaigns__slideover,
+    .abo-admin-campaigns__metric-fill { transition: none; }
+}
+
+/* ─── Focus ring (lime) — matches admin.css convention ─────── */
+
+:where(
+    .abo-admin-campaigns__filter-search,
+    .abo-admin-campaigns__filter-search input,
+    .abo-admin-campaigns__select,
+    .abo-admin-campaigns__tabs button,
+    .abo-admin-campaigns__row-menu-btn,
+    .abo-admin-campaigns__row-menu-pop button,
+    .abo-admin-campaigns__page-btn,
+    .abo-admin-campaigns__modal-confirm,
+    .abo-admin-campaigns__slideover-close,
+    .abo-admin-campaigns__progress li,
+    .abo-admin-campaigns__lang button,
+    .abo-admin-campaigns__field input,
+    .abo-admin-campaigns__field textarea,
+    .abo-admin-campaigns__field select,
+    .abo-admin-campaigns__image-remove,
+    .abo-admin-campaigns__radio-card,
+    .abo-admin-campaigns__radio-inline-item
+):focus-visible {
+    outline: 2px solid var(--abo-lime);
+    outline-offset: 2px;
+}

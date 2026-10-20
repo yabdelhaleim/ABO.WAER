@@ -1,0 +1,698 @@
+/*
+ * ABO Admin · Reports (page-local stylesheet).
+ *
+ * Loaded only by resources/views/admin/reports/index.blade.php.
+ *
+ * Conventions (per the project scope rules):
+ *   - All new class names are prefixed with `abo-admin-reports-`.
+ *   - Brand tokens are reused from the global stylesheet via
+ *     var(--abo-lime), var(--abo-bg), var(--abo-panel), etc.
+ *   - Page-local tones reuse the existing shell palette (lime /
+ *     coral / amber / olive / gray); no new brand colours.
+ *   - Animate only transform / opacity.
+ *   - Reduced-motion disables shimmer and chart transitions.
+ *   - Hairline borders use #262626, square corners, no shadows.
+ */
+
+/* ─── Page header title (RE white, PORTS lime) ────────────── */
+
+.abo-admin-reports__title {
+    display: inline-flex;
+    align-items: baseline;
+}
+
+.abo-admin-reports__title-white { color: var(--abo-admin-text, #F4F6F0); }
+.abo-admin-reports__title-lime  { color: var(--abo-lime, #c8ff00); }
+
+/* ─── Toolbar ────────────────────────────────────────────── */
+
+.abo-admin-reports__toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding: 0.9rem 1.1rem;
+    background: var(--abo-admin-panel, #0D0F11);
+    border: 1px solid #262626;
+    border-radius: 6px;
+}
+
+.abo-admin-reports__toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    flex-wrap: wrap;
+}
+
+.abo-admin-reports__toolbar-label {
+    color: var(--abo-admin-gray, #8D928A);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+}
+
+.abo-admin-reports__custom {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.abo-admin-reports__custom[hidden] { display: none; }
+
+.abo-admin-reports__custom-field {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    color: var(--abo-admin-gray, #8D928A);
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.abo-admin-reports__custom-field input {
+    appearance: none;
+    background: var(--abo-admin-bg, #050607);
+    color: var(--abo-admin-text, #F4F6F0);
+    border: 1px solid #262626;
+    border-radius: 4px;
+    padding: 0.4rem 0.6rem;
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    min-width: 140px;
+    color-scheme: dark;
+}
+
+.abo-admin-reports__custom-field input:focus-visible {
+    outline: 2px solid var(--abo-lime, #c8ff00);
+    outline-offset: 1px;
+}
+
+/* ─── "Compare to previous period" toggle ─────────────────── */
+
+.abo-admin-reports__toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    cursor: pointer;
+    user-select: none;
+    color: var(--abo-admin-gray, #8D928A);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+}
+
+.abo-admin-reports__toggle input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.abo-admin-reports__toggle-track {
+    position: relative;
+    width: 34px;
+    height: 18px;
+    background: #161616;
+    border: 1px solid #262626;
+    border-radius: 999px;
+    transition: background 180ms cubic-bezier(0.22, 0.61, 0.36, 1), border-color 180ms cubic-bezier(0.22, 0.61, 0.36, 1);
+    flex-shrink: 0;
+}
+
+.abo-admin-reports__toggle-track::after {
+    content: "";
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: 14px;
+    height: 14px;
+    background: var(--abo-admin-gray, #8D928A);
+    border-radius: 50%;
+    transition: transform 180ms cubic-bezier(0.22, 0.61, 0.36, 1), background 180ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.abo-admin-reports__toggle input:checked + .abo-admin-reports__toggle-track {
+    background: rgba(200, 255, 0, 0.12);
+    border-color: var(--abo-lime, #c8ff00);
+}
+
+.abo-admin-reports__toggle input:checked + .abo-admin-reports__toggle-track::after {
+    transform: translateX(16px);
+    background: var(--abo-lime, #c8ff00);
+}
+
+.abo-admin-reports__toggle input:focus-visible + .abo-admin-reports__toggle-track {
+    outline: 2px solid var(--abo-lime, #c8ff00);
+    outline-offset: 2px;
+}
+
+.abo-admin-reports__toggle-label { color: var(--abo-admin-text, #F4F6F0); }
+
+/* ─── Tabs ───────────────────────────────────────────────── */
+
+.abo-admin-reports__tabs {
+    display: flex;
+    gap: 0;
+    border: 1px solid #262626;
+    border-radius: 6px;
+    overflow: hidden;
+    width: max-content;
+    max-width: 100%;
+    background: var(--abo-admin-panel, #0D0F11);
+}
+
+.abo-admin-reports__tabs button {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--abo-admin-gray, #8D928A);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 0.6rem 1.1rem;
+    cursor: pointer;
+    transition: color 180ms cubic-bezier(0.22, 0.61, 0.36, 1), background 180ms cubic-bezier(0.22, 0.61, 0.36, 1);
+    white-space: nowrap;
+}
+
+.abo-admin-reports__tabs button + button { border-left: 1px solid #262626; }
+
+.abo-admin-reports__tabs button:hover,
+.abo-admin-reports__tabs button:focus-visible {
+    color: var(--abo-admin-text, #F4F6F0);
+    background: #151515;
+    outline: none;
+}
+
+.abo-admin-reports__tabs button.is-active {
+    background: var(--abo-lime, #c8ff00);
+    color: var(--abo-black, #050607);
+}
+
+@media (max-width: 720px) {
+    .abo-admin-reports__tabs { width: 100%; overflow-x: auto; }
+    .abo-admin-reports__tabs button { padding: 0.55rem 0.9rem; }
+}
+
+/* ─── KPI skeletons (used before JS hydrates) ─────────────── */
+
+.abo-admin-reports__skeleton {
+    pointer-events: none;
+    min-height: 132px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    justify-content: center;
+}
+
+.abo-admin-reports__sk-line {
+    height: 10px;
+    background: linear-gradient(90deg, #131515 0%, #1a1d1a 50%, #131515 100%);
+    background-size: 200% 100%;
+    border-radius: 2px;
+    animation: abo-admin-reports__shimmer 1.4s linear infinite;
+}
+
+.abo-admin-reports__sk-line--label { width: 38%; height: 8px; }
+.abo-admin-reports__sk-line--value { width: 60%; height: 28px; margin: 0.3rem 0; }
+.abo-admin-reports__sk-line--delta { width: 30%; height: 8px; }
+
+@keyframes abo-admin-reports__shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .abo-admin-reports__sk-line { animation: none; }
+}
+
+/* ─── Main chart card variant ────────────────────────────── */
+
+.abo-admin-reports__chart { width: 100%; }
+
+.abo-admin-reports__chart-canvas {
+    min-height: 240px;
+    position: relative;
+}
+
+.abo-admin-reports__chart-canvas svg { width: 100%; height: 100%; display: block; }
+
+.abo-admin-reports__chart-canvas:focus-visible {
+    outline: 2px solid var(--abo-lime, #c8ff00);
+    outline-offset: 2px;
+}
+
+/* ─── Chart element styles (SVG injected by reports.js) ─── */
+
+.abo-admin-reports__bar { fill: #3F4B30; transition: fill 180ms cubic-bezier(0.22, 0.61, 0.36, 1); }
+.abo-admin-reports__bar:hover { fill: var(--abo-lime, #c8ff00); }
+
+.abo-admin-reports__bar--profit { fill: var(--abo-admin-text, #F4F6F0); }
+.abo-admin-reports__bar--profit:hover { fill: var(--abo-lime, #c8ff00); }
+
+.abo-admin-reports__bar--coral   { fill: #FF6B4A; }
+.abo-admin-reports__bar--amber   { fill: #FFB84A; }
+.abo-admin-reports__bar--dim     { fill: #4A2A1E; }
+.abo-admin-reports__bar--stone   { fill: #6E5A4A; }
+
+.abo-admin-reports__line {
+    fill: none;
+    stroke: var(--abo-lime, #c8ff00);
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.abo-admin-reports__line-dot {
+    fill: var(--abo-lime, #c8ff00);
+}
+
+.abo-admin-reports__grid {
+    stroke: #1a1d1a;
+    stroke-width: 1;
+    stroke-dasharray: 2 4;
+}
+
+.abo-admin-reports__axis-label {
+    fill: var(--abo-admin-gray, #8D928A);
+    font-size: 11px;
+    font-family: var(--font-sans, 'Inter', system-ui, sans-serif);
+}
+
+.abo-admin-reports__value-label {
+    fill: var(--abo-admin-text, #F4F6F0);
+    font-size: 10px;
+    font-weight: 600;
+    font-family: var(--font-sans, 'Inter', system-ui, sans-serif);
+}
+
+.abo-admin-reports__chart-tooltip {
+    position: absolute;
+    background: #0a0c0d;
+    border: 1px solid #2a2a2a;
+    padding: 0.45rem 0.65rem;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    color: var(--abo-admin-text, #F4F6F0);
+    pointer-events: none;
+    transform: translate(-50%, calc(-100% - 8px));
+    white-space: nowrap;
+    z-index: 5;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+}
+
+.abo-admin-reports__chart-tooltip strong { color: var(--abo-lime, #c8ff00); }
+.abo-admin-reports__chart-tooltip[hidden] { display: none; }
+
+/* Legend swatches for the new chart variants */
+.abo-admin-reports__swatch--lime  { background: var(--abo-lime, #c8ff00); }
+.abo-admin-reports__swatch--coral { background: #FF6B4A; }
+.abo-admin-reports__swatch--amber { background: #FFB84A; }
+.abo-admin-reports__swatch--dim   { background: #4A2A1E; }
+.abo-admin-reports__swatch--stone { background: #6E5A4A; }
+.abo-admin-reports__swatch--line  { background: var(--abo-lime, #c8ff00); height: 2px; border-radius: 2px; }
+
+/* ─── Horizontal-bar list (governorate / category / reasons) */
+
+.abo-admin-reports__bars {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.abo-admin-reports__bar-row {
+    display: grid;
+    grid-template-columns: minmax(80px, 30%) 1fr auto;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.abo-admin-reports__bar-name {
+    color: var(--abo-admin-text, #F4F6F0);
+    font-size: 0.88rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.abo-admin-reports__bar-track {
+    height: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid #262626;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.abo-admin-reports__bar-fill {
+    display: block;
+    height: 100%;
+    background: var(--abo-lime, #c8ff00);
+    width: var(--w, 0%);
+    transition: width 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.abo-admin-reports__bar-fill--olive { background: #5C6A48; }
+.abo-admin-reports__bar-fill--gray  { background: #4d5448; }
+.abo-admin-reports__bar-fill--coral { background: #FF6B4A; }
+.abo-admin-reports__bar-fill--amber { background: #FFB84A; }
+
+.abo-admin-reports__bar-value {
+    color: var(--abo-admin-gray, #8D928A);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.82rem;
+    font-weight: 600;
+    min-width: 56px;
+    text-align: right;
+}
+
+/* ─── Status segmented bar wrapper (reuses .abo-admin-status*) */
+
+.abo-admin-reports__status { display: flex; flex-direction: column; gap: 0.9rem; }
+
+/* ─── Top products (table + search + filter) ─────────────── */
+
+.abo-admin-reports__top { width: 100%; }
+
+.abo-admin-reports__top-head {
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.abo-admin-reports__top-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-left: auto;
+}
+
+.abo-admin-reports__top-search {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0 0.6rem;
+    height: 36px;
+    background: var(--abo-admin-bg, #050607);
+    border: 1px solid #262626;
+    border-radius: 4px;
+    width: 220px;
+    transition: border-color 180ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.abo-admin-reports__top-search:focus-within { border-color: var(--abo-lime, #c8ff00); }
+
+.abo-admin-reports__top-search-icon {
+    width: 14px;
+    height: 14px;
+    color: var(--abo-admin-gray, #8D928A);
+    flex-shrink: 0;
+}
+
+.abo-admin-reports__top-search input {
+    flex: 1 1 auto;
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--abo-admin-text, #F4F6F0);
+    font: inherit;
+    font-size: 0.85rem;
+    height: 100%;
+    outline: none;
+    min-width: 0;
+}
+
+.abo-admin-reports__top-search input::placeholder {
+    color: rgba(141, 146, 138, 0.7);
+}
+
+.abo-admin-reports__top-select {
+    appearance: none;
+    background: var(--abo-admin-bg, #050607);
+    color: var(--abo-admin-text, #F4F6F0);
+    border: 1px solid #262626;
+    border-radius: 4px;
+    padding: 0 2rem 0 0.7rem;
+    height: 36px;
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    background-image: linear-gradient(45deg, transparent 50%, var(--abo-admin-gray, #8D928A) 50%),
+                      linear-gradient(135deg, var(--abo-admin-gray, #8D928A) 50%, transparent 50%);
+    background-position: calc(100% - 14px) 16px, calc(100% - 9px) 16px;
+    background-size: 5px 5px;
+    background-repeat: no-repeat;
+    transition: border-color 180ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.abo-admin-reports__top-select:hover { border-color: var(--abo-admin-gray, #8D928A); }
+.abo-admin-reports__top-select:focus-visible {
+    outline: 2px solid var(--abo-lime, #c8ff00);
+    outline-offset: 1px;
+    border-color: var(--abo-lime, #c8ff00);
+}
+
+.abo-admin-reports__top-table th { cursor: pointer; user-select: none; }
+.abo-admin-reports__top-table th[aria-sort="ascending"]::after  { content: " ↑"; color: var(--abo-lime, #c8ff00); }
+.abo-admin-reports__top-table th[aria-sort="descending"]::after { content: " ↓"; color: var(--abo-lime, #c8ff00); }
+.abo-admin-reports__top-table th[data-sort]:hover { color: var(--abo-admin-text, #F4F6F0); }
+
+.abo-admin-reports__num { text-align: right; }
+
+.abo-admin-reports__col-return { width: 200px; }
+
+.abo-admin-reports__product-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.7rem;
+    min-width: 0;
+}
+
+.abo-admin-reports__thumb {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    background: #151515;
+    border: 1px solid #262626;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--abo-admin-gray, #8D928A);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+}
+
+.abo-admin-reports__product-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.abo-admin-reports__product-name {
+    color: var(--abo-admin-text, #F4F6F0);
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 240px;
+}
+
+.abo-admin-reports__product-cat {
+    color: var(--abo-admin-gray, #8D928A);
+    font-size: 0.74rem;
+}
+
+.abo-admin-reports__return-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    justify-content: flex-end;
+    width: 100%;
+}
+
+.abo-admin-reports__return-cell-value {
+    color: var(--abo-admin-text, #F4F6F0);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.85rem;
+    font-weight: 600;
+    min-width: 44px;
+    text-align: right;
+}
+
+.abo-admin-reports__return-cell-bar {
+    width: 80px;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid #262626;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.abo-admin-reports__return-cell-fill {
+    display: block;
+    height: 100%;
+    width: var(--w, 0%);
+    background: var(--abo-admin-coral, #FF7A5C);
+    transition: width 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.abo-admin-reports__return-cell-fill--low { background: var(--abo-lime, #c8ff00); }
+.abo-admin-reports__return-cell-fill--mid { background: #FFB84A; }
+
+@media (max-width: 720px) {
+    .abo-admin-reports__return-cell-bar { display: none; }
+    .abo-admin-reports__col-return { width: auto; }
+}
+
+/* ─── Reasons list (waste tab, second card) ──────────────── */
+
+.abo-admin-reports__reasons {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.abo-admin-reports__reasons li {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.55rem 0.6rem;
+    border: 1px solid #262626;
+    border-radius: 4px;
+    background: #0c0e10;
+}
+
+.abo-admin-reports__reasons-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.abo-admin-reports__reasons-name {
+    flex: 1 1 auto;
+    color: var(--abo-admin-text, #F4F6F0);
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.abo-admin-reports__reasons-count {
+    color: var(--abo-admin-gray, #8D928A);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+/* ─── Footer pill + date ────────────────────────────────── */
+
+.abo-admin-reports__foot {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: var(--abo-admin-gray, #8D928A);
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    margin-top: 0.4rem;
+}
+
+.abo-admin-reports__foot-pill {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--abo-lime, #c8ff00);
+    flex-shrink: 0;
+}
+
+/* ─── Toast (export demo) ───────────────────────────────── */
+
+.abo-admin-reports__toast {
+    position: fixed;
+    right: 1.4rem;
+    bottom: 1.4rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: #0a0c0d;
+    border: 1px solid #2a2a2a;
+    color: var(--abo-admin-text, #F4F6F0);
+    padding: 0.7rem 0.95rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    z-index: 80;
+    transform: translateY(20px);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1), opacity 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.abo-admin-reports__toast.is-open {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.abo-admin-reports__toast[hidden] { display: inline-flex; }
+
+.abo-admin-reports__toast-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--abo-lime, #c8ff00);
+    flex-shrink: 0;
+}
+
+/* ─── Generic empty state (per section) ──────────────────── */
+
+.abo-admin-reports__empty {
+    margin: 0.6rem 0 0.2rem;
+    color: var(--abo-admin-gray, #8D928A);
+    font-size: 0.9rem;
+    text-align: center;
+    padding: 1.4rem 0;
+    border: 1px dashed #262626;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* ─── Top-products table empty row (when search returns 0) ─ */
+
+.abo-admin-reports__row-empty td {
+    text-align: center;
+    color: var(--abo-admin-gray, #8D928A);
+    font-size: 0.88rem;
+    padding: 1.4rem 0.5rem;
+}
+
+/* ─── Reduced motion ─────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+    .abo-admin-reports__bar-fill,
+    .abo-admin-reports__return-cell-fill,
+    .abo-admin-reports__toast,
+    .abo-admin-reports__toggle-track,
+    .abo-admin-reports__toggle-track::after,
+    .abo-admin-reports__bar { transition: none; }
+}
