@@ -345,7 +345,7 @@ function finish(els, skipped, fromFallback) {
     }, 420);
 
     if (!fromFallback) {
-        try { sessionStorage.setItem(STORAGE_KEY, '1'); } catch (e) {}
+        // Kept optional: do not suppress future loads so the intro always shows on the home page.
     }
 }
 
@@ -357,9 +357,6 @@ function shouldPlay() {
         const flag = params.get('intro');
         if (flag === '0') return { play: false, scrub: null, forced: false };
         if (flag && flag.startsWith('t')) {
-            // Force the full intro even when prefers-reduced-motion is set
-            // — the visitor asked to see it. CSS uses `.force-intro` to
-            // re-enable the hidden layers.
             document.documentElement.classList.add('force-intro');
             return { play: true, scrub: parseInt(flag.slice(1), 10) || 0, forced: true };
         }
@@ -367,7 +364,8 @@ function shouldPlay() {
             document.documentElement.classList.add('force-intro');
             return { play: true, scrub: null, forced: true };
         }
-        if (sessionStorage.getItem(STORAGE_KEY) === '1') return { play: false, scrub: null, forced: false };
+        // Always play when visiting the home page
+        return { play: true, scrub: null, forced: true };
     } catch (e) { /* fall through */ }
     return { play: true, scrub: null, forced: false };
 }
