@@ -37,8 +37,8 @@ function apiUrl(template, id) {
 
 // ─── Tiny helpers ───────────────────────────────────────────
 
-const $ = (sel, root = document) => root.querySelector(sel);
-const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+var $ = window.$ || ((sel, root = document) => root.querySelector(sel));
+var $$ = window.$$ || ((sel, root = document) => Array.from(root.querySelectorAll(sel)));
 
 const TYPE_LABEL = { push: 'Push', email: 'Email', sms: 'SMS' };
 const STATUS_LABEL = {

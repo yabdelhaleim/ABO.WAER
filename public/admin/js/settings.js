@@ -30,8 +30,8 @@
    Tiny helpers
    ────────────────────────────────────────────────────────────── */
 
-const $  = (sel, root = document) => root.querySelector(sel);
-const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+var $  = window.$  || ((sel, root = document) => root.querySelector(sel));
+var $$ = window.$$ || ((sel, root = document) => Array.from(root.querySelectorAll(sel)));
 
 function escapeHTML(s) {
     return String(s ?? '')

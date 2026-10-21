@@ -1,40 +1,37 @@
 {{--
     Admin sidebar partial.
 
-    Sidebar items use a hash router (#/dashboard etc.) — this is
-    pure front-end: no Laravel route is hit when the user clicks
-    them. The "active" state is derived server-side from the
-    current route name so the shell works without JS too.
+    Sidebar items mapped directly to active Laravel routes.
+    The "active" state is derived dynamically from the current route.
 --}}
 @php
-    // Each item: {num, label, hash, group}. Sections are split by
-    // a section label so the sidebar reads top to bottom.
-    // TODO(backend): replace with real menu config from the admin
-    // permission system (e.g. spatie/laravel-permission).
     $menuSections = [
         'MAIN' => [
-            ['num' => '01', 'label' => 'Overview',     'hash' => '#/dashboard'],
-            ['num' => '02', 'label' => 'Orders',       'hash' => '#/orders'],
-            ['num' => '03', 'label' => 'Products',     'hash' => '#/products'],
-            ['num' => '04', 'label' => 'Customers',    'hash' => '#/customers'],
+            ['num' => '01', 'label' => 'Overview',    'url' => route('admin.dashboard'),               'active' => request()->routeIs('admin.dashboard*')],
+            ['num' => '02', 'label' => 'Orders',      'url' => route('admin.orders.index'),            'active' => request()->routeIs('admin.orders*')],
+            ['num' => '03', 'label' => 'Products',    'url' => route('admin.products.index'),          'active' => request()->routeIs('admin.products*')],
+            ['num' => '04', 'label' => 'Customers',   'url' => route('admin.customers.v2'),            'active' => request()->routeIs('admin.customers*')],
         ],
-        'FULFILMENT' => [
-            ['num' => '05', 'label' => 'Shipping',     'hash' => '#/shipping'],
-            ['num' => '06', 'label' => 'Returns',      'hash' => '#/returns'],
-            ['num' => '07', 'label' => 'Size guides',  'hash' => route('admin.size-guides.index')],
+        'CATALOG' => [
+            ['num' => '05', 'label' => 'Categories',  'url' => route('admin.categories.index'),        'active' => request()->routeIs('admin.categories*')],
+            ['num' => '06', 'label' => 'Colors & Sizes', 'url' => route('admin.colors-sizes.index'),   'active' => request()->routeIs('admin.colors-sizes*')],
+            ['num' => '07', 'label' => 'Size guides', 'url' => route('admin.size-guides.index'),       'active' => request()->routeIs('admin.size-guides*')],
+            ['num' => '08', 'label' => 'Banners',     'url' => route('admin.banners.index'),           'active' => request()->routeIs('admin.banners*')],
+        ],
+        'OPERATIONS' => [
+            ['num' => '09', 'label' => 'Shipping',    'url' => route('admin.shipping.index'),          'active' => request()->routeIs('admin.shipping*')],
+            ['num' => '10', 'label' => 'Pages',       'url' => route('admin.pages.index'),             'active' => request()->routeIs('admin.pages*')],
         ],
         'GROWTH' => [
-            ['num' => '08', 'label' => 'Marketing',    'hash' => '#/marketing'],
-            ['num' => '09', 'label' => 'Reports',      'hash' => '#/reports'],
+            ['num' => '11', 'label' => 'Coupons',     'url' => route('admin.coupons.index'),           'active' => request()->routeIs('admin.coupons*')],
+            ['num' => '12', 'label' => 'Campaigns',   'url' => route('admin.campaigns.index'),         'active' => request()->routeIs('admin.campaigns*')],
+            ['num' => '13', 'label' => 'Reports',     'url' => route('admin.reports.v2'),              'active' => request()->routeIs('admin.reports*')],
         ],
         'SYSTEM' => [
-            ['num' => '10', 'label' => 'Settings',     'hash' => '#/settings'],
+            ['num' => '14', 'label' => 'Admins',      'url' => route('admin.admins.v2'),               'active' => request()->routeIs('admin.admins*')],
+            ['num' => '15', 'label' => 'Settings',    'url' => route('admin.settings.v2'),            'active' => request()->routeIs('admin.settings*')],
         ],
     ];
-
-    // Active page is the dashboard route by default. Other admin
-    // pages would set this via a $activeNav variable.
-    $activeHash = $activeHash ?? '#/dashboard';
 @endphp
 
 <aside class="abo-admin-sidebar" aria-label="Admin navigation">
@@ -52,9 +49,9 @@
             <ul>
                 @foreach ($items as $item)
                     <li>
-                        <a href="{{ $item['hash'] }}"
-                           class="abo-admin-sidebar__link {{ $item['hash'] === $activeHash ? 'is-active' : '' }}"
-                           aria-current="{{ $item['hash'] === $activeHash ? 'page' : 'false' }}">
+                        <a href="{{ $item['url'] }}"
+                           class="abo-admin-sidebar__link {{ $item['active'] ? 'is-active' : '' }}"
+                           aria-current="{{ $item['active'] ? 'page' : 'false' }}">
                             <span class="abo-admin-sidebar__num" aria-hidden="true">{{ $item['num'] }}</span>
                             <span class="abo-admin-sidebar__label">{{ $item['label'] }}</span>
                         </a>
@@ -65,9 +62,12 @@
     </nav>
 
     <div class="abo-admin-sidebar__foot">
-        <a class="abo-admin-sidebar__link abo-admin-sidebar__link--quiet" href="#/docs">
-            <span class="abo-admin-sidebar__num" aria-hidden="true">·</span>
-            <span class="abo-admin-sidebar__label">Docs</span>
-        </a>
+        <form method="POST" action="{{ route('admin.logout') }}" style="display: block; width: 100%;">
+            @csrf
+            <button type="submit" class="abo-admin-sidebar__link abo-admin-sidebar__link--quiet" style="background: none; border: none; width: 100%; text-align: left; cursor: pointer; display: flex; align-items: center;">
+                <span class="abo-admin-sidebar__num" aria-hidden="true">⏻</span>
+                <span class="abo-admin-sidebar__label">Sign Out</span>
+            </button>
+        </form>
     </div>
 </aside>

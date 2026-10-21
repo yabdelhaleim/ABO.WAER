@@ -34,28 +34,34 @@
 
 @php
     // $mode is 'create' or 'edit', $product / $categories / $colors / $sizes
-    // are passed by Admin\ProductController::create() / edit().
+    // are passed by Admin\ProductController::create() / edit() or fallback routes.
     $isEdit = $mode === 'edit';
-    $formAction = $isEdit
+    $isModel = $product instanceof \App\Models\Product;
+    $productKey = $isModel ? $product->getRouteKey() : (is_array($product) ? ($product['id'] ?? null) : null);
+    $formAction = ($isEdit && $isModel)
         ? route('admin.products.update', $product)
         : route('admin.products.store');
+
+    $colorsList = $colors ?? collect();
+    $sizesList = $sizes ?? collect();
+    $categoriesList = $categories ?? collect();
 @endphp
 
 @section('content')
     {{-- Real Eloquent payload — colours + sizes the JS can pick from. --}}
     @php
         $formPayload = [
-            'colors' => $colors->map(fn ($c) => [
+            'colors' => $colorsList->map(fn ($c) => [
                 'id' => (string) $c->id,
                 'name' => $c->name,
-                'hex' => $c->hex_code,
+                'hex' => $c->hex_code ?? '#000000',
             ])->values(),
-            'sizes' => $sizes->map(fn ($s) => [
+            'sizes' => $sizesList->map(fn ($s) => [
                 'id' => (string) $s->id,
                 'name' => $s->name,
-                'group' => $s->group,
+                'group' => $s->group ?? '',
             ])->values(),
-            'product' => $isEdit ? [
+            'product' => ($isEdit && $isModel) ? [
                 'id' => (string) $product->id,
                 'name' => $product->name,
                 'nameAr' => $product->name_ar ?? '',
@@ -63,15 +69,15 @@
                 'description' => $product->description ?? '',
                 'archived' => (bool) $product->is_archived,
                 'featured' => (bool) $product->is_featured,
-                'colors' => $product->colors->pluck('id')->map(fn ($id) => (string) $id)->all(),
-                'variants' => $product->variants->map(fn ($v) => [
+                'colors' => $product->colors ? $product->colors->pluck('id')->map(fn ($id) => (string) $id)->all() : [],
+                'variants' => $product->variants ? $product->variants->map(fn ($v) => [
                     'colorId' => (string) $v->color_id,
                     'sizeId' => (string) $v->size_id,
                     'price' => (float) $v->price,
                     'cost' => (float) $v->cost,
                     'discountPrice' => $v->discount_price !== null ? (float) $v->discount_price : null,
                     'quantity' => (int) $v->quantity,
-                ])->values(),
+                ])->values() : [],
             ] : null,
         ];
     @endphp
@@ -109,7 +115,7 @@
           action="{{ $formAction }}"
           data-abo-admin-products-form
           data-mode="{{ $mode }}"
-          @if ($isEdit) data-product-id="{{ $product->id }}" @endif
+          @if ($isEdit) data-product-id="{{ $isModel ? $product->id : (is_array($product) ? ($product['id'] ?? '') : ($product->id ?? '')) }}" @endif
           enctype="multipart/form-data">
         @csrf
         @if ($isEdit)
@@ -362,9 +368,9 @@
                                 name="category_id"
                                 data-abo-admin-products-field="category">
                             <option value="">Select category</option>
-                            @foreach ($categories as $cat)
+                            @foreach ($categoriesList as $cat)
                                 <option value="{{ $cat->id }}"
-                                    @selected(old('category_id', $product->category_id ?? null) == $cat->id)>
+                                    @selected(old('category_id', $isModel ? $product->category_id : (is_array($product) ? ($product['category_id'] ?? null) : null)) == $cat->id)>
                                     {{ $cat->name }}
                                 </option>
                             @endforeach

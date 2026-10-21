@@ -27,6 +27,8 @@ use App\Http\Controllers\Store\HomeController;
 use App\Http\Controllers\Store\OrderController;
 use App\Http\Controllers\Store\PageController as StorePageController;
 use App\Http\Controllers\Store\ShopController;
+use App\Models\Product;
+use App\Services\ProductService;
 use Illuminate\Support\Facades\Route;
 
 // ─── Store: Public ───────────────────────────────────────────────────────────
@@ -196,11 +198,17 @@ Route::middleware('web')->prefix('admin/products')->name('admin.products.v2.')->
     })->name('create');
 
     Route::get('/{id}/edit', function (string $id) {
-        // The view pulls the matching sample from the JS PRODUCTS
-        // array via data-attribute, so we don't need to look it up
-        // server-side. The id is just passed through for the form's
-        // edit-mode state.
-        return view('admin.products.form', ['mode' => 'edit', 'product' => ['id' => $id]]);
+        $product = is_numeric($id) ? Product::find($id) : null;
+        if ($product) {
+            return app(ProductController::class)->edit($product);
+        }
+
+        $service = app(ProductService::class);
+
+        return view('admin.products.form', $service->loadFormData() + [
+            'mode' => 'edit',
+            'product' => ['id' => $id],
+        ]);
     })->name('edit');
 });
 

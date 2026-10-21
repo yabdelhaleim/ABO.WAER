@@ -7,8 +7,10 @@
         <nav class="store-header__nav" aria-label="Primary">
             <a href="{{ route('home') }}"
                class="store-header__link {{ request()->routeIs('home') ? 'is-active' : '' }}">Home</a>
-            <a href="#shop" class="store-header__link">Shop</a>
-            <a href="#categories" class="store-header__link">Categories</a>
+            <a href="{{ route('shop') }}"
+               class="store-header__link {{ request()->routeIs('shop') ? 'is-active' : '' }}">Shop</a>
+            <a href="{{ route('shop') }}"
+               class="store-header__link {{ request()->routeIs('shop') ? 'is-active' : '' }}">Categories</a>
             <a href="{{ route('about') }}"
                class="store-header__link {{ request()->routeIs('about') ? 'is-active' : '' }}">About</a>
             <a href="{{ route('contact') }}"
@@ -62,8 +64,8 @@
 
     <div class="store-header__sheet" data-abo-mobile-menu hidden>
         <a href="{{ route('home') }}" class="store-header__sheet-link">Home</a>
-        <a href="#shop" class="store-header__sheet-link">Shop</a>
-        <a href="#categories" class="store-header__sheet-link">Categories</a>
+        <a href="{{ route('shop') }}" class="store-header__sheet-link {{ request()->routeIs('shop') ? 'is-active' : '' }}">Shop</a>
+        <a href="{{ route('shop') }}" class="store-header__sheet-link {{ request()->routeIs('shop') ? 'is-active' : '' }}">Categories</a>
         <a href="{{ route('about') }}"
            class="store-header__sheet-link {{ request()->routeIs('about') ? 'is-active' : '' }}">About</a>
         <a href="{{ route('contact') }}"
