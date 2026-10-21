@@ -454,7 +454,7 @@ class DashboardService
      */
     public function getLatestOrders(int $limit = 5): Collection
     {
-        return Cache::remember("dashboard.latest_orders.{$limit}", self::CACHE_TTL_ORDERS, function () use ($limit): Collection {
+        $rows = Cache::remember("dashboard.latest_orders.{$limit}", self::CACHE_TTL_ORDERS, function () use ($limit): array {
             return Order::query()
                 ->with('customer')
                 ->latest('id')
@@ -467,8 +467,10 @@ class DashboardService
                     'status' => $order->status->label(),
                     'url' => route('admin.orders.index'),
                 ])
-                ->values();
+                ->all();
         });
+
+        return collect($rows);
     }
 
     /**
@@ -487,7 +489,7 @@ class DashboardService
      */
     public function getLowStockItems(int $limit = 4): Collection
     {
-        return Cache::remember("dashboard.low_stock.{$limit}", self::CACHE_TTL_ATTENTION, function () use ($limit): Collection {
+        $rows = Cache::remember("dashboard.low_stock.{$limit}", self::CACHE_TTL_ATTENTION, function () use ($limit): array {
             return Variant::query()
                 ->with(['product', 'color', 'size'])
                 ->where('quantity', '<=', self::LOW_STOCK_THRESHOLD)
@@ -501,8 +503,10 @@ class DashboardService
                     'stock' => (int) $variant->quantity,
                     'max' => self::LOW_STOCK_MAX,
                 ])
-                ->values();
+                ->all();
         });
+
+        return collect($rows);
     }
 
     /**

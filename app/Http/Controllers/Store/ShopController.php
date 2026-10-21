@@ -106,37 +106,51 @@ class ShopController extends Controller
 
         // Filter options for the sidebar — driven by real data so we never
         // show a filter with no values behind it.
-        // Cached for 10 minutes: categories/colors/sizes change rarely; the
-        // price range changes only when variant prices are updated.
-        $categories = Cache::remember('shop.sidebar.categories', 600, fn () => Category::query()
+        // Cached as stdClass objects to avoid Eloquent model serialization/unserialization issues.
+        $categories = collect(Cache::remember('shop.sidebar.categories', 600, fn () => Category::query()
             ->where('is_active', true)
             ->where('is_visible', true)
             ->whereNull('parent_id')
             ->orderBy('sort_order')
             ->orderBy('name')
-            ->get());
+            ->get(['id', 'name', 'slug', 'image'])
+            ->map(fn ($c) => (object) $c->toArray())
+            ->all()));
 
-        $colors = Cache::remember('shop.sidebar.colors', 600, fn () => Color::query()
+        $colors = collect(Cache::remember('shop.sidebar.colors', 600, fn () => Color::query()
             ->where('is_active', true)
             ->whereHas('products', fn (Builder $q) => $q->where('is_archived', false))
             ->orderBy('sort_order')
             ->orderBy('name')
-            ->get());
+            ->get(['id', 'name', 'hex_code'])
+            ->map(fn ($c) => (object) $c->toArray())
+            ->all()));
 
-        $sizes = Cache::remember('shop.sidebar.sizes', 600, fn () => Size::query()
+        $sizes = collect(Cache::remember('shop.sidebar.sizes', 600, fn () => Size::query()
             ->where('is_active', true)
             ->whereHas('variants.product', fn (Builder $q) => $q->where('is_archived', false)->where('quantity', '>', 0))
             ->orderBy('sort_order')
             ->orderBy('name')
-            ->get());
+            ->get(['id', 'name'])
+            ->map(fn ($s) => (object) $s->toArray())
+            ->all()));
 
         // The cheapest in-stock variant price for the current filter set,
         // used to render price buckets that actually have products in them.
-        $pricePoints = Cache::remember('shop.sidebar.price_points', 600, fn () => Variant::query()
-            ->whereHas('product', fn (Builder $q) => $q->where('is_archived', false))
-            ->where('quantity', '>', 0)
-            ->selectRaw('MIN(price) as min_price, MAX(price) as max_price')
-            ->first());
+        $priceData = Cache::remember('shop.sidebar.price_points', 600, function () {
+            $row = Variant::query()
+                ->whereHas('product', fn (Builder $q) => $q->where('is_archived', false))
+                ->where('quantity', '>', 0)
+                ->selectRaw('MIN(price) as min_price, MAX(price) as max_price')
+                ->first();
+
+            return [
+                'min_price' => $row?->min_price,
+                'max_price' => $row?->max_price,
+            ];
+        });
+
+        $pricePoints = (object) $priceData;
 
         return view('shop', [
             'products' => $products,
