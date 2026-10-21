@@ -345,7 +345,7 @@ function finish(els, skipped, fromFallback) {
     }, 420);
 
     if (!fromFallback) {
-        // Kept optional: do not suppress future loads so the intro always shows on the home page.
+        try { sessionStorage.setItem(STORAGE_KEY, '1'); } catch (e) {}
     }
 }
 
@@ -364,8 +364,10 @@ function shouldPlay() {
             document.documentElement.classList.add('force-intro');
             return { play: true, scrub: null, forced: true };
         }
-        // Always play when visiting the home page
-        return { play: true, scrub: null, forced: true };
+        // Play once per session so navigating between pages stays light and fast
+        if (sessionStorage.getItem(STORAGE_KEY) === '1') {
+            return { play: false, scrub: null, forced: false };
+        }
     } catch (e) { /* fall through */ }
     return { play: true, scrub: null, forced: false };
 }
