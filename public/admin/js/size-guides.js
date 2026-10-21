@@ -1003,11 +1003,10 @@ function initList() {
         }
     });
 
-    // Initial selection
+    // Initial render and selection
+    renderList();
     if (STATE.guides.length > 0) {
         openEditor(STATE.guides[0].id);
-    } else {
-        renderList();
     }
 }
 

@@ -217,7 +217,8 @@
 
                 <div class="abo-admin-size-guides__state"
                      data-abo-admin-size-guides-state="loading"
-                     data-abo-admin-size-guides-skeleton>
+                     data-abo-admin-size-guides-skeleton
+                     hidden>
                     <div class="abo-admin-size-guides__skeleton" aria-hidden="true">
                         @for ($i = 0; $i < 4; $i++)
                             <div class="abo-admin-size-guides__skeleton-row">
