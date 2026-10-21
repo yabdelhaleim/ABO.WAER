@@ -42,9 +42,10 @@
     <link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
     <link rel="icon" type="image/svg+xml" href="{{ asset('images/abo-logo.svg') }}">
 
-    {{-- Preload the hero photo so the intro reveal at 4.4s and the
-         LCP image are instant. fetchpriority="high" lives on the <img>. --}}
-    <link rel="preload" as="image" href="{{ asset('images/streetwear-hero.jpg') }}">
+    @if (request()->routeIs('home'))
+        {{-- Preload the hero photo only on the home page so LCP and reveal are instant. --}}
+        <link rel="preload" as="image" href="{{ asset('images/streetwear-hero.jpg') }}">
+    @endif
 
     {{-- Add `js` class to <html> as early as possible so the home page
          can hide elements only when JS is running. Without JS, the page
