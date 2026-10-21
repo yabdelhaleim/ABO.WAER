@@ -363,7 +363,7 @@ function shouldPlay() {
             document.documentElement.classList.add('force-intro');
             return { play: true, scrub: parseInt(flag.slice(1), 10) || 0, forced: true };
         }
-        if (flag === '1') {
+        if (flag === '1' || window.location.hash === '#intro') {
             document.documentElement.classList.add('force-intro');
             return { play: true, scrub: null, forced: true };
         }
@@ -379,7 +379,7 @@ function preloadAssets() {
     // is. We use <link rel="preload"> in the layout for the hero photo;
     // the fonts are handled by the bunny.net Vite plugin via @font-face.
     // As a belt-and-braces, kick off a JS Image() load here too.
-    const heroImg = document.querySelector('.store-hero__photo');
+    const heroImg = document.querySelector('.store-hero__photo, [data-home-photo], .hero__photo');
     if (heroImg && heroImg.src) {
         const im = new Image();
         im.src = heroImg.src;
@@ -390,6 +390,12 @@ function initIntro() {
     const overlay = document.querySelector('[data-abo-intro]');
     if (!overlay) return;
 
+    // Expose developer / user replay helper
+    window.replayIntro = () => {
+        sessionStorage.removeItem(STORAGE_KEY);
+        window.location.href = window.location.pathname + '?intro=1';
+    };
+
     const decision = shouldPlay();
     if (!decision.play) {
         overlay.remove();
@@ -397,7 +403,7 @@ function initIntro() {
         // entrance animation from the abo:home-reveal signal it
         // dispatches on DOMContentLoaded. Make sure the hero is
         // visible to the home JS so the scale 1.12 → 1.00 lands.
-        const hero = document.querySelector('.store-hero');
+        const hero = document.querySelector('.store-hero, [data-home-hero], .hero');
         if (hero) {
             hero.style.opacity = '1';
         }
@@ -421,7 +427,7 @@ function initIntro() {
         sweep:     overlay.querySelector('[data-abo-intro-sweep]'),
         bleed:     overlay.querySelector('.abo-intro__bleed'),
         skip:      overlay.querySelector('[data-abo-intro-skip]'),
-        hero:      document.querySelector('.store-hero'),
+        hero:      document.querySelector('.store-hero, [data-home-hero], .hero'),
     };
 
     // The home page sets its own hero initial state (opacity:0,
