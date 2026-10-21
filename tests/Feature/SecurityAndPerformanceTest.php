@@ -330,6 +330,13 @@ class SecurityAndPerformanceTest extends TestCase
     {
         $this->seedCatalogProducts($productCount);
 
+        // Flush the application cache before each measurement so sidebar
+        // data (categories, colors, sizes, price points) is always fetched
+        // from the database rather than served from a warm cache. Without
+        // this flush the second call would read cache and appear cheaper,
+        // making the two counts incomparable and causing a false failure.
+        \Illuminate\Support\Facades\Cache::flush();
+
         // Keep the connection logged so we can read every SELECT after
         // the request returns.
         $queries = [];

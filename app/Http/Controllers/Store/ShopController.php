@@ -10,6 +10,7 @@ use App\Models\Size;
 use App\Models\Variant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
 class ShopController extends Controller
@@ -105,35 +106,37 @@ class ShopController extends Controller
 
         // Filter options for the sidebar — driven by real data so we never
         // show a filter with no values behind it.
-        $categories = Category::query()
+        // Cached for 10 minutes: categories/colors/sizes change rarely; the
+        // price range changes only when variant prices are updated.
+        $categories = Cache::remember('shop.sidebar.categories', 600, fn () => Category::query()
             ->where('is_active', true)
             ->where('is_visible', true)
             ->whereNull('parent_id')
             ->orderBy('sort_order')
             ->orderBy('name')
-            ->get();
+            ->get());
 
-        $colors = Color::query()
+        $colors = Cache::remember('shop.sidebar.colors', 600, fn () => Color::query()
             ->where('is_active', true)
             ->whereHas('products', fn (Builder $q) => $q->where('is_archived', false))
             ->orderBy('sort_order')
             ->orderBy('name')
-            ->get();
+            ->get());
 
-        $sizes = Size::query()
+        $sizes = Cache::remember('shop.sidebar.sizes', 600, fn () => Size::query()
             ->where('is_active', true)
             ->whereHas('variants.product', fn (Builder $q) => $q->where('is_archived', false)->where('quantity', '>', 0))
             ->orderBy('sort_order')
             ->orderBy('name')
-            ->get();
+            ->get());
 
         // The cheapest in-stock variant price for the current filter set,
         // used to render price buckets that actually have products in them.
-        $pricePoints = Variant::query()
+        $pricePoints = Cache::remember('shop.sidebar.price_points', 600, fn () => Variant::query()
             ->whereHas('product', fn (Builder $q) => $q->where('is_archived', false))
             ->where('quantity', '>', 0)
             ->selectRaw('MIN(price) as min_price, MAX(price) as max_price')
-            ->first();
+            ->first());
 
         return view('shop', [
             'products' => $products,

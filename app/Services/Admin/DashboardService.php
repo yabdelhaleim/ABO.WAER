@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\Variant;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -124,34 +125,52 @@ class DashboardService
      *
      * @return array<int, array{count: int, label: string, href: string, tone: string}>
      */
+    /**
+     * Cache TTL constants for dashboard metrics (seconds).
+     *
+     * Attention tiles refresh every 2 minutes — short enough that a
+     * new order shows up quickly, long enough to avoid hitting the
+     * database on every admin page load.  KPI / chart data is slightly
+     * staler (5 min) because it spans a range window and changes
+     * gradually.  Static filter data (categories, colors, sizes) can
+     * live in cache for 10 minutes.
+     */
+    private const CACHE_TTL_ATTENTION = 120;
+
+    private const CACHE_TTL_KPI = 300;
+
+    private const CACHE_TTL_ORDERS = 60;
+
     public function getAttentionMetrics(): array
     {
-        return [
-            [
-                'count' => Order::query()
-                    ->whereIn('status', [OrderStatus::Pending, OrderStatus::Processing])
-                    ->count(),
-                'label' => 'orders waiting',
-                'href' => route('admin.orders.index'),
-                'tone' => 'lime',
-            ],
-            [
-                'count' => Variant::query()
-                    ->where('quantity', '<=', self::LOW_STOCK_THRESHOLD)
-                    ->count(),
-                'label' => 'items low stock',
-                'href' => route('admin.products.index'),
-                'tone' => 'coral',
-            ],
-            [
-                'count' => Order::query()
-                    ->where('status', OrderStatus::Shipped)
-                    ->count(),
-                'label' => 'COD to collect',
-                'href' => route('admin.orders.index'),
-                'tone' => 'gray',
-            ],
-        ];
+        return Cache::remember('dashboard.attention', self::CACHE_TTL_ATTENTION, function (): array {
+            return [
+                [
+                    'count' => Order::query()
+                        ->whereIn('status', [OrderStatus::Pending, OrderStatus::Processing])
+                        ->count(),
+                    'label' => 'orders waiting',
+                    'href' => route('admin.orders.index'),
+                    'tone' => 'lime',
+                ],
+                [
+                    'count' => Variant::query()
+                        ->where('quantity', '<=', self::LOW_STOCK_THRESHOLD)
+                        ->count(),
+                    'label' => 'items low stock',
+                    'href' => route('admin.products.index'),
+                    'tone' => 'coral',
+                ],
+                [
+                    'count' => Order::query()
+                        ->where('status', OrderStatus::Shipped)
+                        ->count(),
+                    'label' => 'COD to collect',
+                    'href' => route('admin.orders.index'),
+                    'tone' => 'gray',
+                ],
+            ];
+        });
     }
 
     /**
@@ -181,33 +200,35 @@ class DashboardService
     {
         $range = $this->normalizeRange($range);
 
-        [$from, $to] = $this->rangeBounds($range);
-        [$prevFrom, $prevTo] = $this->rangeBounds($range, previous: true);
+        return Cache::remember("dashboard.kpi.{$range}", self::CACHE_TTL_KPI, function () use ($range): array {
+            [$from, $to] = $this->rangeBounds($range);
+            [$prevFrom, $prevTo] = $this->rangeBounds($range, previous: true);
 
-        $current = $this->totalsBetween($from, $to);
-        $previous = $this->totalsBetween($prevFrom, $prevTo);
+            $current = $this->totalsBetween($from, $to);
+            $previous = $this->totalsBetween($prevFrom, $prevTo);
 
-        $sales = (float) $current['sales'];
-        $profit = $sales - (float) $current['cogs'];
-        $prevSales = (float) $previous['sales'];
-        $prevProfit = $prevSales - (float) $previous['cogs'];
+            $sales = (float) $current['sales'];
+            $profit = $sales - (float) $current['cogs'];
+            $prevSales = (float) $previous['sales'];
+            $prevProfit = $prevSales - (float) $previous['cogs'];
 
-        $ordersCount = (int) $current['orders_count'];
-        $avgOrder = $ordersCount > 0 ? $sales / $ordersCount : 0.0;
+            $ordersCount = (int) $current['orders_count'];
+            $avgOrder = $ordersCount > 0 ? $sales / $ordersCount : 0.0;
 
-        $returns = (int) $current['returns_count'];
-        $returnsWaste = (float) $current['returns_total'];
+            $returns = (int) $current['returns_count'];
+            $returnsWaste = (float) $current['returns_total'];
 
-        return [
-            'sales' => $this->formatMoney($sales),
-            'salesDelta' => $this->formatDelta($sales, $prevSales),
-            'profit' => $this->formatMoney($profit),
-            'profitDelta' => $this->formatDelta($profit, $prevProfit),
-            'orders' => $ordersCount,
-            'avgOrder' => $this->formatMoney($avgOrder),
-            'returns' => $returns,
-            'returnsWaste' => $this->formatMoney($returnsWaste),
-        ];
+            return [
+                'sales' => $this->formatMoney($sales),
+                'salesDelta' => $this->formatDelta($sales, $prevSales),
+                'profit' => $this->formatMoney($profit),
+                'profitDelta' => $this->formatDelta($profit, $prevProfit),
+                'orders' => $ordersCount,
+                'avgOrder' => $this->formatMoney($avgOrder),
+                'returns' => $returns,
+                'returnsWaste' => $this->formatMoney($returnsWaste),
+            ];
+        });
     }
 
     /**
@@ -315,31 +336,33 @@ class DashboardService
      */
     public function getOrdersByStatus(): array
     {
-        $counts = DB::table('orders')
-            ->selectRaw('status, COUNT(*) as aggregate')
-            ->groupBy('status')
-            ->pluck('aggregate', 'status');
+        return Cache::remember('dashboard.orders_by_status', self::CACHE_TTL_ATTENTION, function (): array {
+            $counts = DB::table('orders')
+                ->selectRaw('status, COUNT(*) as aggregate')
+                ->groupBy('status')
+                ->pluck('aggregate', 'status');
 
-        $total = 0;
-        foreach (self::STATUS_BUCKETS as $bucket) {
-            foreach ($bucket['statuses'] as $status) {
-                $total += (int) ($counts[$status] ?? 0);
-            }
-        }
-
-        return array_map(function (array $bucket) use ($counts, $total): array {
-            $count = 0;
-            foreach ($bucket['statuses'] as $status) {
-                $count += (int) ($counts[$status] ?? 0);
+            $total = 0;
+            foreach (self::STATUS_BUCKETS as $bucket) {
+                foreach ($bucket['statuses'] as $status) {
+                    $total += (int) ($counts[$status] ?? 0);
+                }
             }
 
-            return [
-                'label' => $bucket['label'],
-                'count' => $count,
-                'percent' => $total > 0 ? round($count / $total * 100, 2) : 0.0,
-                'hue' => $bucket['hue'],
-            ];
-        }, self::STATUS_BUCKETS);
+            return array_map(function (array $bucket) use ($counts, $total): array {
+                $count = 0;
+                foreach ($bucket['statuses'] as $status) {
+                    $count += (int) ($counts[$status] ?? 0);
+                }
+
+                return [
+                    'label' => $bucket['label'],
+                    'count' => $count,
+                    'percent' => $total > 0 ? round($count / $total * 100, 2) : 0.0,
+                    'hue' => $bucket['hue'],
+                ];
+            }, self::STATUS_BUCKETS);
+        });
     }
 
     /**
@@ -431,19 +454,21 @@ class DashboardService
      */
     public function getLatestOrders(int $limit = 5): Collection
     {
-        return Order::query()
-            ->with('customer')
-            ->latest('id')
-            ->limit($limit)
-            ->get()
-            ->map(fn (Order $order): array => [
-                'id' => (string) $order->order_number,
-                'customer' => $this->customerDisplayName($order),
-                'total' => $this->formatMoney((float) $order->total),
-                'status' => $order->status->label(),
-                'url' => route('admin.orders.index'),
-            ])
-            ->values();
+        return Cache::remember("dashboard.latest_orders.{$limit}", self::CACHE_TTL_ORDERS, function () use ($limit): Collection {
+            return Order::query()
+                ->with('customer')
+                ->latest('id')
+                ->limit($limit)
+                ->get()
+                ->map(fn (Order $order): array => [
+                    'id' => (string) $order->order_number,
+                    'customer' => $this->customerDisplayName($order),
+                    'total' => $this->formatMoney((float) $order->total),
+                    'status' => $order->status->label(),
+                    'url' => route('admin.orders.index'),
+                ])
+                ->values();
+        });
     }
 
     /**
@@ -462,20 +487,22 @@ class DashboardService
      */
     public function getLowStockItems(int $limit = 4): Collection
     {
-        return Variant::query()
-            ->with(['product', 'color', 'size'])
-            ->where('quantity', '<=', self::LOW_STOCK_THRESHOLD)
-            ->orderBy('quantity')
-            ->orderBy('id')
-            ->limit($limit)
-            ->get()
-            ->map(fn (Variant $variant): array => [
-                'product' => (string) ($variant->product?->name ?? '—'),
-                'variant' => $this->variantDisplay($variant),
-                'stock' => (int) $variant->quantity,
-                'max' => self::LOW_STOCK_MAX,
-            ])
-            ->values();
+        return Cache::remember("dashboard.low_stock.{$limit}", self::CACHE_TTL_ATTENTION, function () use ($limit): Collection {
+            return Variant::query()
+                ->with(['product', 'color', 'size'])
+                ->where('quantity', '<=', self::LOW_STOCK_THRESHOLD)
+                ->orderBy('quantity')
+                ->orderBy('id')
+                ->limit($limit)
+                ->get()
+                ->map(fn (Variant $variant): array => [
+                    'product' => (string) ($variant->product?->name ?? '—'),
+                    'variant' => $this->variantDisplay($variant),
+                    'stock' => (int) $variant->quantity,
+                    'max' => self::LOW_STOCK_MAX,
+                ])
+                ->values();
+        });
     }
 
     /**
@@ -539,27 +566,29 @@ class DashboardService
     {
         $range = $this->normalizeRange($range);
 
-        [$from, $to] = $this->rangeBounds($range);
-        $expression = $this->bucketExpression($range);
+        return Cache::remember("dashboard.series.{$range}", self::CACHE_TTL_KPI, function () use ($range): array {
+            [$from, $to] = $this->rangeBounds($range);
+            $expression = $this->bucketExpression($range);
 
-        $sales = $this->salesByBucket($expression, $from, $to);
-        $cogs = $this->cogsByBucket($expression, $from, $to);
-        $returns = $this->returnsByBucket($expression, $from, $to);
+            $sales = $this->salesByBucket($expression, $from, $to);
+            $cogs = $this->cogsByBucket($expression, $from, $to);
+            $returns = $this->returnsByBucket($expression, $from, $to);
 
-        return array_map(function (array $bucket) use ($sales, $cogs, $returns): array {
-            $key = $bucket['key'];
-            $salesValue = (float) ($sales[$key]['sales'] ?? 0.0);
+            return array_map(function (array $bucket) use ($sales, $cogs, $returns): array {
+                $key = $bucket['key'];
+                $salesValue = (float) ($sales[$key]['sales'] ?? 0.0);
 
-            return [
-                'key' => $key,
-                'label' => $bucket['label'],
-                'current' => $bucket['current'],
-                'sales' => $salesValue,
-                'profit' => $salesValue - (float) ($cogs[$key] ?? 0.0),
-                'orders' => (int) ($sales[$key]['orders'] ?? 0),
-                'returns' => (int) ($returns[$key] ?? 0),
-            ];
-        }, $this->bucketKeys($range, $from, $to));
+                return [
+                    'key' => $key,
+                    'label' => $bucket['label'],
+                    'current' => $bucket['current'],
+                    'sales' => $salesValue,
+                    'profit' => $salesValue - (float) ($cogs[$key] ?? 0.0),
+                    'orders' => (int) ($sales[$key]['orders'] ?? 0),
+                    'returns' => (int) ($returns[$key] ?? 0),
+                ];
+            }, $this->bucketKeys($range, $from, $to));
+        });
     }
 
     /**
