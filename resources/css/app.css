@@ -3640,12 +3640,101 @@ html:not(.js) .hero__sweep {
     gap: 0.5rem;
 }
 .product-page__color {
-    width: 22px;
-    height: 22px;
+    /* When used as a button (product.blade.php v2), the swatch is a
+       child span; when used as a plain <li> the bg is set inline.  */
+    appearance: none;
+    background: transparent;
+    border: 1.5px solid var(--abo-border);
+    border-radius: 6px;
+    padding: 0.35rem 0.6rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    cursor: pointer;
+    color: var(--abo-white);
+    font-family: var(--font-sans);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    transition: border-color 180ms var(--abo-ease), background 180ms var(--abo-ease);
+    white-space: nowrap;
+}
+.product-page__color:hover:not([aria-disabled='true']),
+.product-page__color:focus-visible:not([aria-disabled='true']) {
+    border-color: var(--abo-lime);
+    outline: 0;
+}
+.product-page__color[aria-pressed='true'] {
+    border-color: var(--abo-lime);
+    background: rgba(198, 255, 0, 0.08);
+}
+.product-page__color[aria-disabled='true'] {
+    opacity: 0.38;
+    cursor: not-allowed;
+}
+
+/* Swatch dot inside the color button. */
+.product-page__color-swatch {
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
     background: var(--swatch, #ffffff);
-    border: 1px solid var(--abo-border);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    flex: 0 0 auto;
 }
+
+.product-page__color-name {
+    color: var(--abo-white);
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+    text-transform: capitalize;
+}
+
+.product-page__color-oos {
+    color: var(--abo-gray);
+    font-size: 0.7rem;
+}
+
+/* ─── Product image thumbnail strip (color selector) ──────── */
+.product-page__thumbs {
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0;
+    display: flex;
+    gap: 0.4rem;
+}
+
+.product-page__thumb {
+    width: 56px;
+    height: 70px;
+    border: 1.5px solid var(--abo-border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: #0a0b0d;
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0;
+    transition: border-color 180ms var(--abo-ease);
+}
+
+.product-page__thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.product-page__thumb.is-active {
+    border-color: var(--abo-lime);
+    box-shadow: 0 0 10px rgba(198, 255, 0, 0.2);
+}
+
+.product-page__thumb:hover,
+.product-page__thumb:focus-visible {
+    border-color: rgba(198, 255, 0, 0.55);
+    outline: 0;
+}
+
 .product-page__hint {
     margin: 0.4rem 0 0;
     color: var(--abo-gray);
@@ -3658,6 +3747,110 @@ html:not(.js) .hero__sweep {
 @media (max-width: 899px) {
     .product-page__inner { grid-template-columns: 1fr; }
 }
+
+/* ─── Related products grid ────────────────────────────────── */
+.related {
+    background: var(--abo-black);
+}
+
+.related__grid {
+    max-width: var(--container-max);
+    margin: 0 auto;
+    padding: 0 clamp(1.25rem, 4vw, 3rem) clamp(3rem, 6vw, 5rem);
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+}
+
+.related__item {
+    display: flex;
+}
+
+.related__link {
+    display: flex;
+    flex-direction: column;
+    text-decoration: none;
+    color: var(--abo-white);
+    background: var(--abo-panel);
+    border: 1px solid var(--abo-border);
+    border-radius: 8px;
+    overflow: hidden;
+    font-family: var(--font-sans);
+    transition: transform 240ms var(--abo-ease-emph), border-color 240ms var(--abo-ease);
+    width: 100%;
+}
+
+.related__link:hover,
+.related__link:focus-visible {
+    transform: translateY(-4px);
+    border-color: var(--abo-lime);
+    outline: 0;
+}
+
+.related__link img {
+    width: 100%;
+    aspect-ratio: 4 / 5;
+    object-fit: cover;
+    display: block;
+    transition: transform 500ms var(--abo-ease-emph);
+}
+
+.related__link:hover img,
+.related__link:focus-visible img {
+    transform: scale(1.04);
+}
+
+.related__body {
+    padding: 0.85rem 1rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    flex: 1;
+}
+
+.related__name {
+    margin: 0;
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-size: 0.92rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.related__price {
+    margin: 0;
+    color: var(--abo-lime);
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    font-variant-numeric: tabular-nums;
+}
+
+.related__colors {
+    list-style: none;
+    margin: 0.1rem 0 0;
+    padding: 0;
+    display: flex;
+    gap: 0.35rem;
+}
+
+.related__color {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--swatch, #ffffff);
+    border: 1px solid var(--abo-border);
+}
+
+@media (max-width: 1199px) {
+    .related__grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 767px) {
+    .related__grid { grid-template-columns: repeat(2, 1fr); }
+}
+
 
 /* ═══════════════════════════════════════════════════════════════════════
    ABO Size Guide — fully namespaced under .size-guide*.
@@ -6492,5 +6685,366 @@ html.size-guide-open body {
     .account__shortcut:hover .account__shortcut-arrow,
     .account__shortcut:focus-visible .account__shortcut-arrow {
         transform: none !important;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ABO Mobile Responsive Polish
+   Covers all store pages. No new colors or fonts — existing tokens only.
+   Breakpoints:
+     ≤ 899px  → tablet / large phone (landscape)
+     ≤ 640px  → phone portrait
+     ≤ 480px  → small phone
+     ≤ 380px  → very small phone (SE, Galaxy mini, etc.)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ─── 0. Global: prevent horizontal scroll ──────────────────── */
+
+.abo-store-body {
+    overflow-x: hidden;
+}
+
+/* ─── 1. Home: hero ─────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+    .hero {
+        min-height: 100dvh;
+    }
+
+    .hero__inner {
+        min-height: 100dvh;
+        padding-top: 4.5rem;
+        padding-bottom: 2.5rem;
+        gap: 1rem;
+    }
+
+    .hero__headline {
+        font-size: clamp(38px, 12vw, 60px);
+    }
+
+    .hero__stats {
+        gap: 0.85rem 1.4rem;
+    }
+
+    .hero__stat-value {
+        font-size: 1.15rem;
+    }
+}
+
+@media (max-width: 380px) {
+    .hero__headline {
+        font-size: clamp(32px, 11.5vw, 46px);
+    }
+
+    .hero__stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.6rem;
+    }
+
+    .hero__stat {
+        align-items: center;
+    }
+}
+
+/* ─── 2. Home: ticker ────────────────────────────────────────── */
+
+@media (max-width: 480px) {
+    .ticker {
+        margin: 0.25rem 0;
+    }
+}
+
+/* ─── 3. Home: categories grid ──────────────────────────────── */
+
+/* 2 cols at ≤ 899px (existing); 1 col on very small phones. */
+@media (max-width: 380px) {
+    .categories__grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ─── 4. Home: new drop product grid ────────────────────────── */
+
+@media (max-width: 380px) {
+    .newdrop__grid {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+}
+
+/* ─── 5. Home: brand banner ─────────────────────────────────── */
+
+@media (max-width: 640px) {
+    .banner {
+        padding: clamp(2.5rem, 8vw, 4rem) clamp(1.25rem, 4vw, 2rem);
+    }
+
+    .banner__line {
+        width: clamp(120px, 32vw, 240px);
+    }
+}
+
+/* ─── 6. Home: "Why ABO" — single column on small phones ────── */
+
+@media (max-width: 480px) {
+    .why__grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Reset the "every 4th child" border rule for single-col layout. */
+    .why__cell:nth-child(4n),
+    .why__cell:nth-child(2n) {
+        border-right: 1px solid var(--abo-border);
+    }
+
+    .why__cell:last-child {
+        border-right: 0;
+    }
+}
+
+/* ─── 7. Home: section headings ─────────────────────────────── */
+
+@media (max-width: 640px) {
+    .section-head {
+        padding: clamp(2rem, 5vw, 3rem) clamp(1rem, 4vw, 1.5rem) 1rem;
+    }
+
+    .section-head__title {
+        font-size: clamp(1.5rem, 7vw, 2.2rem);
+    }
+}
+
+/* ─── 8. Shop: hero ─────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+    .shop-hero {
+        padding: clamp(3rem, 8vw, 4.5rem) clamp(1.25rem, 4vw, 2rem) clamp(1.5rem, 4vw, 2.5rem);
+    }
+
+    .shop-hero__headline {
+        font-size: clamp(2rem, 9vw, 3rem);
+    }
+}
+
+/* ─── 9. Shop: filter bar — horizontal scroll on phones ─────── */
+
+@media (max-width: 640px) {
+    .shop-filters__inner {
+        gap: 0.6rem;
+        padding: 0.6rem clamp(1rem, 4vw, 1.5rem);
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+
+    .shop-filters__inner::-webkit-scrollbar {
+        display: none;
+    }
+
+    .shop-filters__chips {
+        flex-wrap: nowrap;
+        flex-shrink: 0;
+    }
+
+    .shop-filters__count {
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+}
+
+/* ─── 10. Shop: product grid + skeleton ─────────────────────── */
+
+/* Skeleton mirrors the product-grid breakpoints. */
+@media (max-width: 1199px) {
+    .shop-skeletons { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 767px) {
+    .shop-skeletons { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 380px) {
+    .shop-grid      { grid-template-columns: 1fr; gap: 0.75rem; }
+    .shop-skeletons { grid-template-columns: 1fr; }
+}
+
+/* ─── 11. Shop: category strip ──────────────────────────────── */
+
+/* 2 cols at ≤ 899px (existing). */
+@media (max-width: 380px) {
+    .shop-categories__grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ─── 12. Product page ──────────────────────────────────────── */
+
+@media (max-width: 899px) {
+    /* Shorter media box — the image doesn't need 4:5 when stacked. */
+    .product-page__media {
+        aspect-ratio: 4 / 3.2;
+        max-height: 72vw;
+    }
+
+    /* ATC button: full width on mobile. */
+    .product-page__group > .store-btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    /* Thumbnail strip: horizontal scroll. */
+    .product-page__thumbs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        padding-bottom: 0.25rem;
+    }
+
+    .product-page__thumbs::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+@media (max-width: 640px) {
+    .product-page {
+        padding: 1.5rem 1rem clamp(2rem, 6vw, 3.5rem);
+    }
+
+    .product-page__name {
+        font-size: clamp(1.5rem, 7vw, 2rem);
+    }
+}
+
+/* ─── 13. Related products grid ─────────────────────────────── */
+
+@media (max-width: 640px) {
+    .related__grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 0.75rem;
+    }
+}
+
+@media (max-width: 380px) {
+    .related__grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* ─── 14. Cart ──────────────────────────────────────────────── */
+
+@media (max-width: 480px) {
+    .cart {
+        padding: 1.5rem 1rem clamp(6rem, 12vw, 8rem);
+    }
+
+    .cart__title {
+        font-size: clamp(2rem, 11vw, 3rem);
+    }
+
+    .cart__row {
+        grid-template-columns: 88px 1fr;
+        gap: 0.75rem;
+    }
+}
+
+/* ─── 15. Checkout ──────────────────────────────────────────── */
+
+@media (max-width: 480px) {
+    .checkout {
+        padding: 1rem 1rem clamp(6rem, 12vw, 8rem);
+    }
+
+    .checkout__title {
+        font-size: clamp(1.8rem, 10vw, 2.6rem);
+    }
+}
+
+/* ─── 16. Account page ──────────────────────────────────────── */
+
+@media (max-width: 640px) {
+    .account__title {
+        font-size: clamp(2.2rem, 10vw, 3.2rem);
+    }
+
+    /* Quick-actions shortcuts: single column on phones. */
+    .account__shortcut-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .account__shortcut {
+        padding: 1rem 1.1rem;
+    }
+}
+
+/* ─── 17. Nav: mobile sheet overflow on landscape ───────────── */
+
+@media (max-height: 500px) and (max-width: 900px) {
+    .store-header__sheet {
+        max-height: calc(100dvh - 60px);
+        overflow-y: auto;
+    }
+}
+
+/* ─── 18. Footer ────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+    .store-footer__base {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+        padding-bottom: 2.5rem;
+    }
+
+    .store-footer__inner {
+        gap: 1.75rem;
+    }
+}
+
+/* ─── 19. Announcement bar ──────────────────────────────────── */
+
+@media (max-width: 380px) {
+    .announcement__inner {
+        font-size: 0.66rem;
+        letter-spacing: 0.18em;
+        padding: 0.4rem 0.75rem;
+    }
+}
+
+/* ─── 20. Touch-device tap-target safety net ────────────────── */
+
+/*
+   On pointer:coarse devices (touch screens) ensure interactive
+   elements meet the 44 × 44 px minimum recommended by WCAG 2.5.5.
+   Visual appearance is unchanged — only the hit area is expanded.
+*/
+@media (pointer: coarse) {
+    .store-header__icon,
+    .shop-filters__chip,
+    .store-header__sheet-link,
+    .size-guide__trigger,
+    .product-page__size-btn {
+        min-height: 44px;
+    }
+
+    /* Color swatch buttons: easier to tap. */
+    .product-page__color {
+        padding: 0.4rem;
+        min-width: 44px;
+        min-height: 44px;
+    }
+}
+
+/* ─── 21. iOS safe-area padding (notch / home-bar) ─────────── */
+
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+    .store-footer {
+        padding-bottom: env(safe-area-inset-bottom, 0);
+    }
+
+    .cart__mobilebar {
+        padding-bottom: calc(0.8rem + env(safe-area-inset-bottom, 0));
     }
 }
