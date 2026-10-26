@@ -11,9 +11,15 @@
 //   ?intro=0   — disable the intro entirely for this load.
 //   ?intro=t<ms> — scrub to a specific time (debug only).
 //
-// Storage key:  abo_intro_seen   (set in sessionStorage once finished).
+// Storage:
+//   sessionStorage "abo_intro_seen" — per-tab marker, written once the
+//     intro finished.
+//   cookie       "abo_intro_seen" — the shared source of truth. The server
+//     reads it to decide whether the overlay belongs in the response, so
+//     a reload never paints a black overlay it is going to remove again.
 
 const STORAGE_KEY = 'abo_intro_seen';
+const COOKIE_NAME = 'abo_intro_seen';
 const TOTAL_MS = 6500;
 const FALLBACK_MS = 600;
 
@@ -59,6 +65,31 @@ function isMobilePortrait() {
 
 function prefersReducedMotion() {
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+// ─── "Intro already played" state ───────────────────────────────────
+//
+// The overlay is a full-screen black layer. If the server rendered it and
+// JavaScript removes it a moment later, the visitor stares at a black
+// screen for the whole time the assets take to arrive. To avoid that the
+// server and the browser share one flag: a plain session cookie. The
+// cookie is deliberately excluded from Laravel's cookie encryption
+// (see bootstrap/app.php) so both sides read the same value.
+
+function readIntroCookie() {
+    const match = document.cookie.match(new RegExp('(?:^|; )' + COOKIE_NAME + '=([^;]*)'));
+    return match ? decodeURIComponent(match[1]) : null;
+}
+
+function writeIntroCookie() {
+    // No Max-Age → a session cookie: the intro plays once per browser
+    // session, exactly like the previous sessionStorage behaviour.
+    const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = `${COOKIE_NAME}=1; path=/; SameSite=Lax${secure}`;
+}
+
+function clearIntroCookie() {
+    document.cookie = `${COOKIE_NAME}=; path=/; Max-Age=0; SameSite=Lax`;
 }
 
 function pointsToAttr(points) {
@@ -229,8 +260,24 @@ function playReducedMotion(els) {
     els.skip.removeAttribute('tabindex');
     els.skip.dataset.aboIntroFocusable = '1';
 
+    let rafId = 0;
+    let ended = false;
+
+    // A hidden tab gets no animation frames, so the fallback would never
+    // finish and the overlay would stay on screen. End it right away —
+    // same rule as the full timeline.
+    const onVisibility = () => {
+        if (!document.hidden) return;
+        ended = true;
+        cancelAnimationFrame(rafId);
+        document.removeEventListener('visibilitychange', onVisibility);
+        finish(els);
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
     const start = performance.now();
     const step = (now) => {
+        if (ended) return;
         const e = now - start;
         const inProg = clamp01(e / 300);
         const outProg = clamp01((e - 300) / 300);
@@ -240,12 +287,14 @@ function playReducedMotion(els) {
         els.logoGlow.style.opacity = String(inProg * (1 - outProg) * 0.22);
 
         if (e < FALLBACK_MS) {
-            requestAnimationFrame(step);
+            rafId = requestAnimationFrame(step);
         } else {
-            finish(els, /* skipped */ false, /* fromFallback */ true);
+            ended = true;
+            document.removeEventListener('visibilitychange', onVisibility);
+            finish(els);
         }
     };
-    requestAnimationFrame(step);
+    rafId = requestAnimationFrame(step);
 }
 
 // ─── Master timeline driver ─────────────────────────────────────────
@@ -267,7 +316,7 @@ function runTimeline(els, scrubMs) {
         if (elapsed >= TOTAL_MS) {
             elapsed = TOTAL_MS;
             applyState(elapsed, els);
-            finish(els, false, false);
+            finish(els);
             return;
         }
         applyState(elapsed, els);
@@ -279,7 +328,7 @@ function runTimeline(els, scrubMs) {
         if (ended) return;
         ended = true;
         cancelAnimationFrame(rafId);
-        finish(els, true, false);
+        finish(els);
     };
 
     els.skip.addEventListener('click', onSkip, { once: true });
@@ -298,8 +347,20 @@ function runTimeline(els, scrubMs) {
     };
     document.addEventListener('visibilitychange', onVisibility);
 
+    // Watchdog: some embedded browsers never deliver animation frames, and
+    // a stalled timeline would leave the black overlay on screen forever.
+    // A timer still fires, so end the intro when the master timeline is
+    // overdue.
+    const watchdog = setTimeout(() => {
+        if (ended) return;
+        ended = true;
+        cancelAnimationFrame(rafId);
+        finish(els);
+    }, TOTAL_MS + 1000);
+
     // Store cleanup hooks on the element so finish() can release them.
     els.overlay._aboIntroCleanup = () => {
+        clearTimeout(watchdog);
         document.removeEventListener('keydown', onKey);
         document.removeEventListener('visibilitychange', onVisibility);
     };
@@ -307,7 +368,7 @@ function runTimeline(els, scrubMs) {
     rafId = requestAnimationFrame(tick);
 }
 
-function finish(els, skipped, fromFallback) {
+function finish(els) {
     if (els.overlay.dataset.aboIntroEnded === '1') return;
     els.overlay.dataset.aboIntroEnded = '1';
 
@@ -344,9 +405,12 @@ function finish(els, skipped, fromFallback) {
         }
     }, 420);
 
-    if (!fromFallback) {
-        try { sessionStorage.setItem(STORAGE_KEY, '1'); } catch (e) {}
-    }
+    // Remember that the intro played — in every path, including the
+    // reduced-motion fallback. The cookie is what the server reads to
+    // stop rendering the overlay, so the next load starts straight on the
+    // page instead of flashing black.
+    try { sessionStorage.setItem(STORAGE_KEY, '1'); } catch (e) {}
+    writeIntroCookie();
 }
 
 // ─── Public init ────────────────────────────────────────────────────
@@ -364,8 +428,10 @@ function shouldPlay() {
             document.documentElement.classList.add('force-intro');
             return { play: true, scrub: null, forced: true };
         }
-        // Play once per session so navigating between pages stays light and fast
-        if (sessionStorage.getItem(STORAGE_KEY) === '1') {
+        // The cookie is the flag the server used when it decided whether to
+        // render this overlay. Reading the very same value keeps both sides
+        // in agreement, so the overlay is never painted and then removed.
+        if (readIntroCookie() === '1') {
             return { play: false, scrub: null, forced: false };
         }
     } catch (e) { /* fall through */ }
@@ -387,16 +453,29 @@ function preloadAssets() {
 }
 
 function initIntro() {
-    const overlay = document.querySelector('[data-abo-intro]');
-    if (!overlay) return;
-
     // Expose developer / user replay helper
     window.replayIntro = () => {
-        sessionStorage.removeItem(STORAGE_KEY);
+        clearIntroCookie();
+        try { sessionStorage.removeItem(STORAGE_KEY); } catch (e) {}
         window.location.href = window.location.pathname + '?intro=1';
     };
 
     const decision = shouldPlay();
+    const overlay = document.querySelector('[data-abo-intro]');
+
+    if (!overlay) {
+        // The server skipped the overlay because the intro already played.
+        // A forced replay (?intro=1, ?intro=t<ms> or #intro) still has to
+        // run, so hand the request back to the server with the flag.
+        if (decision.forced) {
+            // Keep the flag that forced the intro (?intro=1 / ?intro=t<ms>);
+            // the bare #intro hash has no query string, so fall back to it.
+            const search = window.location.search || '?intro=1';
+            window.location.replace(window.location.pathname + search + window.location.hash);
+        }
+        return;
+    }
+
     if (!decision.play) {
         overlay.remove();
         // No intro this load — the home page still plays its own

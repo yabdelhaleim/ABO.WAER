@@ -69,6 +69,9 @@ class AppServiceProvider extends ServiceProvider
      * - `coupons`  — caps coupon validation at 10/min/IP because the
      *               endpoint is reachable anonymously and guessing
      *               valid codes is the obvious attack.
+     * - `public-forms` — caps the newsletter and contact submissions at
+     *               10/min/IP so a bot cannot flood the subscribers or
+     *               the messages table.
      */
     protected function configureRateLimiters(): void
     {
@@ -90,6 +93,10 @@ class AppServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('coupons', function (Request $request) {
+            return Limit::perMinute(10)->by($request->ip());
+        });
+
+        RateLimiter::for('public-forms', function (Request $request) {
             return Limit::perMinute(10)->by($request->ip());
         });
     }

@@ -1,9 +1,11 @@
 // ABO — "My Orders" front-end module.
 //
-// Scope (per spec §0):
-//   - Orders come from a single function `getOrders()`, which now
-//     fetches the live API and falls back to orders.mock.js so the
-//     page still renders during design review or an API outage.
+// Scope:
+//   - Orders come from a single function `getOrders()`, which fetches
+//     the customer's own orders from the API. There is no mock
+//     fallback: a page that shows orders the customer never placed is
+//     worse than an empty page, so a failed request surfaces as an
+//     empty list and the page renders its empty state.
 //   - Sorting, filtering and search run in the browser on the array.
 //   - Buttons that would need a backend only show a non-blocking
 //     lime toast — they do not perform any other action.
@@ -11,20 +13,16 @@
 // Page bootstrap (`init()`) runs when the module loads, and
 // re-renders on `?state=loading|empty|error` for design review.
 
-import { ORDERS } from './orders.mock.js';
-
 // ─── Single-source-of-truth data wrapper ────────────────────────────
 
 /**
  * Returns the list of orders for the current user, newest first.
  *
  * Fetches the customer's own orders from `orders.data`; the response
- * shape is the one documented at the top of orders.mock.js. Falls back
- * to the mock array when the request fails or returns an unexpected
- * body so the page never renders an empty shell.
+ * shape is the one documented at the top of the `OrderController`.
  *
  * Always returns a promise so the call site does not need to know
- * whether the source is sync (mock) or async (real API).
+ * whether the source is sync or async.
  */
 export async function getOrders() {
     try {
@@ -43,12 +41,12 @@ export async function getOrders() {
             }
         }
     } catch (err) {
-        console.warn('[orders] Failed to fetch live orders, falling back to mock.', err);
+        console.warn('[orders] Failed to fetch live orders.', err);
     }
 
-    return [...ORDERS].sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
+    // No mock fallback — a failed request means an empty list, and the
+    // page renders its empty state.
+    return [];
 }
 
 // ─── Tiny helpers ───────────────────────────────────────────────────

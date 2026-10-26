@@ -63,7 +63,7 @@
     margin: 0;
     color: var(--abo-gray);
     font-family: var(--font-sans, 'Inter', sans-serif);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.32em;
     text-transform: uppercase;
@@ -102,7 +102,7 @@
 .content__updated {
     margin: 0.4rem 0 0;
     color: var(--abo-gray);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.22em;
     text-transform: uppercase;
@@ -193,7 +193,7 @@
     content: 'ON THIS PAGE';
     display: block;
     color: var(--abo-gray);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.22em;
     margin: 0 0.5rem 0.8rem;
@@ -214,11 +214,14 @@
 }
 
 .content__toc-link {
-    display: block;
+    display: flex;
+    align-items: center;
     color: var(--abo-gray);
     text-decoration: none;
     font-size: 0.84rem;
     padding: 0.5rem 0.6rem 0.5rem 0.7rem;
+    /* 44px minimum tap target for the in-page table of contents. */
+    min-height: 44px;
     line-height: 1.4;
     border-radius: var(--abo-radius);
     transition: color 180ms var(--content-ease), background 180ms var(--content-ease);
@@ -321,7 +324,7 @@
 
 .content__stat-label {
     color: var(--abo-gray);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.22em;
     text-transform: uppercase;
@@ -474,7 +477,7 @@
 .content__table thead th {
     background: var(--abo-panel);
     color: var(--abo-lime);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.18em;
     text-transform: uppercase;
@@ -506,7 +509,7 @@
 .content__note-title {
     margin: 0;
     color: var(--abo-lime);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.22em;
     text-transform: uppercase;
@@ -868,7 +871,7 @@
 
 .content__card-label {
     color: var(--abo-lime);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.22em;
 }
@@ -941,7 +944,7 @@
 
 .content__label {
     color: var(--abo-gray);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.18em;
     text-transform: uppercase;
@@ -955,7 +958,8 @@
     border-radius: var(--abo-radius);
     padding: 0.8rem 0.9rem;
     font: inherit;
-    font-size: 0.95rem;
+    /* 16px keeps iOS from zooming the viewport on focus. */
+    font-size: 1rem;
     min-height: 44px;
     transition: border-color 180ms var(--content-ease), box-shadow 180ms var(--content-ease);
     width: 100%;
@@ -1355,7 +1359,7 @@
 .content__dev-title {
     margin: 0;
     color: var(--abo-lime);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.22em;
     text-transform: uppercase;
@@ -1388,7 +1392,8 @@
     border-radius: var(--abo-radius);
     padding: 0.5rem 0.6rem;
     font: inherit;
-    font-size: 0.95rem;
+    /* 16px keeps iOS from zooming the viewport on focus. */
+    font-size: 1rem;
     min-height: 44px;
     width: 100%;
     box-sizing: border-box;
@@ -1406,4 +1411,4 @@
     flex-wrap: wrap;
 }
 
-.content__dev-actions .content__btn { flex: 1 1 auto; min-height: 40px; padding: 0.55rem 0.7rem; font-size: 0.72rem; }
+.content__dev-actions .content__btn { flex: 1 1 auto; min-height: 40px; padding: 0.55rem 0.7rem; font-size: 0.75rem; }

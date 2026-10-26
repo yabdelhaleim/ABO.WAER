@@ -22,6 +22,7 @@ use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\Store\AddressController;
 use App\Http\Controllers\Store\CartController;
 use App\Http\Controllers\Store\CheckoutController;
+use App\Http\Controllers\Store\ContactController as StoreContactController;
 use App\Http\Controllers\Store\CouponController as StoreCouponController;
 use App\Http\Controllers\Store\HomeController;
 use App\Http\Controllers\Store\OrderController;
@@ -116,6 +117,19 @@ Route::middleware('web')->group(function () {
     Route::get('/shipping', [StorePageController::class, 'show'])->defaults('slug', 'shipping')->name('shipping');
     Route::get('/returns', [StorePageController::class, 'show'])->defaults('slug', 'returns')->name('returns');
     Route::get('/exchange', [StorePageController::class, 'show'])->defaults('slug', 'exchange')->name('exchange');
+
+    // Newsletter sign-up — the footer form on every storefront page.
+    // Stores the address in `newsletter_subscribers` and answers with JSON
+    // so home.js can swap the form for the confirmation state.
+    Route::post('/newsletter', [StoreContactController::class, 'subscribe'])
+        ->middleware('throttle:public-forms')
+        ->name('newsletter.subscribe');
+
+    // Contact form — backs the form on /contact. Stores the message in
+    // `contact_messages` for the admin inbox.
+    Route::post('/contact', [StoreContactController::class, 'message'])
+        ->middleware('throttle:public-forms')
+        ->name('contact.message');
 });
 
 // ─── Store: Guest ────────────────────────────────────────────────────────────
@@ -184,11 +198,13 @@ Route::middleware('web')->prefix('admin')->name('admin.')->group(function () {
 // to see the wired dashboard, and /admin/login to authenticate first.
 
 // ─── Admin: Products preview (front-end only) ──────────────────────────────
-// Placeholder routes that render the new admin.products views WITHOUT
-// auth — used to preview the front-end design before the catalog is
-// connected to the database. Closure-only, no controller, no model,
-// no validation. The existing protected admin routes are untouched.
-Route::middleware('web')->prefix('admin/products')->name('admin.products.v2.')->group(function () {
+// Placeholder routes that render the new admin.products views. They used
+// to run WITHOUT auth so the design could be previewed before the catalog
+// was connected to the database; that left the whole catalog screen
+// readable by anyone. They now sit behind the `admin` middleware like
+// every other admin route — the URL and the route name are unchanged, so
+// the sidebar keeps working.
+Route::middleware(['web', 'admin'])->prefix('admin/products')->name('admin.products.v2.')->group(function () {
     Route::get('/', function () {
         return view('admin.products.index');
     })->name('index');
@@ -205,32 +221,35 @@ Route::middleware('web')->prefix('admin/products')->name('admin.products.v2.')->
 
         $service = app(ProductService::class);
 
-        return view('admin.products.form', $service->loadFormData() + [
+        // `array_merge`, not `+`: the union operator keeps the LEFT
+        // operand's keys, so `+` silently dropped the `product` override
+        // and handed the view an unsaved `new Product` — whose route key
+        // is null, which blew up `route('admin.products.update', …)`.
+        return view('admin.products.form', array_merge($service->loadFormData(), [
             'mode' => 'edit',
             'product' => ['id' => $id],
-        ]);
+        ]));
     })->name('edit');
 });
 
 // (Categories moved to protected admin routes below)
 
 // ─── Admin: Colors & Sizes preview (front-end only) ─────────────────────────
-// Placeholder route that renders the new admin.colors-sizes.index view WITHOUT
-// auth — used to preview the front-end design before the catalog is wired up
-// to the database. Closure-only, no controller, no model, no validation. The
-// existing protected admin routes are untouched. To open the page in a
-// browser: visit /admin/colors-sizes.
-Route::middleware('web')->get('/admin/colors-sizes', function () {
+// Placeholder route that renders the new admin.colors-sizes.index view.
+// It now sits behind the `admin` middleware — see the products group
+// above for the full reasoning. Closure-only, no controller, no model,
+// no validation. To open the page in a browser: log in, then visit
+// /admin/colors-sizes.
+Route::middleware(['web', 'admin'])->get('/admin/colors-sizes', function () {
     return view('admin.colors-sizes.index');
 })->name('admin.colors-sizes.v2');
 
 // ─── Admin: Size guides preview (front-end only) ────────────────────────────
-// Placeholder route that renders the new admin.size-guides view WITHOUT
-// auth — used to preview the front-end design before the size-chart
-// catalog is connected to the database. Closure-only, no controller,
-// no model, no validation. The existing protected admin routes are
-// untouched. To open the page in a browser: visit /admin/size-guides.
-Route::middleware('web')->get('/admin/size-guides', function () {
+// Placeholder route that renders the new admin.size-guides view. Behind
+// the `admin` middleware like every other admin screen. Closure-only, no
+// controller, no model, no validation. To open the page in a browser:
+// log in, then visit /admin/size-guides.
+Route::middleware(['web', 'admin'])->get('/admin/size-guides', function () {
     return view('admin.size-guides.index');
 })->name('admin.size-guides.v2');
 

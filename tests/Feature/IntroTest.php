@@ -2,7 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\Product;
+use App\Services\IntroService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Tests\TestCase;
 
 class IntroTest extends TestCase
@@ -16,6 +19,103 @@ class IntroTest extends TestCase
         $response->assertOk();
         $response->assertSee('data-abo-intro', false);
         $response->assertSee('class="abo-intro"', false);
+    }
+
+    public function test_intro_overlay_is_not_rendered_once_the_intro_already_played(): void
+    {
+        // The overlay is a full-screen black layer: rendering it and then
+        // removing it from JavaScript paints a black flash on every
+        // reload, so the server must skip it entirely once the intro has
+        // played. The cookie is plain (excluded from Laravel's cookie
+        // encryption) so the browser and the server read the same value.
+        $response = $this->withUnencryptedCookie(IntroService::COOKIE_NAME, '1')->get('/');
+
+        $response->assertOk();
+        $response->assertDontSee('data-abo-intro', false);
+        $response->assertDontSee('class="abo-intro"', false);
+
+        // The flag has to reach the server as the plain value the browser
+        // wrote — it is deliberately excluded from Laravel's cookie
+        // encryption so both sides read the same thing.
+        $this->assertSame('1', $this->app['request']->cookie(IntroService::COOKIE_NAME));
+    }
+
+    public function test_intro_overlay_is_not_rendered_when_disabled_by_query_flag(): void
+    {
+        $response = $this->get('/?intro=0');
+
+        $response->assertOk();
+        $response->assertDontSee('data-abo-intro', false);
+    }
+
+    public function test_intro_overlay_is_rendered_when_forced_by_query_flag(): void
+    {
+        // ?intro=1 replays the intro even when it already played.
+        $response = $this->withUnencryptedCookie(IntroService::COOKIE_NAME, '1')->get('/?intro=1');
+
+        $response->assertOk();
+        $response->assertSee('data-abo-intro', false);
+    }
+
+    public function test_intro_overlay_is_rendered_when_scrubbing_by_query_flag(): void
+    {
+        $response = $this->withUnencryptedCookie(IntroService::COOKIE_NAME, '1')->get('/?intro=t3000');
+
+        $response->assertOk();
+        $response->assertSee('data-abo-intro', false);
+    }
+
+    public function test_intro_gate_applies_to_the_shop_and_product_pages(): void
+    {
+        $product = Product::factory()->create([
+            'name' => 'Drop 02 Hoodie',
+            'slug' => 'drop-02-hoodie',
+            'is_archived' => false,
+        ]);
+
+        // Every page that renders the overlay shares the same gate.
+        $this->withUnencryptedCookie(IntroService::COOKIE_NAME, '1')
+            ->get(route('shop'))
+            ->assertDontSee('data-abo-intro', false);
+
+        $this->withUnencryptedCookie(IntroService::COOKIE_NAME, '1')
+            ->get(route('shop.show', ['slug' => $product->slug]))
+            ->assertDontSee('data-abo-intro', false);
+    }
+
+    public function test_intro_overlay_is_rendered_on_the_shop_and_product_pages(): void
+    {
+        $product = Product::factory()->create([
+            'name' => 'Drop 02 Hoodie',
+            'slug' => 'drop-02-hoodie',
+            'is_archived' => false,
+        ]);
+
+        $this->get(route('shop'))->assertSee('data-abo-intro', false);
+        $this->get(route('shop.show', ['slug' => $product->slug]))->assertSee('data-abo-intro', false);
+    }
+
+    public function test_intro_service_gate_rules(): void
+    {
+        $this->assertTrue(IntroService::shouldRender(Request::create('/')));
+        $this->assertFalse(IntroService::shouldRender(Request::create('/?intro=0')));
+        $this->assertTrue(IntroService::shouldRender(Request::create('/?intro=1')));
+        $this->assertTrue(IntroService::shouldRender(Request::create('/?intro=t3000')));
+
+        $played = Request::create('/');
+        $played->cookies->set(IntroService::COOKIE_NAME, '1');
+        $this->assertFalse(IntroService::shouldRender($played));
+    }
+
+    public function test_intro_javascript_persists_the_seen_flag_in_a_cookie(): void
+    {
+        $js = file_get_contents(base_path('resources/js/intro.js'));
+
+        // The cookie is the flag the server reads to stop rendering the
+        // overlay — it has to be written on every completion path.
+        $this->assertStringContainsString("COOKIE_NAME = 'abo_intro_seen'", $js);
+        $this->assertStringContainsString('writeIntroCookie', $js);
+        $this->assertStringContainsString('readIntroCookie', $js);
     }
 
     public function test_intro_overlay_uses_locked_palette(): void

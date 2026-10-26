@@ -34,14 +34,13 @@
 @endsection
 
 @section('content')
-    <section class="checkout-success" aria-labelledby="checkout-success-title">
+    <section class="checkout-success" aria-labelledby="checkout-success-title" data-checkout-success>
         <div class="checkout-success__inner">
             {{-- Animated checkmark. SVG path draws in via stroke-dasharray
-                 CSS animation; the whole hero is hidden by default and
-                 the JS removes the [hidden] flag once it has confirmed
-                 the order payload, so the animation only plays after a
-                 real submission. Respects prefers-reduced-motion. --}}
-            <div class="checkout-success__mark" aria-hidden="true" data-checkout-success-mark hidden>
+                 CSS animation. The page is rendered from a real stored
+                 order, so the mark is shown by default. Respects
+                 prefers-reduced-motion. --}}
+            <div class="checkout-success__mark" aria-hidden="true" data-checkout-success-mark>
                 <svg viewBox="0 0 80 80" class="checkout-success__mark-svg" focusable="false">
                     <circle
                         class="checkout-success__mark-circle"
@@ -75,10 +74,10 @@
                 Your order is in. We're getting it ready.
             </p>
 
-            {{-- Order info grid. Server-rendered shell with the
-                 data-checkout-success-* hooks the JS fills in. Any
-                 field that's not in the payload stays as a neutral
-                 placeholder (—), never fabricated. --}}
+            {{-- Order info grid. Rendered from the stored order, so the
+                 page is correct even on a refresh or without JS. The
+                 data-checkout-success-* hooks let success.js refresh
+                 the same values from the payload it holds. --}}
             <dl class="checkout-success__info" aria-label="Order details">
                 <div class="checkout-success__info-item">
                     <dt>Order number</dt>
@@ -89,33 +88,65 @@
                 <div class="checkout-success__info-item">
                     <dt>Order date</dt>
                     <dd class="checkout-success__info-value" data-checkout-success-date>
-                        —
+                        {{ $orderModel->created_at?->format('D, d M Y · H:i') ?? '—' }}
                     </dd>
                 </div>
                 <div class="checkout-success__info-item">
                     <dt>Payment method</dt>
                     <dd class="checkout-success__info-value" data-checkout-success-payment>
-                        —
+                        {{ $paymentMethods[$orderModel->payment_method]['label'] ?? 'Cash on delivery' }}
                     </dd>
                 </div>
                 <div class="checkout-success__info-item">
                     <dt>Order total</dt>
                     <dd class="checkout-success__info-value checkout-success__info-value--total" data-checkout-success-total>
-                        —
+                        {{ number_format((float) $orderModel->total, 0, '.', ',') }} EGP
                     </dd>
                 </div>
             </dl>
 
-            {{-- Ordered products. The list is filled in by
-                 resources/js/success.js from the order payload. The
-                 server renders only the empty list shell. --}}
+            {{-- Ordered products, rendered from the stored order. The
+                 list is also filled in by resources/js/success.js from
+                 the payload it holds; both read the same figures. --}}
             <section class="checkout-success__items" aria-label="Ordered items" data-checkout-success-items-section>
                 <h2 class="checkout-success__items-title">YOUR PIECES</h2>
                 <ul
                     class="checkout-success__items-list"
                     role="list"
                     data-checkout-success-items
-                ></ul>
+                >
+                    @foreach ($orderModel->items as $item)
+                        <li class="checkout-success__item" aria-label="{{ $item->product_name }}, quantity {{ $item->quantity }}">
+                            <div class="checkout-success__item-thumb">
+                                @if ($item->product?->primary_image?->path)
+                                    <img
+                                        class="checkout-success__item-thumb-img"
+                                        src="{{ asset($item->product->primary_image->path) }}"
+                                        alt=""
+                                        loading="lazy"
+                                        decoding="async"
+                                        width="84"
+                                        height="105"
+                                    >
+                                @else
+                                    <span class="checkout-success__item-thumb-initial">{{ str($item->product_name)->substr(0, 1)->upper() }}</span>
+                                @endif
+                            </div>
+                            <div class="checkout-success__item-body">
+                                <p class="checkout-success__item-name">{{ $item->product_name }}</p>
+                                @if ($item->color_name || $item->size_name)
+                                    <p class="checkout-success__item-chips">
+                                        {{ collect([$item->color_name, $item->size_name])->filter()->join(' · ') }}
+                                    </p>
+                                @endif
+                                <p class="checkout-success__item-qty">Qty {{ $item->quantity }}</p>
+                            </div>
+                            <div class="checkout-success__item-total">
+                                {{ number_format((float) $item->total_price, 0, '.', ',') }} EGP
+                            </div>
+                        </li>
+                    @endforeach
+                </ul>
             </section>
 
             {{-- Action buttons. Only CONTINUE SHOPPING is rendered

@@ -52,7 +52,7 @@
     margin: 0;
     color: var(--abo-lime);
     font-family: var(--font-sans);
-    font-size: 0.74rem;
+    font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.32em;
     text-transform: uppercase;
@@ -162,7 +162,7 @@
 .orders__welcome {
     margin: 0;
     color: var(--abo-gray);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     letter-spacing: 0.18em;
     text-transform: uppercase;
 }
@@ -194,10 +194,11 @@
     display: flex;
     align-items: center;
     padding: 0.65rem 0.85rem;
+    min-height: 44px;
     border-radius: var(--abo-radius);
     color: var(--abo-gray);
     font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
-    font-size: 0.74rem;
+    font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.2em;
     text-transform: uppercase;
@@ -285,7 +286,7 @@
 .orders__stat-label {
     color: var(--abo-gray);
     font-family: var(--font-sans);
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.26em;
     text-transform: uppercase;
@@ -322,6 +323,7 @@
 }
 
 .orders__tab {
+    min-height: 44px;
     appearance: none;
     background: transparent;
     border: 0;
@@ -329,7 +331,7 @@
     padding: 0.7rem 1rem;
     color: var(--abo-gray);
     font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
-    font-size: 0.74rem;
+    font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.22em;
     text-transform: uppercase;
@@ -359,7 +361,7 @@
 }
 
 .orders__tab-count {
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.05em;
     padding: 0.05rem 0.4rem;
@@ -415,7 +417,8 @@
     padding: 0.7rem 0.4rem;
     color: var(--abo-text);
     font-family: var(--font-sans);
-    font-size: 0.9rem;
+    /* 16px keeps iOS from zooming the viewport on focus. */
+    font-size: 1rem;
 }
 
 .orders__search-input::placeholder {
@@ -498,7 +501,7 @@
     padding: 0.4rem 0.7rem;
     border-radius: var(--abo-radius);
     font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.18em;
     text-transform: uppercase;
@@ -594,7 +597,7 @@
 
 .orders__step-label {
     font-family: var(--font-sans);
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.16em;
     text-transform: uppercase;
@@ -611,7 +614,7 @@
 
 @media (max-width: 480px) {
     .orders__step-label {
-        font-size: 0.6rem;
+        font-size: 0.75rem;
         letter-spacing: 0.1em;
     }
 }
@@ -629,7 +632,7 @@
         visibility: hidden;
     }
     .orders__stepper .orders__step--current .orders__step-label {
-        font-size: 0.65rem;
+        font-size: 0.75rem;
         letter-spacing: 0.06em;
         max-width: none;
     }
@@ -746,7 +749,7 @@
 .orders__total-label {
     color: var(--abo-gray);
     font-family: var(--font-sans);
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.26em;
     text-transform: uppercase;
@@ -792,7 +795,7 @@
     border: 1px solid transparent;
     border-radius: var(--abo-radius);
     font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
-    font-size: 0.74rem;
+    font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.22em;
     text-transform: uppercase;
@@ -873,7 +876,7 @@
     margin: 0;
     color: var(--abo-lime);
     font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
-    font-size: 0.74rem;
+    font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.28em;
     text-transform: uppercase;
@@ -935,7 +938,7 @@
 
 .orders__timeline-time {
     color: var(--abo-gray);
-    font-size: 0.74rem;
+    font-size: 0.75rem;
     letter-spacing: 0.04em;
 }
 
@@ -968,7 +971,7 @@
 .orders__meta-label {
     color: var(--abo-gray);
     font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
-    font-size: 0.66rem;
+    font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.24em;
     text-transform: uppercase;

@@ -367,7 +367,12 @@ function initStickyHeader() {
     window.addEventListener('scroll', update, { passive: true });
 }
 
-// ─── Newsletter (no page reload, success state) ────────────────
+// ─── Newsletter (posts to /newsletter) ──────────────────────────
+
+function csrfToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.getAttribute('content') : '';
+}
 
 function initNewsletter() {
     const form = document.querySelector('[data-home-newsletter]');
@@ -375,28 +380,62 @@ function initNewsletter() {
     const input = form.querySelector('input[type="email"]');
     const btn = form.querySelector('button[type="submit"]');
     const success = form.querySelector('[data-home-newsletter-success]');
+    const hint = form.parentElement?.querySelector('.newsletter__hint');
 
     const validEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || '').trim());
 
-    form.addEventListener('submit', (ev) => {
+    const setHint = (text, tone) => {
+        if (!hint) return;
+        hint.textContent = text || '';
+        hint.dataset.tone = tone || '';
+    };
+
+    form.addEventListener('submit', async (ev) => {
         ev.preventDefault();
         if (!validEmail(input.value)) {
             input.setAttribute('aria-invalid', 'true');
+            setHint('Enter a valid email address.', 'error');
             input.focus();
             return;
         }
         input.removeAttribute('aria-invalid');
+        setHint('', '');
         btn.setAttribute('data-loading', 'true');
         btn.disabled = true;
-        // No backend endpoint yet (per spec, no fake subscriptions).
-        // Show success after a short delay so the user sees the
-        // state transition (loading → success).
-        setTimeout(() => {
+
+        let payload = null;
+        try {
+            const response = await fetch(form.getAttribute('action') || '/newsletter', {
+                method: 'POST',
+                body: new FormData(form),
+                credentials: 'same-origin',
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrfToken(),
+                },
+            });
+            payload = await response.json().catch(() => null);
+
+            if (!response.ok) {
+                const first = payload?.errors ? Object.values(payload.errors)[0]?.[0] : null;
+                setHint(first || payload?.message || 'Something went wrong. Try again.', 'error');
+                return;
+            }
+        } catch (err) {
+            setHint('Network error. Check your connection and try again.', 'error');
+            return;
+        } finally {
             btn.removeAttribute('data-loading');
-            btn.textContent = success?.textContent || "YOU'RE IN ✓";
-            input.value = '';
-            input.disabled = true;
-        }, 700);
+            btn.disabled = false;
+        }
+
+        // Real subscription confirmed by the server.
+        if (success) success.hidden = false;
+        setHint(payload?.message || "YOU'RE IN ✓", 'success');
+        input.value = '';
+        input.disabled = true;
+        btn.disabled = true;
     });
 }
 

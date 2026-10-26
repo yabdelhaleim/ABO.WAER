@@ -1,9 +1,13 @@
 // ABO Shop — client-side filtering, sorting, and URL sync.
 // ----------------------------------------------------------------
-// No backend. All products are rendered server-side from the data
-// file; this script just hides/shows them, sorts them, writes the
-// active filters into the URL query string, and exposes a small
-// dropdown panel + bottom-sheet UX for choosing filters.
+// The catalog is rendered server-side from the database. This script
+// hides/shows the rendered cards as the shopper picks filters, sorts
+// them, writes the active filters into the URL query string, and
+// drives the dropdown panel + bottom-sheet UX.
+//
+// The filter options themselves are rendered by the server too, from
+// the same data the cards come from — so the label a shopper reads
+// and the numbers the browser filters on can never drift apart.
 //
 // Accessibility:
 // - aria-pressed on the active chip
@@ -35,7 +39,9 @@ const prefersReducedMotion = () =>
 
 const state = {
     category: null,    // string slug or null
-    price: null,       // { min, max } or null (max inclusive)
+    color: null,       // string color id or null
+    size: null,        // string size id or null
+    price: null,       // { id, min, max, label } or null
     sort: 'newest',    // 'newest' | 'price-asc' | 'price-desc' | 'name'
 };
 
@@ -46,8 +52,10 @@ const SORT_LABELS = {
     'name': 'Name: A–Z',
 };
 
-const CATEGORY_LABELS = {}; // filled from DOM
-const PRICE_BUCKETS = [];   // filled from real prices in DOM
+const CATEGORY_LABELS = {};  // slug → label, filled from the DOM
+const COLOR_LABELS = {};     // id → label, filled from the DOM
+const SIZE_LABELS = {};      // id → label, filled from the DOM
+const PRICE_BUCKETS = [];    // filled from the rendered price options
 
 // ─── Boot ──────────────────────────────────────────────────────
 
@@ -57,7 +65,6 @@ function boot() {
     if (!root || !grid) return;
 
     collectLabels();
-    buildPanels(root);
     bindEvents(root);
     loadFromUrl();
     render();
@@ -69,71 +76,23 @@ function collectLabels() {
         CATEGORY_LABELS[el.dataset.category] = el.querySelector('.shop-cat__name')?.textContent?.trim() || el.dataset.category;
     });
 
-    const prices = $$('[data-product]').map((el) => Number(el.dataset.price)).filter((n) => Number.isFinite(n));
-    if (prices.length > 1) {
-        const min = Math.min(...prices);
-        const max = Math.max(...prices);
-        const third = (max - min) / 3;
-        PRICE_BUCKETS.push({ id: 'low',    label: `Under ${formatEGP(min + third)}`,         min, max: min + third });
-        PRICE_BUCKETS.push({ id: 'mid',    label: `${formatEGP(min + third)} – ${formatEGP(min + third * 2)}`, min: min + third, max: min + third * 2 });
-        PRICE_BUCKETS.push({ id: 'high',   label: `Over ${formatEGP(min + third * 2)}`,       min: min + third * 2, max: max + 1 });
-    }
-}
-
-function buildPanels(root) {
-    const panel = $('[data-shop-panel]', root);
-    if (!panel) return;
-
-    // Category panel
-    const categoryPanel = document.createElement('div');
-    categoryPanel.className = 'shop-filters__panel-group';
-    categoryPanel.dataset.panel = 'category';
-    categoryPanel.hidden = true;
-    const cats = Object.keys(CATEGORY_LABELS);
-    if (cats.length > 0) {
-        categoryPanel.innerHTML = `
-            <p class="shop-filters__panel-title">Filter by category</p>
-            <ul role="listbox" aria-label="Categories">
-                <li><button type="button" role="option" data-category-clear>All categories</button></li>
-                ${cats.map((slug) => `
-                    <li><button type="button" role="option" data-category-value="${slug}">${CATEGORY_LABELS[slug]}</button></li>
-                `).join('')}
-            </ul>
-        `;
-    }
-
-    // Price panel
-    const pricePanel = document.createElement('div');
-    pricePanel.className = 'shop-filters__panel-group';
-    pricePanel.dataset.panel = 'price';
-    pricePanel.hidden = true;
-    if (PRICE_BUCKETS.length > 0) {
-        pricePanel.innerHTML = `
-            <p class="shop-filters__panel-title">Filter by price</p>
-            <ul role="listbox" aria-label="Price range">
-                <li><button type="button" role="option" data-price-clear>Any price</button></li>
-                ${PRICE_BUCKETS.map((b) => `
-                    <li><button type="button" role="option" data-price-value="${b.id}">${b.label}</button></li>
-                `).join('')}
-            </ul>
-        `;
-    }
-
-    // Sort panel
-    const sortPanel = document.createElement('div');
-    sortPanel.className = 'shop-filters__panel-group';
-    sortPanel.dataset.panel = 'sort';
-    sortPanel.hidden = true;
-    sortPanel.innerHTML = `
-        <p class="shop-filters__panel-title">Sort by</p>
-        <ul role="listbox" aria-label="Sort options">
-            ${Object.entries(SORT_LABELS).map(([id, label]) => `
-                <li><button type="button" role="option" data-sort-value="${id}">${label}</button></li>
-            `).join('')}
-        </ul>
-    `;
-
-    panel.append(categoryPanel, pricePanel, sortPanel);
+    // The filter options are rendered by the server from the real
+    // catalog. Read their labels and their numeric bounds from the
+    // DOM so there is one source of truth for both.
+    $$('[data-color-value]').forEach((b) => {
+        COLOR_LABELS[b.dataset.colorValue] = b.textContent.trim();
+    });
+    $$('[data-size-value]').forEach((b) => {
+        SIZE_LABELS[b.dataset.sizeValue] = b.textContent.trim();
+    });
+    $$('[data-price-value]').forEach((b) => {
+        PRICE_BUCKETS.push({
+            id: b.dataset.priceValue,
+            min: Number(b.dataset.priceMin),
+            max: Number(b.dataset.priceMax),
+            label: b.textContent.trim(),
+        });
+    });
 }
 
 function bindEvents(root) {
@@ -157,6 +116,10 @@ function bindEvents(root) {
             if (!target) return;
             if (target.matches('[data-category-clear]'))  { state.category = null; }
             else if (target.dataset.categoryValue)        { state.category = target.dataset.categoryValue; }
+            else if (target.matches('[data-color-clear]')) { state.color = null; }
+            else if (target.dataset.colorValue)            { state.color = String(target.dataset.colorValue); }
+            else if (target.matches('[data-size-clear]'))  { state.size = null; }
+            else if (target.dataset.sizeValue)             { state.size = String(target.dataset.sizeValue); }
             else if (target.matches('[data-price-clear]')) { state.price = null; }
             else if (target.dataset.priceValue) {
                 state.price = PRICE_BUCKETS.find((b) => b.id === target.dataset.priceValue) || null;
@@ -178,6 +141,8 @@ function bindEvents(root) {
             if (remove) {
                 const what = remove.dataset.remove;
                 if (what === 'category') state.category = null;
+                if (what === 'color')    state.color = null;
+                if (what === 'size')     state.size = null;
                 if (what === 'price')    state.price = null;
                 if (what === 'sort')     state.sort = 'newest';
                 render();
@@ -206,6 +171,8 @@ function bindEvents(root) {
 
 function clearAll() {
     state.category = null;
+    state.color = null;
+    state.size = null;
     state.price = null;
     state.sort = 'newest';
     closePanel();
@@ -232,6 +199,8 @@ function togglePanel(chip, kind) {
         chip.setAttribute('aria-expanded', 'true');
         // Reflect current selection in the panel
         if (kind === 'category') reflectCategory(group);
+        if (kind === 'color')    reflectColor(group);
+        if (kind === 'size')     reflectSize(group);
         if (kind === 'price')    reflectPrice(group);
         if (kind === 'sort')     reflectSort(group);
     }
@@ -250,6 +219,18 @@ function reflectCategory(group) {
     $$('button', group).forEach((b) => {
         const val = b.dataset.categoryValue || null;
         b.setAttribute('aria-selected', String(val === state.category || (val === null && !state.category)));
+    });
+}
+function reflectColor(group) {
+    $$('button', group).forEach((b) => {
+        const val = b.dataset.colorValue || null;
+        b.setAttribute('aria-selected', String(val === state.color || (val === null && !state.color)));
+    });
+}
+function reflectSize(group) {
+    $$('button', group).forEach((b) => {
+        const val = b.dataset.sizeValue || null;
+        b.setAttribute('aria-selected', String(val === state.size || (val === null && !state.size)));
     });
 }
 function reflectPrice(group) {
@@ -274,9 +255,15 @@ function render() {
     items.forEach((el) => {
         const cat = el.dataset.category;
         const price = Number(el.dataset.price);
+        const cardColors = (el.dataset.colors || '').split(',').filter(Boolean);
+        const cardSizes = (el.dataset.sizes || '').split(',').filter(Boolean);
+
         const okCat = !state.category || cat === state.category;
-        const okPrice = !state.price || (price >= state.price.min && price < state.price.max);
-        const show = okCat && okPrice;
+        const okColor = !state.color || cardColors.includes(state.color);
+        const okSize = !state.size || cardSizes.includes(state.size);
+        const okPrice = !state.price || (price >= state.price.min && price <= state.price.max);
+
+        const show = okCat && okColor && okSize && okPrice;
         el.hidden = !show;
         if (show) visible++;
     });
@@ -333,6 +320,12 @@ function renderTags() {
         const label = CATEGORY_LABELS[state.category] || state.category;
         tags.push({ kind: 'category', label });
     }
+    if (state.color) {
+        tags.push({ kind: 'color', label: COLOR_LABELS[state.color] || state.color });
+    }
+    if (state.size) {
+        tags.push({ kind: 'size', label: SIZE_LABELS[state.size] || state.size });
+    }
     if (state.price) {
         tags.push({ kind: 'price', label: state.price.label });
     }
@@ -359,13 +352,15 @@ function renderChips() {
     $$('.shop-filters__chip').forEach((chip) => {
         const kind = chip.dataset.filter;
         if (kind === 'all') {
-            const clean = !state.category && !state.price && state.sort === 'newest';
+            const clean = !state.category && !state.color && !state.size && !state.price && state.sort === 'newest';
             chip.classList.toggle('is-active', clean);
             chip.setAttribute('aria-pressed', String(clean));
             return;
         }
         let active = false;
         if (kind === 'category') active = !!state.category;
+        if (kind === 'color')    active = !!state.color;
+        if (kind === 'size')     active = !!state.size;
         if (kind === 'price')    active = !!state.price;
         if (kind === 'sort')     active = state.sort && state.sort !== 'newest';
         chip.classList.toggle('is-active', active);
@@ -380,6 +375,10 @@ function saveToUrl() {
     const params = url.searchParams;
     if (state.category)    params.set('category', state.category);
     else                   params.delete('category');
+    if (state.color)       params.set('color', state.color);
+    else                   params.delete('color');
+    if (state.size)        params.set('size', state.size);
+    else                   params.delete('size');
     if (state.price)       params.set('price', state.price.id);
     else                   params.delete('price');
     if (state.sort && state.sort !== 'newest') params.set('sort', state.sort);
@@ -391,6 +390,10 @@ function loadFromUrl() {
     const params = new URLSearchParams(window.location.search);
     const cat = params.get('category');
     if (cat && CATEGORY_LABELS[cat]) state.category = cat;
+    const color = params.get('color');
+    if (color && COLOR_LABELS[color]) state.color = String(color);
+    const size = params.get('size');
+    if (size && SIZE_LABELS[size]) state.size = String(size);
     const price = params.get('price');
     if (price) {
         const bucket = PRICE_BUCKETS.find((b) => b.id === price);

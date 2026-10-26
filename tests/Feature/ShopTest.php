@@ -284,8 +284,28 @@ class ShopTest extends TestCase
         $this->assertStringContainsString('aria-pressed', $js);
         // Must build the price buckets from real prices, and only
         // when there are multiple distinct values.
+        //
+        // The buckets are built by the SERVER now (ShopController
+        // splits the real min/max price into thirds) and the JS reads
+        // their numeric bounds back out of the DOM, so the JS must
+        // read `data-price-min` / `data-price-max` and not invent
+        // numbers of its own.
         $this->assertStringContainsString('PRICE_BUCKETS', $js);
-        $this->assertStringContainsString('prices.length > 1', $js);
+        $this->assertStringContainsString('dataset.priceMin', $js);
+        $this->assertStringContainsString('dataset.priceMax', $js);
+    }
+
+    public function test_shop_price_filter_buckets_come_from_the_real_price_range(): void
+    {
+        // The server is the single source of truth for the price
+        // buckets: it splits the real min/max into thirds and only
+        // emits the panel when the range is not degenerate.
+        $controller = file_get_contents(app_path('Http/Controllers/Store/ShopController.php'));
+
+        $this->assertStringContainsString('$priceBuckets', $controller);
+        $this->assertStringContainsString('min_price', $controller);
+        $this->assertStringContainsString('max_price', $controller);
+        $this->assertStringContainsString('$maxPrice > $minPrice', $controller);
     }
 
     public function test_shop_uses_only_home_page_palette_tokens_in_css(): void

@@ -226,14 +226,28 @@
                     </ul>
                 </div>
             @endif
-            @if ($hasMultiplePrices)
+            @if ($hasMultiplePrices && ! empty($priceBuckets))
                 <div class="shop-filters__panel-group" data-panel="price" hidden>
                     <p class="shop-filters__panel-title">Filter by price</p>
                     <ul role="listbox" aria-label="Price range">
                         <li><button type="button" role="option" data-price-clear>Any price</button></li>
-                        <li><button type="button" role="option" data-price-value="low">Under {{ number_format((float) ($minPricePoint ?? 0), 0, '.', ',') }} EGP</button></li>
-                        <li><button type="button" role="option" data-price-value="mid">{{ number_format((float) ($minPricePoint ?? 0), 0, '.', ',') }} – {{ number_format((float) ($maxPricePoint ?? 0), 0, '.', ',') }} EGP</button></li>
-                        <li><button type="button" role="option" data-price-value="high">Over {{ number_format((float) ($maxPricePoint ?? 0), 0, '.', ',') }} EGP</button></li>
+                        @foreach ($priceBuckets as $bucket)
+                            <li>
+                                <button type="button"
+                                        role="option"
+                                        data-price-value="{{ $bucket['id'] }}"
+                                        data-price-min="{{ (float) $bucket['min'] }}"
+                                        data-price-max="{{ (float) $bucket['max'] }}">
+                                    @if ($bucket['id'] === 'low')
+                                        Under {{ number_format((float) $bucket['max'], 0, '.', ',') }} EGP
+                                    @elseif ($bucket['id'] === 'mid')
+                                        {{ number_format((float) $bucket['min'], 0, '.', ',') }} – {{ number_format((float) $bucket['max'], 0, '.', ',') }} EGP
+                                    @else
+                                        Over {{ number_format((float) $bucket['min'], 0, '.', ',') }} EGP
+                                    @endif
+                                </button>
+                            </li>
+                        @endforeach
                     </ul>
                 </div>
             @endif
@@ -265,12 +279,19 @@
                         $price = $product->min_price ?? $product->starting_price;
                         $categorySlug = $product->category?->slug;
                         $badge = $product->display_badge;
+                        // The colour and size filters match on the ids the
+                        // card actually offers, so the browser and the
+                        // server filter on the same set.
+                        $cardColors = $product->colors->pluck('id')->filter()->join(',');
+                        $cardSizes = $product->variants->pluck('size_id')->filter()->unique()->join(',');
                     @endphp
                     <li class="shop-grid__item"
                         data-product
                         data-name="{{ strtolower($product->name) }}"
                         data-category="{{ $categorySlug }}"
                         data-price="{{ (float) ($price ?? 0) }}"
+                        data-colors="{{ $cardColors }}"
+                        data-sizes="{{ $cardSizes }}"
                         data-index="{{ ($products->currentPage() - 1) * $products->perPage() + $i }}"
                         data-home-reveal>
                         <a class="shop-card" href="{{ route('shop.show', ['slug' => $product->slug]) }}" aria-label="{{ $product->name }}">

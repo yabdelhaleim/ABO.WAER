@@ -3,16 +3,25 @@
 namespace Tests\Feature;
 
 use App\Models\Order;
+use Database\Seeders\CatalogSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class CheckoutTest extends TestCase
 {
-    // The checkout pages read their copy from the static home.php data file,
-    // but one cross-page invariant renders /cart, which is backed by the live
-    // catalog. Migrations are therefore required for this file even though
-    // almost nothing here writes to the database.
+    // The checkout summary is priced against the live catalog — the same
+    // source the cart page uses, so a line that survives on /cart is not
+    // rejected on /checkout. The catalog fixture mirrors the editorial
+    // product set in resources/views/store/data/home.php.
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->seed(CatalogSeeder::class);
+    }
+
     // ─── Helpers ──────────────────────────────────────────────────
 
     private function getCheckoutPage(): string
@@ -364,6 +373,30 @@ class CheckoutTest extends TestCase
         $this->assertContains('Giza', $governorates);
     }
 
+    public function test_checkout_and_cart_publish_the_same_catalog(): void
+    {
+        // checkout.js validates every cart line against the payload it
+        // publishes. If the two pages priced different catalogs, the
+        // checkout would reject the cart as "a product that no longer
+        // exists" and bounce the shopper back to /cart.
+        $cartHtml = $this->get(route('cart'))->assertStatus(200)->getContent() ?: '';
+        preg_match('/<script type="application\/json" data-cart-products>(.+?)<\/script>/s', $cartHtml, $cartMatch);
+        preg_match('/<script type="application\/json" data-checkout-products>(.+?)<\/script>/s', $this->getCheckoutPage(), $checkoutMatch);
+
+        $this->assertArrayHasKey(1, $cartMatch, 'cart page must expose the products JSON payload');
+        $this->assertArrayHasKey(1, $checkoutMatch, 'checkout page must expose the products JSON payload');
+
+        $cartProducts = json_decode($cartMatch[1], true) ?: [];
+        $checkoutProducts = json_decode($checkoutMatch[1], true) ?: [];
+
+        $this->assertNotEmpty($cartProducts);
+        $this->assertSame(
+            collect($cartProducts)->pluck('slug')->all(),
+            collect($checkoutProducts)->pluck('slug')->all(),
+            'the cart and the checkout must price the same lines'
+        );
+    }
+
     public function test_checkout_page_does_not_invent_fees_or_progress_bars(): void
     {
         $html = $this->getCheckoutPage();
@@ -390,16 +423,37 @@ class CheckoutTest extends TestCase
 
         // Animated checkmark: SVG with the .checkout-success__mark-circle
         // and .checkout-success__mark-check classes (the ones the CSS
-        // animates via stroke-dasharray). The element is hidden until
-        // the JS confirms a real order payload.
+        // animates via stroke-dasharray).
+        //
+        // The element is NOT hidden any more: the success page is
+        // rendered from the order the server just persisted, so the
+        // confirmation is real and must be visible even before the JS
+        // module boots (and even if it never does). The JS only fills
+        // in the values when a sessionStorage payload is present.
         $compact = preg_replace('/\s+/', ' ', $html);
         $this->assertMatchesRegularExpression(
-            '#<div[^>]*\bdata-checkout-success-mark\b[^>]*\bhidden\b[^>]*>#',
+            '#<div[^>]*\bdata-checkout-success-mark\b[^>]*>#',
             $compact,
-            'success page must render the checkmark, hidden until the JS confirms the order payload'
+            'success page must render the checkmark'
         );
         $this->assertStringContainsString('checkout-success__mark-circle', $html);
         $this->assertStringContainsString('checkout-success__mark-check', $html);
+    }
+
+    public function test_success_page_server_renders_the_real_order_totals(): void
+    {
+        $html = $this->getSuccessPage('ABO-2026-1001');
+
+        // The order number and the total come from the persisted row,
+        // not from a client-side payload — a visitor who reloads the
+        // page (or opens it on another device) still sees the truth.
+        $this->assertStringContainsString('ABO-2026-1001', $html);
+        $this->assertMatchesRegularExpression(
+            '#data-checkout-success-total[^>]*>\s*[\d,.]+\s*EGP#',
+            preg_replace('/\s+/', ' ', $html),
+            'the success page must server-render the order total'
+        );
+        $this->assertStringContainsString('Cash on delivery', $html);
     }
 
     public function test_success_page_renders_all_four_order_info_fields_with_data_hooks(): void

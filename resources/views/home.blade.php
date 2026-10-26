@@ -52,11 +52,28 @@
                             </span>
                         </h1>
 
+                        <p class="hero__paragraph" data-home-paragraph>{{ $hero['lede'] }}</p>
+
                         <div class="hero__ctas">
                             <a href="{{ $banner->button_url ?: route('shop') }}" class="store-btn store-btn--primary" data-home-cta>
                                 <span>{{ strtoupper($banner->button_text_ar ?? $banner->button_text ?? 'تسوق الآن') }} →</span>
                             </a>
+                            <a href="{{ $hero['secondary_cta']['href'] }}" class="store-btn store-btn--ghost" data-home-cta>
+                                <span>{{ strtoupper($hero['secondary_cta']['label']) }}</span>
+                            </a>
                         </div>
+
+                        {{-- Trust stats — the same row the static hero renders.
+                             They are site-wide signals (designs / delivery /
+                             returns), so they stay whatever banner is live. --}}
+                        <ul class="hero__stats">
+                            @foreach ($hero['stats'] as $stat)
+                                <li class="hero__stat" data-home-stat>
+                                    <span class="hero__stat-value" data-home-stat-value>{{ $stat['value'] }}{{ $stat['suffix'] }}</span>
+                                    <span class="hero__stat-label">{{ strtoupper($stat['label']) }}</span>
+                                </li>
+                            @endforeach
+                        </ul>
                     </div>
                 </section>
             @endif

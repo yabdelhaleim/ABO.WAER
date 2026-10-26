@@ -32,7 +32,7 @@ class ShopController extends Controller
             ->with([
                 'category:id,name,slug',
                 'colors:id,name,hex_code',
-                'variants:id,product_id,price,discount_price,quantity',
+                'variants:id,product_id,price,discount_price,quantity,color_id,size_id',
                 'productColors.color:id,name,hex_code',
                 'productColors.images',
             ]);
@@ -106,7 +106,13 @@ class ShopController extends Controller
 
         // Filter options for the sidebar — driven by real data so we never
         // show a filter with no values behind it.
-        // Cached as stdClass objects to avoid Eloquent model serialization/unserialization issues.
+        //
+        // The cache store runs with `serializable_classes => false`
+        // (config/cache.php), so *every* object — including stdClass —
+        // comes back from the cache as `__PHP_Incomplete_Class`. Only
+        // scalar/array payloads survive a cache round-trip. Each entry is
+        // therefore cached as a plain array and cast to an object after
+        // it is read back, in PHP, where the cast is safe.
         $categories = collect(Cache::remember('shop.sidebar.categories', 600, fn () => Category::query()
             ->where('is_active', true)
             ->where('is_visible', true)
@@ -114,8 +120,14 @@ class ShopController extends Controller
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get(['id', 'name', 'slug', 'image'])
-            ->map(fn ($c) => (object) $c->toArray())
-            ->all()));
+            ->map(fn (Category $c): array => [
+                'id' => $c->id,
+                'name' => $c->name,
+                'slug' => $c->slug,
+                'image' => $c->image,
+            ])
+            ->all()))
+            ->map(fn (array $c): object => (object) $c);
 
         $colors = collect(Cache::remember('shop.sidebar.colors', 600, fn () => Color::query()
             ->where('is_active', true)
@@ -123,8 +135,13 @@ class ShopController extends Controller
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get(['id', 'name', 'hex_code'])
-            ->map(fn ($c) => (object) $c->toArray())
-            ->all()));
+            ->map(fn (Color $c): array => [
+                'id' => $c->id,
+                'name' => $c->name,
+                'hex_code' => $c->hex_code,
+            ])
+            ->all()))
+            ->map(fn (array $c): object => (object) $c);
 
         $sizes = collect(Cache::remember('shop.sidebar.sizes', 600, fn () => Size::query()
             ->where('is_active', true)
@@ -132,8 +149,12 @@ class ShopController extends Controller
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get(['id', 'name'])
-            ->map(fn ($s) => (object) $s->toArray())
-            ->all()));
+            ->map(fn (Size $s): array => [
+                'id' => $s->id,
+                'name' => $s->name,
+            ])
+            ->all()))
+            ->map(fn (array $s): object => (object) $s);
 
         // The cheapest in-stock variant price for the current filter set,
         // used to render price buckets that actually have products in them.
@@ -152,6 +173,19 @@ class ShopController extends Controller
 
         $pricePoints = (object) $priceData;
 
+        // Three price buckets, cut from the real price range so each one
+        // covers a third of the catalog. The bounds travel with the
+        // option so the browser filters on the same numbers the label
+        // shows — there is one source of truth for the range.
+        $minPrice = (float) ($pricePoints?->min_price ?? 0);
+        $maxPrice = (float) ($pricePoints?->max_price ?? 0);
+        $third = ($maxPrice - $minPrice) / 3;
+        $priceBuckets = $maxPrice > $minPrice ? [
+            ['id' => 'low', 'min' => $minPrice, 'max' => $minPrice + $third],
+            ['id' => 'mid', 'min' => $minPrice + $third, 'max' => $minPrice + ($third * 2)],
+            ['id' => 'high', 'min' => $minPrice + ($third * 2), 'max' => $maxPrice],
+        ] : [];
+
         return view('shop', [
             'products' => $products,
             'categories' => $categories,
@@ -160,6 +194,7 @@ class ShopController extends Controller
             'activeCategory' => $activeCategory,
             'minPricePoint' => $pricePoints?->min_price,
             'maxPricePoint' => $pricePoints?->max_price,
+            'priceBuckets' => $priceBuckets,
             'shop' => [
                 'title_line_1' => 'FIND YOUR OWN',
                 'title_line_2' => 'STYLE.',

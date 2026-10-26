@@ -1,4 +1,4 @@
-// ABO Product — color × size variant selector.
+// ABO Product — color × size variant selector + add to cart.
 //
 // Reads the JSON blob that product.blade.php emits (data-product-variants).
 // On color change:
@@ -10,9 +10,17 @@
 // On size click:
 //   - Highlights the chosen size; size is sticky on color change when still
 //     in stock; otherwise we auto-select the first remaining in-stock size.
+// On add to cart:
+//   - Posts the chosen variant to /cart/items (the server owns the
+//     stock and the price), then mirrors the line into the browser
+//     cart and refreshes the nav badge.
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+// The variant the shopper currently has selected. Null until a size
+// with stock is picked.
+let selectedVariant = null;
 
 function readVariants(root) {
     const node = $('[data-product-variants]', root);
@@ -97,17 +105,37 @@ function updateSizeEmptyState(root, colorBlock) {
     empty.hidden = hasAny;
 }
 
-function updateAtc(root, colorBlock) {
+function updateAtc(root, colorBlock, sizeEntry) {
     const label = $('[data-product-atc-label]', root);
+    const button = $('[data-product-atc]', root);
     if (!label) return;
 
-    const first = findFirstInStockSize(colorBlock);
+    const first = sizeEntry || findFirstInStockSize(colorBlock);
     if (!first) {
         label.textContent = 'OUT OF STOCK';
+        selectedVariant = null;
+        if (button) {
+            button.disabled = true;
+            button.setAttribute('aria-disabled', 'true');
+        }
         return;
     }
 
-    label.textContent = `ADD — ${colorBlock?.name?.toUpperCase() ?? ''} / ${first.name}`.trim();
+    selectedVariant = {
+        variant_id: first.variant_id !== undefined && first.variant_id !== null ? Number(first.variant_id) : null,
+        size_id: Number(first.id),
+        size_name: first.name,
+        price: Number(first.price),
+        color_id: colorBlock ? Number(colorBlock.id) : null,
+        color_name: colorBlock ? colorBlock.name : null,
+        color_hex: colorBlock ? colorBlock.hex : null,
+    };
+
+    label.textContent = `ADD TO CART — ${colorBlock?.name?.toUpperCase() ?? ''} / ${first.name}`.trim();
+    if (button) {
+        button.disabled = false;
+        button.removeAttribute('aria-disabled');
+    }
 }
 
 function pickColor(root, data, colorId, preferredSizeId = null) {
@@ -128,7 +156,8 @@ function pickColor(root, data, colorId, preferredSizeId = null) {
     }
 
     setActiveSize(root, colorBlock.id, targetSizeId);
-    updateAtc(root, colorBlock);
+    const chosen = (colorBlock.sizes || []).find((s) => Number(s.id) === Number(targetSizeId)) || null;
+    updateAtc(root, colorBlock, chosen);
 }
 
 function bindColorButtons(root, data) {
@@ -155,8 +184,87 @@ function bindColorButtons(root, data) {
             if (variant) {
                 const out = $('[data-product-price]', root);
                 if (out) out.textContent = formatEGP(variant.price);
+                updateAtc(root, colorBlock, variant);
             }
         });
+    });
+}
+
+// ─── Add to cart ───────────────────────────────────────────────────
+
+/**
+ * A short confirmation under the button. The page has no toast host of
+ * its own, so the message lives next to the button it belongs to.
+ */
+function showAtcMessage(root, message, tone) {
+    const hint = $('[data-product-atc-hint]', root);
+    if (!hint) return;
+    const existing = hint.querySelector('[data-product-atc-message]');
+    if (existing) existing.remove();
+
+    const note = document.createElement('span');
+    note.dataset.productAtcMessage = '';
+    note.setAttribute('role', tone === 'error' ? 'alert' : 'status');
+    note.className = tone === 'error' ? 'product-page__atc-message is-error' : 'product-page__atc-message is-ok';
+    note.textContent = message;
+    hint.prepend(note);
+
+    if (tone !== 'error') {
+        setTimeout(() => note.remove(), 4000);
+    }
+}
+
+async function onAddToCart(root, data) {
+    const button = $('[data-product-atc]', root);
+    if (!button || !selectedVariant) return;
+
+    if (selectedVariant.variant_id === null) {
+        showAtcMessage(root, 'This option cannot be ordered right now.', 'error');
+        return;
+    }
+
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+    const label = $('[data-product-atc-label]', root);
+    const previousLabel = label ? label.textContent : '';
+
+    const added = await window.ABOCart.serverAdd(selectedVariant.variant_id, 1);
+
+    button.removeAttribute('aria-busy');
+    button.disabled = false;
+
+    if (!added.ok) {
+        showAtcMessage(root, added.message, 'error');
+        return;
+    }
+
+    // Mirror the line into the browser cart so the badge and the cart
+    // page show it straight away.
+    if (window.ABOCart && typeof window.ABOCart.addLine === 'function') {
+        window.ABOCart.addLine({
+            slug: data.slug,
+            color: selectedVariant.color_hex,
+            size: selectedVariant.size_name,
+            qty: 1,
+            variant_id: selectedVariant.variant_id,
+            server_id: added.itemId,
+            name: data.name || null,
+        });
+        window.ABOCart.render();
+    }
+
+    if (label) label.textContent = 'ADDED ✓';
+    showAtcMessage(root, 'Added to your cart.', 'ok');
+    setTimeout(() => {
+        if (label) label.textContent = previousLabel;
+    }, 2000);
+}
+
+function bindAddToCart(root, data) {
+    const button = $('[data-product-atc]', root);
+    if (!button) return;
+    button.addEventListener('click', () => {
+        onAddToCart(root, data);
     });
 }
 
@@ -168,6 +276,7 @@ function init() {
     if (!data || !Array.isArray(data.colors) || data.colors.length === 0) return;
 
     bindColorButtons(root, data);
+    bindAddToCart(root, data);
 
     // Auto-pick the first color that has a size in stock, falling back
     // to the first color block.

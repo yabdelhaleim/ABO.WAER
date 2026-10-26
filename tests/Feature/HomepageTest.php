@@ -286,8 +286,28 @@ class HomepageTest extends TestCase
         $response->assertSee('store-footer__brand', false);
         $response->assertSee('>Shop</h2>', false);
         $response->assertSee('>Help</h2>', false);
-        $response->assertSee('>Follow</h2>', false);
+        $response->assertSee('>Account</h2>', false);
         $response->assertSee('All rights reserved', false);
+    }
+
+    public function test_footer_contains_no_dead_placeholder_links(): void
+    {
+        $response = $this->get('/');
+
+        $response->assertOk();
+
+        // The footer used to carry a "Follow" column pointing at
+        // instagram/tiktok/x anchors that led nowhere, and the Shop
+        // column pointed at #shop / #new / #categories on the home
+        // page. Every footer link must now be a real route.
+        $html = $response->getContent();
+
+        $this->assertDoesNotMatchRegularExpression(
+            '~<a href="(#[^"]*|")"~',
+            $html,
+            'the footer must not contain anchor-only links'
+        );
+        $this->assertStringNotContainsString('>Follow</h2>', $html);
     }
 
     // ─── Meta & assets ──────────────────────────────────────────

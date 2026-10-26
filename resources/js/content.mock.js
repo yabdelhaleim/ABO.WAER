@@ -335,7 +335,7 @@ export const PAGES = {
                         label: '2025',
                         title: 'Growing the crew',
                         description:
-                            'Two more drops, a real warehouse, and a small studio in Nasr City. The team grew from three to twelve.',
+                            'Two more drops, a real warehouse, and a small studio in Maadi. The team grew from three to twelve.',
                     },
                     {
                         label: '2026',
@@ -367,7 +367,7 @@ export const PAGES = {
         seo: {
             title: 'Contact us — ABO',
             description:
-                'Reach ABO by WhatsApp, phone, or email. Studio in Nasr City, Cairo. We reply within 24 hours.',
+                'Reach ABO by WhatsApp, phone, or email. Studio in Maadi, Cairo. We reply within 24 hours.',
         },
         blocks: [
             {
@@ -375,27 +375,27 @@ export const PAGES = {
                 items: [
                     {
                         label: 'WHATSAPP',
-                        value: '+20 100 000 0000',
+                        value: '+20 10 1234 5678',
                         description: 'Fastest way to reach us — usually under an hour.',
-                        href: 'https://wa.me/201000000000',
+                        href: 'https://wa.me/201012345678',
                     },
                     {
                         label: 'PHONE',
-                        value: '+20 2 0000 0000',
-                        description: 'Sat–Thu, 10 AM–10 PM.',
-                        href: 'tel:+20200000000',
+                        value: '+20 2 2735 4128',
+                        description: 'Sun–Thu, 10 AM–6 PM.',
+                        href: 'tel:+20227354128',
                     },
                     {
                         label: 'EMAIL',
-                        value: 'support@abo.example',
+                        value: 'hello@abo.example.com',
                         description: 'For order issues, wholesale, and press.',
-                        href: 'mailto:support@abo.example',
+                        href: 'mailto:hello@abo.example.com',
                     },
                     {
                         label: 'STUDIO',
-                        value: 'Nasr City, Cairo',
+                        value: 'Maadi, Cairo',
                         description: 'Visits by appointment only.',
-                        href: 'https://maps.example/?q=ABO+Nasr+City',
+                        href: 'https://maps.google.com/?q=Maadi,Cairo',
                     },
                 ],
             },
@@ -417,15 +417,15 @@ export const PAGES = {
                         type: 'hours',
                         heading: 'Working hours',
                         rows: [
-                            ['Sat – Thu', '10 AM – 10 PM'],
-                            ['Friday', '2 PM – 10 PM'],
+                            ['Sun – Thu', '10 AM – 6 PM'],
+                            ['Friday', 'Closed'],
                         ],
                         social: [
                             { label: 'Instagram', href: 'https://instagram.com/abo' },
                             { label: 'TikTok', href: 'https://tiktok.com/@abo' },
                             { label: 'Facebook', href: 'https://facebook.com/abo' },
                         ],
-                        address: 'Nasr City, Cairo, Egypt',
+                        address: 'ABO Studio, 12 Street 9, Maadi, Cairo, Egypt',
                     },
                 ],
             },

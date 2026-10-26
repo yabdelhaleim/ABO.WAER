@@ -80,6 +80,16 @@ body {
 
 /* ─── ABO Auth Layout ─────────────────────────────────────────────────── */
 
+/* Page-level shell. The `abo-auth` class itself is the two-column grid
+   and lives on <main>; the body only carries the page frame. */
+.abo-auth-body {
+    font-family: 'Inter', 'Instrument Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+        Roboto, sans-serif;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+}
+
 .abo-auth {
     --gutter: clamp(1.25rem, 3vw, 2.5rem);
     min-height: 100vh;
@@ -157,6 +167,8 @@ body {
     align-items: start;
     gap: clamp(1rem, 2.2vw, 1.6rem);
     padding: clamp(1.5rem, 3vw, 2.6rem);
+    /* Leave room for the copyright line pinned to the bottom edge. */
+    padding-bottom: clamp(3.5rem, 6vw, 5rem);
     min-height: 100%;
     height: 100%;
 }
@@ -187,7 +199,7 @@ body {
     align-items: center;
     gap: 0.6rem;
     color: var(--abo-text);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 500;
     letter-spacing: 0.32em;
     text-transform: uppercase;
@@ -320,7 +332,7 @@ body {
     transform: translateY(-50%) rotate(-90deg);
     transform-origin: left center;
     color: var(--abo-text-soft);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     letter-spacing: 0.4em;
     text-transform: uppercase;
     padding-left: 0.6rem;
@@ -334,7 +346,7 @@ body {
     bottom: clamp(1rem, 2vw, 1.6rem);
     left: clamp(1.5rem, 3vw, 2.6rem);
     color: var(--abo-text-mute);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     letter-spacing: 0.18em;
     margin: 0;
     opacity: 0;
@@ -356,6 +368,11 @@ body {
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
+    /* Match the form column so the eyebrow lines up with the fields
+       instead of floating against the panel edge. */
+    width: 100%;
+    max-width: 435px;
+    margin-inline: auto;
 }
 
 .abo-auth__panel-logo {
@@ -379,7 +396,7 @@ body {
     align-items: center;
     gap: 0.85rem;
     color: var(--abo-text-soft);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     letter-spacing: 0.32em;
     text-transform: uppercase;
     margin: 0;
@@ -532,7 +549,8 @@ body {
     border: 0;
     outline: 0;
     color: #fff;
-    font-size: 0.98rem;
+    /* 16px keeps iOS from zooming the viewport on focus. */
+    font-size: 1rem;
     line-height: 1.2;
     height: 100%;
     padding: 0;
@@ -800,7 +818,7 @@ body {
     align-items: center;
     gap: 0.9rem;
     color: var(--abo-text-soft);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     letter-spacing: 0.32em;
     text-transform: uppercase;
     margin: 0.2rem 0 0;
@@ -882,6 +900,22 @@ body {
     to {
         opacity: 1;
         transform: translateY(0);
+    }
+}
+
+/* The brand wordmark fades in out of a blur. `abo-rise` only animates
+   opacity + transform, so the letters used to keep `filter: blur(8px)`
+   forever and the wordmark stayed permanently out of focus. */
+@keyframes abo-wordmark {
+    from {
+        opacity: 0;
+        transform: translateY(40px);
+        filter: blur(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+        filter: blur(0);
     }
 }
 
@@ -968,15 +1002,15 @@ body {
 }
 
 .abo-auth__wordmark-letter:nth-child(1) {
-    animation: abo-rise 900ms var(--abo-ease-emph) 220ms both;
+    animation: abo-wordmark 900ms var(--abo-ease-emph) 220ms both;
 }
 
 .abo-auth__wordmark-letter:nth-child(2) {
-    animation: abo-rise 900ms var(--abo-ease-emph) 320ms both;
+    animation: abo-wordmark 900ms var(--abo-ease-emph) 320ms both;
 }
 
 .abo-auth__wordmark-letter:nth-child(3) {
-    animation: abo-rise 900ms var(--abo-ease-emph) 420ms both;
+    animation: abo-wordmark 900ms var(--abo-ease-emph) 420ms both;
 }
 
 .abo-auth__headline p:nth-child(1) {
@@ -1033,6 +1067,12 @@ body {
         animation: none !important;
         opacity: 1 !important;
         transform: none !important;
+        filter: none !important;
+    }
+
+    /* The monochrome treatment belongs to the photo only — applying it to
+       every element turned the wordmark and the copy grey as well. */
+    .abo-auth__photo {
         filter: grayscale(100%) contrast(1.05) brightness(0.55) !important;
     }
 
@@ -1070,27 +1110,61 @@ body {
     }
 }
 
+/* Tablet — the form column is still narrow, so the display type has to
+   come down or the heading wraps into three lines. */
+@media (min-width: 900px) and (max-width: 1199px) {
+    .abo-auth__heading {
+        font-size: clamp(1.8rem, 3.4vw, 2.6rem);
+    }
+
+    .abo-auth__form,
+    .abo-auth__panel-head {
+        max-width: 380px;
+    }
+}
+
 /* ─── Mobile tweaks ──────────────────────────────────────────────────── */
 
 @media (max-width: 899px) {
+    /* One column: the visual becomes a compact banner above the form.
+       Its height follows the content instead of a fixed viewport slice,
+       which used to clip the slogan and cut the wordmark in half. */
     .abo-auth__visual {
-        min-height: 280px;
-        height: 38vh;
-        max-height: 360px;
+        min-height: 0;
+        height: auto;
+        max-height: none;
+    }
+
+    .abo-auth__visual-content {
+        min-height: 0;
+        height: auto;
+        padding: 1.4rem 1.25rem 1.6rem;
+        gap: 0.85rem;
+    }
+
+    /* The copyright is in the flow on mobile — keep it inside the
+       content padding instead of hard against the screen edge. */
+    .abo-auth__copyright {
+        padding-left: 1.25rem;
     }
 
     .abo-auth__photo {
         object-position: center 30%;
     }
 
-    .abo-auth__wordmark {
-        font-size: clamp(4rem, 16vw, 7rem);
+    .abo-auth__brand {
+        width: 52px;
+        height: 52px;
     }
 
-    .abo-auth__stroke--1,
-    .abo-auth__stroke--2,
-    .abo-auth__stroke--3 {
-        opacity: 0.7;
+    .abo-auth__wordmark {
+        font-size: clamp(3.5rem, 15vw, 5.5rem);
+    }
+
+    /* The strokes only read well against the oversized desktop wordmark —
+       on a phone they look like scratches over the logo. */
+    .abo-auth__strokes {
+        display: none;
     }
 
     .abo-auth__est {
@@ -1098,15 +1172,17 @@ body {
     }
 
     .abo-auth__supporting {
-        font-size: 0.7rem;
+        font-size: 0.75rem;
     }
 
     .abo-auth__slogan {
-        font-size: 1.4rem;
+        display: none;
     }
 
+    /* The brand already sits at the top of the visual banner — a second
+       logo in the panel head was a duplicate. */
     .abo-auth__panel-logo {
-        display: inline-block;
+        display: none;
     }
 
     .abo-auth__copyright {
@@ -1294,6 +1370,14 @@ body {
     /* `visibility: hidden` is set by JS once the intro ends, after the
        fade-out. No CSS animation on the container — JS owns the timeline. */
     transition: opacity 400ms linear;
+}
+
+/* Without JavaScript nothing can remove the overlay, so the visitor
+   would stare at a black screen forever. The layout adds the `js` class
+   to <html> as early as possible — when it is missing, hide the intro
+   and show the page (graceful degradation). */
+html:not(.js) .abo-intro {
+    display: none;
 }
 
 .abo-intro__veil {
@@ -1505,7 +1589,7 @@ body {
     border-radius: 999px;
     color: var(--abo-lime);
     font-family: var(--font-sans);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.28em;
     text-transform: uppercase;
@@ -1591,7 +1675,7 @@ html.abo-intro-lock body {
     color: var(--abo-gray, #A3A3A3);
     border-bottom: 1px solid #202020;
     font-family: var(--font-sans);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     font-weight: 500;
     letter-spacing: 0.32em;
     text-transform: uppercase;
@@ -1642,8 +1726,8 @@ html.abo-intro-lock body {
 
 .store-header__brand {
     display: inline-flex;
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     overflow: hidden;
     background: #000;
@@ -1672,7 +1756,17 @@ html.abo-intro-lock body {
     text-transform: uppercase;
     padding: 0.5rem 0;
     border-bottom: 1.5px solid transparent;
+    position: relative;
     transition: color 200ms var(--abo-ease), border-color 200ms var(--abo-ease);
+}
+
+/* The nav row is only 36px tall, so the tap target is extended with a
+   transparent overlay instead of padding: the underline stays glued to
+   the text while the clickable area grows past the 44px minimum. */
+.store-header__link::after {
+    content: '';
+    position: absolute;
+    inset: -0.5rem 0;
 }
 
 .store-header__link:hover,
@@ -1698,8 +1792,8 @@ html.abo-intro-lock body {
     background: transparent;
     border: 0;
     color: var(--abo-gray, #A3A3A3);
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1845,7 +1939,7 @@ html.abo-intro-lock body {
     margin: 0;
     color: var(--abo-gray, #A3A3A3);
     font-family: var(--font-sans);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 500;
     letter-spacing: 0.36em;
     text-transform: uppercase;
@@ -1938,7 +2032,7 @@ html.abo-intro-lock body {
     transform-origin: left center;
     color: var(--abo-gray, #A3A3A3);
     font-family: var(--font-sans);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     letter-spacing: 0.4em;
     text-transform: uppercase;
     padding-left: 0.6rem;
@@ -2061,7 +2155,7 @@ html.abo-intro-lock body {
 .store-footer__meta {
     margin: 0;
     color: var(--abo-gray, #A3A3A3);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     letter-spacing: 0.28em;
     text-transform: uppercase;
 }
@@ -2082,13 +2176,18 @@ html.abo-intro-lock body {
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.55rem;
+    gap: 0.1rem;
 }
 
 .store-footer__group a {
     color: var(--abo-gray, #A3A3A3);
     font-size: 0.88rem;
     text-decoration: none;
+    /* 44px minimum tap target — the link itself carries the height so
+       the column rows stay evenly spaced. */
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
     transition: color 180ms var(--abo-ease);
 }
 
@@ -2109,7 +2208,7 @@ html.abo-intro-lock body {
     flex-wrap: wrap;
     gap: 0.5rem;
     color: var(--abo-gray, #A3A3A3);
-    font-size: 0.74rem;
+    font-size: 0.75rem;
     letter-spacing: 0.22em;
     text-transform: uppercase;
 }
@@ -2183,6 +2282,9 @@ html.abo-intro-lock body {
     top: 0.5rem;
     z-index: 200;
     padding: 0.55rem 0.9rem;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
     background: var(--abo-lime);
     color: #0a0a0a;
     border-radius: 4px;
@@ -2208,7 +2310,7 @@ html.abo-intro-lock body {
     border-bottom: 1px solid #000;
     font-family: var(--font-sans);
     font-weight: 700;
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     text-align: center;
@@ -2310,7 +2412,7 @@ html.abo-intro-lock body {
     margin: 0;
     color: var(--abo-gray);
     font-family: var(--font-sans);
-    font-size: 0.74rem;
+    font-size: 0.75rem;
     font-weight: 500;
     letter-spacing: 0.36em;
     text-transform: uppercase;
@@ -2438,7 +2540,7 @@ html.abo-intro-lock body {
 }
 .hero__stat-label {
     color: var(--abo-gray);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
 }
 
 /* Mobile hero: photo behind text at ~50% opacity. */
@@ -2563,7 +2665,7 @@ html:not(.js) .hero__sweep {
     margin: 0;
     color: var(--abo-lime);
     font-family: var(--font-sans);
-    font-size: 0.74rem;
+    font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.36em;
     text-transform: uppercase;
@@ -2716,7 +2818,7 @@ html:not(.js) .hero__sweep {
     padding: 0.32rem 0.55rem;
     background: var(--abo-lime);
     color: #0a0a0a;
-    font-size: 0.66rem;
+    font-size: 0.75rem;
     font-weight: 800;
     letter-spacing: 0.18em;
     border-radius: 3px;
@@ -2732,7 +2834,7 @@ html:not(.js) .hero__sweep {
     padding: 0.7rem 0.8rem;
     background: var(--abo-lime);
     color: #0a0a0a;
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 800;
     letter-spacing: 0.18em;
     text-align: center;
@@ -2962,7 +3064,8 @@ html:not(.js) .hero__sweep {
     border: 1px solid var(--abo-border);
     border-radius: 6px;
     font-family: var(--font-sans);
-    font-size: 0.95rem;
+    /* 16px keeps iOS from zooming the viewport on focus. */
+    font-size: 1rem;
     transition: border-color 200ms var(--abo-ease);
 }
 .newsletter__form input::placeholder { color: var(--abo-gray); }
@@ -3040,7 +3143,7 @@ html:not(.js) .hero__sweep {
     gap: 0.85rem;
     color: var(--abo-gray);
     font-family: var(--font-sans);
-    font-size: 0.74rem;
+    font-size: 0.75rem;
     font-weight: 500;
     letter-spacing: 0.36em;
     text-transform: uppercase;
@@ -3141,7 +3244,7 @@ html:not(.js) .hero__sweep {
     text-transform: uppercase;
 }
 .shop-cat__count {
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     color: var(--abo-gray);
     letter-spacing: 0.22em;
     text-transform: uppercase;
@@ -3190,13 +3293,14 @@ html:not(.js) .hero__sweep {
     flex-wrap: wrap;
 }
 .shop-filters__chip {
+    min-height: 44px;
     background: transparent;
     color: var(--abo-white);
     border: 1px solid var(--abo-border);
     border-radius: 999px;
     padding: 0.4rem 0.9rem;
     font-family: var(--font-sans);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.18em;
     text-transform: uppercase;
@@ -3246,7 +3350,7 @@ html:not(.js) .hero__sweep {
     border-radius: 999px;
     padding: 0.3rem 0.6rem 0.3rem 0.85rem;
     color: var(--abo-white);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     cursor: pointer;
@@ -3270,7 +3374,7 @@ html:not(.js) .hero__sweep {
     border: 0;
     text-decoration: underline;
     font-family: var(--font-sans);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     letter-spacing: 0.22em;
     text-transform: uppercase;
     cursor: pointer;
@@ -3295,7 +3399,7 @@ html:not(.js) .hero__sweep {
 .shop-filters__panel-title {
     margin: 0 0 0.4rem;
     color: var(--abo-gray);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     letter-spacing: 0.28em;
     text-transform: uppercase;
 }
@@ -3314,7 +3418,7 @@ html:not(.js) .hero__sweep {
     border-radius: 999px;
     padding: 0.35rem 0.8rem;
     font-family: var(--font-sans);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     cursor: pointer;
@@ -3409,7 +3513,7 @@ html:not(.js) .hero__sweep {
     padding: 0.32rem 0.55rem;
     background: var(--abo-lime);
     color: #0a0a0a;
-    font-size: 0.66rem;
+    font-size: 0.75rem;
     font-weight: 800;
     letter-spacing: 0.18em;
     border-radius: 3px;
@@ -3462,8 +3566,8 @@ html:not(.js) .hero__sweep {
     .shop-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 480px) {
-    .shop-filters__count { font-size: 0.7rem; }
-    .shop-filters__chip  { padding: 0.35rem 0.7rem; font-size: 0.66rem; }
+    .shop-filters__count { font-size: 0.75rem; }
+    .shop-filters__chip  { padding: 0.35rem 0.7rem; font-size: 0.75rem; }
 }
 
 /* ─── 5. Mid-grid brand banner (only after 8+ products) ────── */
@@ -3568,7 +3672,7 @@ html:not(.js) .hero__sweep {
     padding: 0.4rem 0.7rem;
     background: var(--abo-lime);
     color: #0a0a0a;
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     font-weight: 800;
     letter-spacing: 0.18em;
     border-radius: 3px;
@@ -3583,7 +3687,7 @@ html:not(.js) .hero__sweep {
 .product-page__crumbs {
     margin: 0;
     color: var(--abo-gray);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     letter-spacing: 0.22em;
     text-transform: uppercase;
     display: flex;
@@ -3628,7 +3732,7 @@ html:not(.js) .hero__sweep {
 .product-page__group-label {
     margin: 0;
     color: var(--abo-gray);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     letter-spacing: 0.28em;
     text-transform: uppercase;
 }
@@ -3647,6 +3751,7 @@ html:not(.js) .hero__sweep {
     border: 1.5px solid var(--abo-border);
     border-radius: 6px;
     padding: 0.35rem 0.6rem;
+    min-height: 44px;
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
@@ -3692,7 +3797,7 @@ html:not(.js) .hero__sweep {
 
 .product-page__color-oos {
     color: var(--abo-gray);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
 }
 
 /* ─── Product image thumbnail strip (color selector) ──────── */
@@ -3870,7 +3975,7 @@ html:not(.js) .hero__sweep {
     border: 0;
     padding: 0.55rem 0;
     font-family: var(--font-sans);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.28em;
     text-transform: uppercase;
@@ -3966,7 +4071,7 @@ html.size-guide-open body {
     align-items: center;
     gap: 0.7rem;
     color: var(--abo-gray);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     font-weight: 500;
     letter-spacing: 0.36em;
     text-transform: uppercase;
@@ -4065,7 +4170,7 @@ html.size-guide-open body {
     letter-spacing: 0.06em;
     text-transform: lowercase;
     margin-left: 0.2rem;
-    font-size: 0.72rem;
+    font-size: 0.75rem;
 }
 .size-guide__table tbody tr {
     border-bottom: 1px solid var(--abo-border-soft);
@@ -4105,7 +4210,7 @@ html.size-guide-open body {
 .size-guide__howto-title {
     margin: 0 0 0.6rem;
     color: var(--abo-gray);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     letter-spacing: 0.3em;
     text-transform: uppercase;
 }
@@ -4233,7 +4338,7 @@ html.size-guide-open body {
     line-height: 1;
 }
 .product-page__size-stock {
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     color: var(--abo-gray);
     font-family: var(--font-sans, 'Inter', sans-serif);
     letter-spacing: 0.02em;
@@ -4345,7 +4450,7 @@ html.size-guide-open body {
     align-items: center;
     gap: 0.6rem;
     margin: 0 0 0.6rem;
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     letter-spacing: 0.28em;
     text-transform: uppercase;
     color: var(--abo-lime);
@@ -4481,6 +4586,11 @@ html.size-guide-open body {
     text-decoration: none;
     font-size: 1.05rem;
     line-height: 1.2;
+    /* 44px minimum tap target; the name wraps to two lines on narrow
+       screens, so the box is padded rather than fixed. */
+    display: inline-block;
+    min-height: 44px;
+    padding: 0.35rem 0;
     transition: color 200ms var(--abo-ease);
 }
 
@@ -4501,7 +4611,7 @@ html.size-guide-open body {
     align-items: center;
     gap: 0.4rem;
     padding: 0.25rem 0.6rem;
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--abo-gray);
@@ -4573,13 +4683,14 @@ html.size-guide-open body {
 }
 
 .cart__remove {
+    min-height: 44px;
     appearance: none;
     background: transparent;
     border: 0;
     padding: 0.4rem 0 0;
     color: var(--abo-gray);
     cursor: pointer;
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     letter-spacing: 0.22em;
     text-transform: uppercase;
     font-weight: 700;
@@ -4618,7 +4729,7 @@ html.size-guide-open body {
 }
 
 .cart__line-total-label {
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: var(--abo-gray);
@@ -4817,6 +4928,9 @@ html.size-guide-open body {
 }
 
 .cart__continue {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
     text-align: center;
     color: var(--abo-gray);
     font-size: 0.78rem;
@@ -4864,7 +4978,7 @@ html.size-guide-open body {
 }
 
 .cart__mobilebar-label {
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: var(--abo-gray);
@@ -4989,7 +5103,7 @@ html.size-guide-open body {
     border-radius: 999px;
     background: var(--abo-lime);
     color: var(--abo-black);
-    font-size: 0.66rem;
+    font-size: 0.75rem;
     font-weight: 800;
     line-height: 18px;
     text-align: center;
@@ -5009,7 +5123,7 @@ html.size-guide-open body {
     border-radius: 999px;
     background: var(--abo-lime);
     color: var(--abo-black);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     font-weight: 800;
     line-height: 1.4rem;
     text-align: center;
@@ -5044,7 +5158,7 @@ html.size-guide-open body {
     margin: 0 0 1.5rem;
     padding: 0;
     font-family: var(--font-display);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     letter-spacing: 0.22em;
     text-transform: uppercase;
     color: var(--abo-gray);
@@ -5085,7 +5199,7 @@ html.size-guide-open body {
     gap: 0.7rem;
     margin: 0 0 0.8rem;
     font-family: var(--font-display);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     letter-spacing: 0.32em;
     text-transform: uppercase;
     color: var(--abo-gray);
@@ -5271,7 +5385,7 @@ html.size-guide-open body {
 
 .checkout__label {
     font-family: var(--font-display);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     letter-spacing: 0.22em;
     text-transform: uppercase;
     color: var(--abo-gray);
@@ -5295,7 +5409,8 @@ html.size-guide-open body {
     border-radius: var(--abo-radius);
     padding: 0.85rem 1rem;
     font: inherit;
-    font-size: 0.95rem;
+    /* 16px keeps iOS from zooming the viewport on focus. */
+    font-size: 1rem;
     min-height: 44px;
     transition: border-color 160ms var(--abo-ease), box-shadow 160ms var(--abo-ease);
 }
@@ -5622,7 +5737,7 @@ html.size-guide-open body {
     border-radius: 999px;
     background: var(--abo-lime);
     color: var(--abo-black);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     font-weight: 800;
     line-height: 22px;
     text-align: center;
@@ -5706,6 +5821,9 @@ html.size-guide-open body {
 }
 
 .checkout__edit-cart {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
     align-self: flex-start;
     color: var(--abo-lime);
     text-decoration: underline;
@@ -5744,7 +5862,7 @@ html.size-guide-open body {
     min-width: 0;
     color: var(--abo-gray);
     font-family: var(--font-display);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     letter-spacing: 0.22em;
     text-transform: uppercase;
 }
@@ -5871,7 +5989,7 @@ html.size-guide-open body {
     gap: 0.7rem;
     margin: 0;
     font-family: var(--font-display);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     letter-spacing: 0.32em;
     text-transform: uppercase;
     color: var(--abo-gray);
@@ -5934,7 +6052,7 @@ html.size-guide-open body {
 .checkout-success__info-item dt {
     margin: 0;
     font-family: var(--font-display);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     letter-spacing: 0.22em;
     text-transform: uppercase;
     color: var(--abo-gray);
@@ -6064,7 +6182,7 @@ html.size-guide-open body {
 .checkout-success__item-qty {
     margin: 0.2rem 0 0;
     font-family: var(--font-display);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: var(--abo-gray);
@@ -6178,7 +6296,7 @@ html.size-guide-open body {
     margin: 0;
     color: var(--abo-lime);
     font-family: var(--font-sans);
-    font-size: 0.74rem;
+    font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.32em;
     text-transform: uppercase;
@@ -6231,6 +6349,7 @@ html.size-guide-open body {
     align-items: center;
     gap: 0.6rem;
     padding: 0.7rem 1rem;
+    min-height: 44px;
     border: 1px solid var(--abo-border);
     border-radius: var(--abo-radius);
     color: var(--abo-gray);
@@ -6290,7 +6409,7 @@ html.size-guide-open body {
     margin: 0 0 0.85rem;
     color: var(--abo-lime);
     font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.28em;
     text-transform: uppercase;
@@ -6385,7 +6504,7 @@ html.size-guide-open body {
 .account__member-label {
     color: var(--abo-gray);
     font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.24em;
     text-transform: uppercase;
@@ -6450,7 +6569,7 @@ html.size-guide-open body {
 .account__detail-label {
     color: var(--abo-gray);
     font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.24em;
     text-transform: uppercase;
@@ -7007,7 +7126,7 @@ html.size-guide-open body {
 
 @media (max-width: 380px) {
     .announcement__inner {
-        font-size: 0.66rem;
+        font-size: 0.75rem;
         letter-spacing: 0.18em;
         padding: 0.4rem 0.75rem;
     }

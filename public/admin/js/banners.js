@@ -17,12 +17,18 @@
  *     position / overlay as segmented controls), a Starts / Ends
  *     schedule pair, a live preview (Desktop / Mobile frames), and
  *     Save / Duplicate / Delete buttons
- *   - local image previews via URL.createObjectURL (no upload,
- *     no fetch / XHR / storage)
+ *   - local image previews via URL.createObjectURL
  *   - one shared delete-confirm modal + toast
  *
- * No fetch / XHR / storage. The only persistence is the `state`
- * object — it is reset on every page load.
+ * Wired to the live banner API (Admin\BannerController):
+ *   - POST   /admin/banners          — create
+ *   - PUT    /admin/banners/{id}     — update
+ *   - DELETE /admin/banners/{id}     — delete
+ *
+ * The local `state` object stays the source of truth for rendering:
+ * every mutation is applied locally first, then sent to the server.
+ * A failed request reverts the local change and surfaces the server
+ * message in the shared toast.
  *
  * Markup anchor points (every selector uses data-* attributes):
  *   [data-abo-admin-banners]                — page root
@@ -75,12 +81,65 @@
         { id: 'p-6', name: 'Wide-strap Canvas Tote' },
     ];
 
+    /* ─── Server payload ↔ local record mapping ────────────────
+     *
+     * window.__BANNERS__ is the snake_case payload built by
+     * Admin\BannerController::index(). The panel works with the
+     * camelCase shape below, so every server record is normalised
+     * once on load.
+     *
+     * The `banners` table has no placement column — the storefront
+     * renders the whole table as a single hero slider — so persisted
+     * banners always come back in the "hero" placement. Banners made
+     * in this session keep the placement they were created under
+     * until the page is reloaded.
+     */
+    const normalizeBanner = (raw) => {
+        const url = raw.button_url || '';
+        let linkType = 'none';
+        let linkCategory = CATEGORIES[0].slug;
+        let linkUrl = '';
+        if (url.indexOf('/shop/') === 0) {
+            linkType = 'category';
+            linkCategory = url.slice('/shop/'.length);
+        } else if (url) {
+            linkType = 'url';
+            linkUrl = url;
+        }
+        return {
+            id: String(raw.id),
+            placement: 'hero',
+            active: !!raw.is_active,
+            starts: null,
+            ends: null,
+            title: raw.title || '',
+            titleAr: raw.title_ar || '',
+            subtitle: raw.subtitle || '',
+            subtitleAr: raw.subtitle_ar || '',
+            buttonLabel: raw.button_text || '',
+            buttonLabelAr: raw.button_text_ar || '',
+            alt: '',
+            altAr: '',
+            desktopImage: raw.image_url || null,
+            mobileImage: null,
+            textColor: 'light',
+            textPosition: 'left',
+            overlay: 'none',
+            linkType,
+            linkCategory,
+            linkProduct: PRODUCTS[0].id,
+            linkUrl,
+            sortOrder: Number(raw.sort_order) || 0,
+            _saved: true,
+        };
+    };
+
     // Banners list is hydrated server-side from the admin banners table.
     // When the table is empty, the controller injects `[]` and the
     // page simply renders the empty state. The detailed static sample
     // that used to live here was a front-end demo only — see the
     // TODO(backend) note above.
-    const BANNERS = window.__BANNERS__ ?? [];
+    const BANNERS = (window.__BANNERS__ ?? []).map(normalizeBanner);
 
     /*
     const BANNERS = [
@@ -257,17 +316,26 @@
         placement: 'hero',          // active tab
         selectedId: null,
         filterIdsByPlacement: {     // ordered lists per placement
-            hero: ['b-hero-1', 'b-hero-2', 'b-hero-3'],
-            promo: ['b-promo-1', 'b-promo-2'],
-            announcement: ['b-anno-1', 'b-anno-2'],
+            hero: BANNERS.map((b) => b.id),
+            promo: [],
+            announcement: [],
         },
         editing: null,              // working copy of the row being edited
         isNew: false,               // true when in "+ ADD BANNER" mode
         langTabs: { alt: 'en', title: 'en', subtitle: 'en' },
         imageObjectUrls: { desktop: null, mobile: null },
+        imageFiles: { desktop: null, mobile: null },  // picked files, for upload
         dirty: false,
         devicePreview: 'desktop',   // 'desktop' | 'mobile'
         deleteTarget: null,
+    };
+
+    /** Which placement list holds the given banner id. */
+    const placementOf = (id) => {
+        for (const p of ['hero', 'promo', 'announcement']) {
+            if ((state.filterIdsByPlacement[p] || []).includes(id)) return p;
+        }
+        return state.placement;
     };
 
     /* ─── Tiny helpers ─────────────────────────────────────────── */
@@ -303,6 +371,107 @@
             el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
         }
         return el;
+    };
+
+    /* ─── API ───────────────────────────────────────────────────
+     *
+     * All banner writes go through the JSON API in
+     * Admin\BannerController. The image field is a file upload, so
+     * every write is sent as multipart FormData; PUT is spoofed with
+     * the `_method` field the same way categories.js does it.
+     */
+
+    const BANNERS_API = {
+        store: '/admin/banners',
+        base: '/admin/banners',
+    };
+
+    /** CSRF token — the admin layout ships the meta tag; the logout
+     *  form's hidden `_token` is used as a fallback. */
+    const csrfToken = () => (
+        document.querySelector('meta[name="csrf-token"]')?.content
+        || document.querySelector('input[name="_token"]')?.value
+        || ''
+    );
+
+    /** First validation / server message out of a JSON error body. */
+    const apiErrorMessage = (data, fallback) => {
+        if (data && data.errors) {
+            const first = Object.values(data.errors).flat()[0];
+            if (first) return first;
+        }
+        return (data && data.message) || fallback;
+    };
+
+    /**
+     * POST / PUT a banner and return the parsed JSON body.
+     * Rejects with an Error carrying the server message so the caller
+     * can revert the local state and toast it.
+     */
+    const requestBanner = async (url, method, payload, file) => {
+        const fd = new FormData();
+        for (const [key, value] of Object.entries(payload)) fd.append(key, value);
+        if (file) fd.append('image', file);
+        if (method === 'PUT') fd.append('_method', 'PUT');
+
+        const res = await fetch(url, {
+            method: method === 'PUT' ? 'POST' : method,
+            headers: {
+                'X-CSRF-TOKEN': csrfToken(),
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+            },
+            credentials: 'same-origin',
+            body: fd,
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(apiErrorMessage(data, 'Could not save the banner.'));
+        return data;
+    };
+
+    /** DELETE a banner. Rejects with the server message on failure. */
+    const requestDeleteBanner = async (url) => {
+        const res = await fetch(url, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRF-TOKEN': csrfToken(),
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+            },
+            credentials: 'same-origin',
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(apiErrorMessage(data, 'Could not delete the banner.'));
+        return data;
+    };
+
+    /** The link the "Link to" panel resolves to, stored in button_url. */
+    const resolveLinkUrl = (b) => {
+        if (b.linkType === 'url') return b.linkUrl || '';
+        if (b.linkType === 'category' && b.linkCategory) return '/shop/' + b.linkCategory;
+        return '';
+    };
+
+    /**
+     * The subset of the banner the server validates. `sort_order` is
+     * only sent for records that already exist so the server can pick
+     * the next free slot for freshly created banners.
+     */
+    const bannerPayload = (b) => {
+        const payload = {
+            title: b.title || '',
+            title_ar: b.titleAr || '',
+            subtitle: b.subtitle || '',
+            subtitle_ar: b.subtitleAr || '',
+            button_text: b.buttonLabel || '',
+            button_text_ar: b.buttonLabelAr || '',
+            button_url: resolveLinkUrl(b),
+            is_active: b.active ? '1' : '0',
+        };
+        if (Number.isFinite(b.sortOrder)) payload.sort_order = String(b.sortOrder);
+        return payload;
     };
 
     /* ─── Status helpers ───────────────────────────────────────── */
@@ -605,12 +774,13 @@
         }
     });
 
-    listEl.addEventListener('change', (e) => {
+    listEl.addEventListener('change', async (e) => {
         const t = e.target;
         if (!t.matches('[data-abo-admin-banners-toggle]')) return;
         const id = t.dataset.aboAdminBannersToggle;
         const b = getBanner(id);
         if (!b) return;
+        const previousActive = b.active;
         b.active = t.checked;
         renderList();
         // If the row is also the currently edited one, sync the switch.
@@ -619,6 +789,26 @@
             setSwitch('active', b.active);
         }
         showToast(t.checked ? 'Banner turned on' : 'Banner hidden');
+
+        // Persist the flag — only `is_active` is sent so the rest of
+        // the record stays untouched.
+        try {
+            const data = await requestBanner(
+                BANNERS_API.base + '/' + encodeURIComponent(id),
+                'PUT',
+                { is_active: b.active ? '1' : '0' }
+            );
+            if (data.banner) b.active = !!data.banner.is_active;
+            renderList();
+        } catch (err) {
+            b.active = previousActive;
+            if (state.selectedId === id && state.editing) {
+                state.editing.active = previousActive;
+                setSwitch('active', previousActive);
+            }
+            renderList();
+            showToast(err.message || 'Could not update the banner', 'coral');
+        }
     });
 
     /* ─── Drag and drop ────────────────────────────────────────── */
@@ -663,10 +853,11 @@
         if (!row || !dragId || row.dataset.id === dragId) return;
         e.preventDefault();
         const before = row.classList.contains('is-drop-before');
-        reorderWithin(state.placement, dragId, row.dataset.id, before);
-        renderList();
-        showToast('Order updated (demo)');
-        dragId = null;
+            reorderWithin(state.placement, dragId, row.dataset.id, before);
+            renderList();
+            showToast('Order updated');
+            persistOrder(state.placement);
+            dragId = null;
     });
 
     const reorderWithin = (placement, draggedId, targetId, before) => {
@@ -679,6 +870,32 @@
         arr.splice(before ? to : to + 1, 0, draggedId);
     };
 
+    /**
+     * Push the current order of a placement to the server. Only the
+     * banners that already exist in the database are written back —
+     * session-only drafts are skipped.
+     */
+    const persistOrder = async (placement) => {
+        const ids = state.filterIdsByPlacement[placement] || [];
+        const jobs = ids
+            .map((id, index) => ({ id, index }))
+            .filter(({ id }) => {
+                const b = getBanner(id);
+                return b && b._saved;
+            })
+            .map(({ id, index }) => requestBanner(
+                BANNERS_API.base + '/' + encodeURIComponent(id),
+                'PUT',
+                { sort_order: String(index) }
+            ));
+        if (jobs.length === 0) return;
+        try {
+            await Promise.all(jobs);
+        } catch (err) {
+            showToast(err.message || 'Could not update the order', 'coral');
+        }
+    };
+
     const moveRow = (id, direction) => {
         const arr = state.filterIdsByPlacement[state.placement];
         const idx = arr.indexOf(id);
@@ -689,7 +906,8 @@
         // Restore focus
         const newRow = listEl.querySelector(`[data-id="${CSS.escape(id)}"]`);
         if (newRow) newRow.focus();
-        showToast('Order updated (demo)');
+        showToast('Order updated');
+        persistOrder(state.placement);
     };
 
     /* ─── Selection + edit panel open/close ───────────────────── */
@@ -746,6 +964,7 @@
             linkCategory: CATEGORIES[0].slug,
             linkProduct: PRODUCTS[0].id,
             linkUrl: '',
+            _saved: false,
         };
         BANNERS.push(blank);
         state.filterIdsByPlacement[placement].push(id);
@@ -1247,6 +1466,7 @@
                 if (prev) URL.revokeObjectURL(prev);
                 const url = URL.createObjectURL(f);
                 state.imageObjectUrls[which] = url;
+                state.imageFiles[which] = f;
                 if (state.editing) {
                     state.editing[which === 'desktop' ? 'desktopImage' : 'mobileImage'] = url;
                 }
@@ -1263,6 +1483,7 @@
                 const prev = state.imageObjectUrls[which];
                 if (prev) URL.revokeObjectURL(prev);
                 state.imageObjectUrls[which] = null;
+                state.imageFiles[which] = null;
                 if (state.editing) {
                     state.editing[which === 'desktop' ? 'desktopImage' : 'mobileImage'] = null;
                 }
@@ -1300,7 +1521,7 @@
     const deleteBtn      = $('[data-abo-admin-banners-delete]');
     const deleteNote     = $('[data-abo-admin-banners-delete-note]');
 
-    if (saveBtn) saveBtn.addEventListener('click', () => {
+    if (saveBtn) saveBtn.addEventListener('click', async () => {
         if (!state.editing) return;
         // Alt text is only required for placements that have an
         // image (hero / promo). Announcements have no image and no
@@ -1333,13 +1554,18 @@
             }
         }
 
-        // Commit back to BANNERS
-        const target = getBanner(state.editing.id);
-        if (target) Object.assign(target, state.editing);
+        const editing = state.editing;
+        const wasNew = state.isNew;
+        const placement = editing.placement;
+        const target = getBanner(editing.id);
+        const previous = target ? JSON.parse(JSON.stringify(target)) : null;
+
+        // Commit back to BANNERS — this is the optimistic update, it is
+        // reverted below when the server rejects the write.
+        if (target) Object.assign(target, editing);
 
         // Title is required for the visible row label.
-        const updated = target || state.editing;
-        const wasNew = state.isNew;
+        const updated = target || editing;
         state.isNew = false;
         if (panelTitle) panelTitle.textContent = 'EDIT BANNER';
 
@@ -1351,10 +1577,69 @@
         state.dirty = false;
         // Keep the panel open + populated
         if (wasNew) hydrateEditPanel();
-        showToast('Saved (demo)');
+
+        // Persist — POST for a new banner, PUT for an existing one.
+        const url = wasNew
+            ? BANNERS_API.store
+            : BANNERS_API.base + '/' + encodeURIComponent(updated.id);
+        saveBtn.disabled = true;
+        try {
+            const data = await requestBanner(
+                url,
+                wasNew ? 'POST' : 'PUT',
+                bannerPayload(editing),
+                state.imageFiles.desktop
+            );
+            const saved = data.banner;
+            if (saved) {
+                const record = Object.assign({}, editing, {
+                    id: String(saved.id),
+                    active: !!saved.is_active,
+                    title: saved.title || '',
+                    titleAr: saved.title_ar || '',
+                    subtitle: saved.subtitle || '',
+                    subtitleAr: saved.subtitle_ar || '',
+                    buttonLabel: saved.button_text || '',
+                    buttonLabelAr: saved.button_text_ar || '',
+                    desktopImage: data.image_url || saved.image_url || editing.desktopImage,
+                    sortOrder: Number(saved.sort_order) || 0,
+                    _saved: true,
+                });
+                const idx = BANNERS.findIndex((b) => b.id === updated.id);
+                if (idx > -1) BANNERS[idx] = record; else BANNERS.push(record);
+                // The server id replaces the temporary one — re-key the order list.
+                const arr = state.filterIdsByPlacement[placement] || [];
+                const pos = arr.indexOf(updated.id);
+                if (pos > -1) arr[pos] = record.id;
+                Object.assign(editing, record);
+                state.selectedId = record.id;
+            }
+            state.imageFiles.desktop = null;
+            state.imageFiles.mobile = null;
+            renderList();
+            hydrateEditPanel();
+            showToast('Saved');
+        } catch (err) {
+            // Revert the optimistic change and surface the server message.
+            if (wasNew) {
+                const idx = BANNERS.findIndex((b) => b.id === editing.id);
+                if (idx > -1) BANNERS.splice(idx, 1);
+                const arr = state.filterIdsByPlacement[placement] || [];
+                const pos = arr.indexOf(editing.id);
+                if (pos > -1) arr.splice(pos, 1);
+                state.isNew = true;
+            } else if (previous && target) {
+                Object.assign(target, previous);
+            }
+            renderList();
+            if (state.editing) hydrateEditPanel();
+            showToast(err.message || 'Could not save the banner', 'coral');
+        } finally {
+            saveBtn.disabled = false;
+        }
     });
 
-    if (duplicateBtn) duplicateBtn.addEventListener('click', () => {
+    if (duplicateBtn) duplicateBtn.addEventListener('click', async () => {
         if (!state.editing) return;
         const src = state.editing;
         const id  = 'b-' + src.placement + '-dup-' + Date.now();
@@ -1363,10 +1648,37 @@
         copy.title = (src.title || 'Untitled') + ' (copy)';
         copy.titleAr = src.titleAr ? src.titleAr + ' (نسخة)' : '';
         copy.active = false; // copies start hidden
+        delete copy.sortOrder;    // the server picks the next free slot
+        copy._saved = false;
         BANNERS.push(copy);
         state.filterIdsByPlacement[src.placement].push(id);
         renderList();
-        showToast('Duplicated (demo)');
+
+        duplicateBtn.disabled = true;
+        try {
+            const data = await requestBanner(BANNERS_API.store, 'POST', bannerPayload(copy), null);
+            const saved = data.banner;
+            if (saved) {
+                copy.id = String(saved.id);
+                copy._saved = true;
+                copy.sortOrder = Number(saved.sort_order) || 0;
+                const arr = state.filterIdsByPlacement[src.placement] || [];
+                const pos = arr.indexOf(id);
+                if (pos > -1) arr[pos] = copy.id;
+            }
+            renderList();
+            showToast('Duplicated');
+        } catch (err) {
+            const idx = BANNERS.findIndex((b) => b.id === id);
+            if (idx > -1) BANNERS.splice(idx, 1);
+            const arr = state.filterIdsByPlacement[src.placement] || [];
+            const pos = arr.indexOf(id);
+            if (pos > -1) arr.splice(pos, 1);
+            renderList();
+            showToast(err.message || 'Could not duplicate the banner', 'coral');
+        } finally {
+            duplicateBtn.disabled = false;
+        }
     });
 
     if (deleteBtn) deleteBtn.addEventListener('click', () => {
@@ -1407,14 +1719,14 @@
 
     if (modalCloseEl)  modalCloseEl.addEventListener('click', closeDeleteModal);
     if (modalCancelEl) modalCancelEl.addEventListener('click', closeDeleteModal);
-    if (modalConfirmEl) modalConfirmEl.addEventListener('click', () => {
+    if (modalConfirmEl) modalConfirmEl.addEventListener('click', async () => {
         if (!state.editing) { closeDeleteModal(); return; }
         const id = state.editing.id;
         // Remove from BANNERS
         const idx = BANNERS.findIndex((b) => b.id === id);
-        if (idx >= 0) BANNERS.splice(idx, 1);
+        const removed = idx >= 0 ? BANNERS[idx] : null;
         // Remove from placement order
-        const placement = state.placement;
+        const placement = placementOf(id);
         const arr = state.filterIdsByPlacement[placement];
         const i = arr.indexOf(id);
         if (i >= 0) arr.splice(i, 1);
@@ -1426,7 +1738,22 @@
             panelEmpty.hidden = false;
         }
         modalEl.hidden = true;
-        showToast('Banner deleted (demo)');
+        showToast('Banner deleted');
+
+        // Persist the delete; restore the row when the server refuses.
+        modalConfirmEl.disabled = true;
+        try {
+            await requestDeleteBanner(BANNERS_API.base + '/' + encodeURIComponent(id));
+        } catch (err) {
+            if (removed) {
+                BANNERS.splice(idx, 0, removed);
+                arr.splice(i, 0, id);
+            }
+            renderList();
+            showToast(err.message || 'Could not delete the banner', 'coral');
+        } finally {
+            modalConfirmEl.disabled = false;
+        }
     });
 
     /* ─── Helpers + initial render ────────────────────────────── */

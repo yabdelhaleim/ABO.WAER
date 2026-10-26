@@ -295,9 +295,10 @@ class CartTest extends TestCase
     {
         $html = $this->getCartPage();
 
-        // Vite hashes the entry; we just check the entry shape.
+        // Vite hashes the entry; we just check the entry shape. The hash
+        // is base64url, so it may contain `-` and `_` as well.
         $this->assertMatchesRegularExpression(
-            '/<script[^>]+src="[^"]*app-[A-Za-z0-9]+\.js"/',
+            '/<script[^>]+src="[^"]*app-[A-Za-z0-9_-]+\.js"/',
             $html
         );
     }
@@ -339,6 +340,22 @@ class CartTest extends TestCase
 
         $this->assertNotFalse($source);
         $this->assertStringContainsString('const MAX_QTY_PER_LINE = 10;', $source);
+    }
+
+    public function test_cart_lines_survive_pages_without_a_products_payload(): void
+    {
+        // The products payload only ships with the cart view. When it is
+        // missing, cart.js must keep the stored lines instead of
+        // dropping them — otherwise every navigation empties the cart
+        // and /checkout always bounces back to /cart.
+        $source = file_get_contents(resource_path('js/cart.js'));
+
+        $this->assertNotFalse($source);
+        $this->assertStringContainsString(
+            'if (products.length > 0)',
+            $source,
+            'cart lines may only be dropped when there is a payload to validate them against'
+        );
     }
 
     // ─── CSS namespace + tokens ──────────────────────────────────

@@ -1,13 +1,19 @@
 @php
     $year = date('Y');
-    // Footer columns: 3 (Shop / Help / Follow) per spec §2.10.
-    // Fallback columns if the home view didn't pass $footer.
-    $footerCols = $footer['columns'] ?? [
+    // Footer columns: Shop / Help / Account. Every link points at a real
+    // route — there are no placeholder anchors and no dead `#` links.
+    //
+    // The columns live here, not in resources/views/store/data/home.php,
+    // so every page of the store (shop, product, cart, checkout, the
+    // content pages) renders the same footer. The Account column adapts
+    // to the session: a guest gets the sign-in links, a signed-in
+    // customer gets their own account.
+    $footerCols = [
         'Shop' => [
-            ['label' => 'All products', 'href' => '#shop'],
-            ['label' => 'New arrivals', 'href' => '#new'],
-            ['label' => 'Categories',   'href' => '#categories'],
-            ['label' => 'Sale',         'href' => '#sale'],
+            ['label' => 'All products', 'href' => route('shop')],
+            ['label' => 'New arrivals', 'href' => route('shop').'?sort=newest'],
+            ['label' => 'Categories',   'href' => route('shop').'#categories'],
+            ['label' => 'Sale',         'href' => route('shop').'?sort=price-asc'],
         ],
         'Help' => [
             ['label' => 'Shipping', 'href' => route('shipping')],
@@ -16,11 +22,17 @@
             ['label' => 'About us', 'href' => route('about')],
             ['label' => 'Contact us', 'href' => route('contact')],
         ],
-        'Follow' => [
-            ['label' => 'Instagram',  'href' => '#instagram'],
-            ['label' => 'TikTok',     'href' => '#tiktok'],
-            ['label' => 'X / Twitter','href' => '#x'],
-        ],
+        'Account' => auth()->check()
+            ? [
+                ['label' => 'My orders', 'href' => route('orders')],
+                ['label' => 'My account', 'href' => route('account')],
+                ['label' => 'Cart', 'href' => route('cart')],
+            ]
+            : [
+                ['label' => 'Log in', 'href' => route('login')],
+                ['label' => 'Create account', 'href' => route('register')],
+                ['label' => 'Cart', 'href' => route('cart')],
+            ],
     ];
     $footerTag = $footer['tagline'] ?? "Not made to blend in — premium men's streetwear from Cairo.";
 @endphp

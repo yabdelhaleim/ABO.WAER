@@ -1,4 +1,15 @@
-@props(['enabled' => true])
+@props(['enabled' => null])
+
+{{--
+    The overlay is a full-screen black layer. When it is rendered but the
+    intro has already played, the browser paints black for as long as the
+    assets take to arrive and the overlay is then removed — a black flash
+    on every reload. The server therefore decides up front whether the
+    overlay belongs in the response; see App\Services\IntroService.
+--}}
+@php
+    $enabled = $enabled ?? \App\Services\IntroService::shouldRender(request());
+@endphp
 
 @if($enabled)
     {{--

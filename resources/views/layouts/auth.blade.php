@@ -1,5 +1,11 @@
 <!DOCTYPE html>
-<html lang="en" dir="ltr" class="abo-auth">
+{{--
+    The `abo-auth` class is the two-column grid, and it belongs to the
+    <main> inside the body. Putting it on <html> as well nested a second
+    grid inside the first one and squeezed the whole page into 60% of the
+    viewport (the form column ended up ~250px wide on desktop).
+--}}
+<html lang="en" dir="ltr">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">

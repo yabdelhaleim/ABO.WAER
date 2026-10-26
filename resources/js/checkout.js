@@ -1,23 +1,28 @@
-// ABO Checkout — front-end only.
+// ABO Checkout.
 //
-// State: nothing is persisted to the server. The cart lives in
-// localStorage (abo_cart, written by cart.js). On place order, the
-// JS:
+// The order itself is placed by the server (POST /checkout →
+// OrderService::placeOrder). The browser's job is to validate, to
+// send the form, and to follow the redirect the server hands back.
+//
+// On place order, the JS:
 //   1. Re-validates every input client-side (mirrors the server
-//      rules that would be enforced by a future CheckoutRequest).
+//      rules enforced by CheckoutRequest).
 //   2. Re-hydrates the cart from localStorage + the products JSON
 //      tag in the page; drops nothing silently — any invalid line
 //      rejects the whole submission and returns the user to /cart.
-//   3. Generates an order number client-side (ABO-XXXXXX) and
-//      writes a short payload to sessionStorage under
-//      `abo_last_order`.
-//   4. Clears the abo_cart localStorage key.
-//   5. Navigates to /checkout/success/{orderNumber}.
+//   3. Posts the whole form (FormData, so every named field travels
+//      with it) to /checkout and asks for a JSON answer.
+//   4. On success: writes a short payload to sessionStorage under
+//      `abo_last_order`, clears the abo_cart localStorage key and
+//      follows the server's `redirect_url`.
+//   5. On a 422: maps the server's field errors back onto the form.
 //
 // The success page reads the same sessionStorage key. If it is
-// missing (direct visit, refresh, etc.) it redirects to /shop.
+// missing (direct visit, refresh, etc.) it falls back to the order
+// number in the URL.
 // Prices and totals are never trusted from the client: every total
-// shown is recomputed from the products JSON at render time.
+// shown is recomputed from the products JSON at render time, and the
+// server prices the order from the database.
 
 const STORAGE_KEY = 'abo_cart';
 const ORDER_STORAGE_KEY = 'abo_last_order';
@@ -79,11 +84,89 @@ function clearCart() {
 }
 
 function generateOrderNumber() {
-    // Six zero-padded digits. In production this comes from the DB
-    // id inside a transaction; for the preview build we generate a
-    // random number. Prefix matches the spec.
+    // Fallback only. The order number is minted by the server inside
+    // the order transaction; this is here for the rare case where the
+    // server answers without one, so the page still has something to
+    // show. Six zero-padded digits, prefix matches the spec.
     const n = Math.floor(Math.random() * 1_000_000);
     return 'ABO-' + n.toString().padStart(6, '0');
+}
+
+// ─── Server bridge ─────────────────────────────────────────────────
+
+function csrfToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.getAttribute('content') : '';
+}
+
+/**
+ * Post the checkout form and ask for a JSON answer.
+ *
+ * The body is a FormData built from the form itself, so every field
+ * the server knows about travels with the request without this module
+ * having to name them.
+ */
+async function submitOrder(form) {
+    let response;
+    try {
+        response = await fetch(form.getAttribute('action') || '/checkout', {
+            method: 'POST',
+            body: new FormData(form),
+            credentials: 'same-origin',
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': csrfToken(),
+            },
+        });
+    } catch (e) {
+        return { ok: false, status: 0, data: null, message: 'Network error. Check your connection and try again.' };
+    }
+
+    let data = null;
+    try {
+        data = await response.json();
+    } catch (e) {
+        data = null;
+    }
+
+    return { ok: response.ok, status: response.status, data, message: '' };
+}
+
+/**
+ * Paint the server's validation errors onto the matching fields.
+ */
+function applyServerErrors(errors) {
+    if (!errors || typeof errors !== 'object') return false;
+    let painted = false;
+    for (const [field, messages] of Object.entries(errors)) {
+        const message = Array.isArray(messages) ? messages[0] : messages;
+        if (!message) continue;
+        if (showFieldError(field, String(message))) painted = true;
+    }
+    return painted;
+}
+
+/**
+ * A message that belongs to the form as a whole (an empty cart, a
+ * stock problem, a server error).
+ */
+function showFormError(message) {
+    const form = $('[data-checkout-form]');
+    if (!form || !message) return;
+    let errEl = form.querySelector('.checkout__form-error');
+    if (!errEl) {
+        errEl = document.createElement('p');
+        errEl.className = 'checkout__form-error';
+        errEl.setAttribute('role', 'alert');
+        form.prepend(errEl);
+    }
+    errEl.textContent = message;
+}
+
+function clearFormError() {
+    const errEl = $('[data-checkout-form] .checkout__form-error');
+    if (errEl) errEl.remove();
 }
 
 // ─── Hydration ─────────────────────────────────────────────────────
@@ -242,7 +325,7 @@ function renderEmpty() {
 
 function showFieldError(name, message) {
     const wrap = document.querySelector(`[data-checkout-field="${name}"]`);
-    if (!wrap) return;
+    if (!wrap) return false;
     wrap.dataset.error = 'true';
     wrap.classList.add('is-error');
     let errEl = wrap.querySelector('.checkout__error');
@@ -260,6 +343,8 @@ function showFieldError(name, message) {
         input.setAttribute('aria-invalid', 'true');
         input.setAttribute('aria-describedby', errEl.id);
     }
+
+    return true;
 }
 
 function clearFieldError(name) {
@@ -378,33 +463,66 @@ function onSubmit(ev) {
     if (!cart) return; // hydrate() already redirected.
 
     setBusy(form, true);
+    clearFormError();
 
-    // Populate hidden fields. Useful for a future server-side
-    // implementation; today only the JS reads them.
+    // Populate hidden fields. The server prices the order from the
+    // database; cart_json is the fallback for a cart that only ever
+    // lived in the browser.
     const cartJson = $('[data-checkout-cart-json]');
     if (cartJson) cartJson.value = JSON.stringify({
-        items: cart.items.map((l) => ({ slug: l.slug, color: l.color, size: l.size, qty: l.qty })),
+        items: cart.items.map((l) => ({
+            slug: l.slug,
+            color: l.color,
+            size: l.size,
+            qty: l.qty,
+            variant_id: l.variant_id,
+        })),
     });
     const expectedTotal = $('[data-checkout-expected-total]');
     if (expectedTotal) expectedTotal.value = String(cart.subtotal);
 
-    // Generate the order number, write a short-lived payload, clear
-    // the cart, navigate to the success page.
-    const orderNumber = generateOrderNumber();
-    const order = {
-        number: orderNumber,
-        subtotal: cart.subtotal,
-        items: cart.items,
-        paymentMethod: result.values.payment_method || 'cod',
-        placedAt: Date.now(),
-    };
-    writeOrder(order);
-    clearCart();
+    submitOrder(form).then((response) => {
+        if (!response.ok) {
+            setBusy(form, false);
 
-    // Brief delay so the spinner is visible, then navigate.
-    setTimeout(() => {
-        window.location.assign(`/checkout/success/${orderNumber}`);
-    }, 450);
+            if (response.status === 422 && response.data && response.data.errors) {
+                if (!applyServerErrors(response.data.errors)) {
+                    showFormError('Please check the highlighted fields.');
+                }
+                const firstKey = Object.keys(response.data.errors)[0];
+                const firstInput = firstKey ? document.querySelector(`[name="${firstKey}"]`) : null;
+                if (firstInput && typeof firstInput.focus === 'function') {
+                    firstInput.focus({ preventScroll: false });
+                }
+                return;
+            }
+
+            showFormError(response.message || 'We could not place the order. Please try again.');
+            return;
+        }
+
+        const payload = response.data || {};
+        const orderNumber = payload.order_number || generateOrderNumber();
+
+        // Keep a short-lived copy of the order for the success page.
+        // The server sends the stored order back with the response, so
+        // the copy carries the same figures the database does.
+        const order = payload.order && typeof payload.order === 'object'
+            ? payload.order
+            : {
+                number: orderNumber,
+                subtotal: cart.subtotal,
+                items: cart.items,
+                paymentMethod: result.values.payment_method || 'cod',
+                placedAt: Date.now(),
+            };
+        writeOrder(order);
+        clearCart();
+
+        // Follow the server to the order it actually created.
+        const target = payload.redirect_url || `/checkout/success/${orderNumber}`;
+        window.location.assign(target);
+    });
 }
 
 function onMobileBarSubmit() {

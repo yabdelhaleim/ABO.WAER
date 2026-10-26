@@ -1,8 +1,8 @@
 /*
- * ABO Admin · Coupons — page-local script (front-end only).
+ * ABO Admin · Coupons — page-local script.
  *
- * Pure DOM behaviour for the static coupons demo:
- *   - renders the list from the COUPONS static array below
+ * DOM behaviour for the admin coupon manager:
+ *   - renders the list from the COUPONS array hydrated from the server
  *   - status tabs (All / Active / Scheduled / Expired / Disabled)
  *   - search + type filters
  *   - 28x14 active toggle on each row (updates badge in the DOM)
@@ -15,9 +15,16 @@
  *   - status is derived from today (2026-10-16), the dates, the
  *     usage and the active toggle
  *
- * No fetch / XHR / localStorage. The only persistence is the
- * optional `state` object that holds transient UI (selected id,
- * active tab, dirty flag, ...). It is reset on every page load.
+ * Wired to the live coupon API (Admin\CouponController):
+ *   - POST   /admin/coupons                — create
+ *   - PUT    /admin/coupons/{id}           — update
+ *   - PATCH  /admin/coupons/{id}/toggle    — flip the active flag
+ *   - DELETE /admin/coupons/{id}           — delete
+ *
+ * The local `state` object stays the source of truth for rendering:
+ * every mutation is applied locally first, then sent to the server.
+ * A failed request reverts the local change and surfaces the server
+ * message in the shared toast.
  *
  * Markup anchor points (every selector uses data-* attributes):
  *   [data-abo-admin-coupons]                       — page root (layout)
@@ -135,6 +142,107 @@
         .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
     const isMobile = () => window.matchMedia('(max-width: 1100px)').matches;
+
+    /* ─── API ───────────────────────────────────────────────────
+     *
+     * Wired to Admin\CouponController. Every write carries the CSRF
+     * token and the headers Laravel expects for an AJAX call.
+     */
+
+    const COUPONS_API = {
+        store: '/admin/coupons',
+        base: '/admin/coupons',
+        toggle: '/admin/coupons/__ID__/toggle',
+    };
+
+    /** CSRF token — the admin layout ships the meta tag; the logout
+     *  form's hidden `_token` is used as a fallback. */
+    const csrfToken = () => (
+        document.querySelector('meta[name="csrf-token"]')?.content
+        || document.querySelector('input[name="_token"]')?.value
+        || ''
+    );
+
+    /** First validation / server message out of a JSON error body. */
+    const apiErrorMessage = (data, fallback) => {
+        if (data && data.errors) {
+            const first = Object.values(data.errors).flat()[0];
+            if (first) return first;
+        }
+        return (data && data.message) || fallback;
+    };
+
+    /**
+     * Send a JSON write to the coupon API. Rejects with an Error
+     * carrying the server message so the caller can revert the local
+     * state and toast it.
+     */
+    const requestCoupon = async (url, method, payload) => {
+        const res = await fetch(url, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken(),
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify(payload),
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(apiErrorMessage(data, 'Could not save the coupon.'));
+        return data;
+    };
+
+    /** DELETE a coupon. Rejects with the server message on failure. */
+    const requestDeleteCoupon = async (url) => {
+        const res = await fetch(url, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRF-TOKEN': csrfToken(),
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+            },
+            credentials: 'same-origin',
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(apiErrorMessage(data, 'Could not delete the coupon.'));
+        return data;
+    };
+
+    /** The coupon fields CouponRequest validates. */
+    const couponPayload = (e) => ({
+        code: e.code || '',
+        type: e.type,
+        value: e.type === 'shipping' ? 0 : Number(e.value || 0),
+        max_discount: e.type === 'percentage' && e.cap !== '' && e.cap != null ? Number(e.cap) : null,
+        min_order_total: e.minimum === '' || e.minimum == null ? null : Number(e.minimum || 0),
+        total_usage_limit: e.usesMax === '' || e.usesMax == null ? null : Number(e.usesMax || 0),
+        usage_per_customer_limit: e.usesPerCustomer === '' || e.usesPerCustomer == null ? null : Number(e.usesPerCustomer || 0),
+        starts_at: e.startsAt || null,
+        expires_at: e.endsAt || null,
+        is_active: e.active ? 1 : 0,
+    });
+
+    /** Map a coupon record returned by the server onto the local shape.
+     *  Only the server-owned fields are listed — the local-only ones
+     *  (scope, discountGiven, ...) are kept from the existing record. */
+    const couponFromServer = (raw) => ({
+        id: String(raw.id),
+        code: raw.code || '',
+        type: raw.type || 'percentage',
+        value: Number(raw.value) || 0,
+        cap: raw.max_discount == null ? null : Number(raw.max_discount),
+        minimum: raw.min_order_total == null ? null : Number(raw.min_order_total),
+        usesMax: raw.total_usage_limit == null ? null : Number(raw.total_usage_limit),
+        usesPerCustomer: raw.usage_per_customer_limit == null ? null : Number(raw.usage_per_customer_limit),
+        uses: Number(raw.used_count) || 0,
+        startsAt: raw.starts_at ? String(raw.starts_at).slice(0, 10) : '',
+        endsAt: raw.expires_at ? String(raw.expires_at).slice(0, 10) : '',
+        active: !!raw.is_active,
+    });
 
     /** Format a numeric EGP amount the admin way: "EGP 100". */
     const egp = (n) => 'EGP ' + Math.round(Number(n) || 0).toLocaleString('en-US');
@@ -536,7 +644,7 @@
 
     const wireList = () => {
         if (!listEl) return;
-        listEl.addEventListener('click', (e) => {
+        listEl.addEventListener('click', async (e) => {
             const row = e.target.closest('[data-abo-admin-coupons-item]');
             if (!row) return;
 
@@ -546,6 +654,7 @@
                 const id = t.dataset.aboAdminCouponsRowToggle;
                 const c = COUPONS.find((x) => x.id === id);
                 if (!c) return;
+                const previousActive = c.active;
                 c.active = t.checked;
                 t.setAttribute('aria-checked', String(t.checked));
                 // Re-render the row so the badge updates in the DOM
@@ -560,7 +669,28 @@
                     state.editing._status = derivedStatus(c);
                     renderPanel({ skipSyncEditing: true });
                 }
-                showToast(t.checked ? 'Activated (demo)' : 'Deactivated (demo)', 'lime');
+                showToast(t.checked ? 'Activated' : 'Deactivated', 'lime');
+
+                // Persist — the toggle endpoint flips the flag server-side.
+                try {
+                    const url = COUPONS_API.toggle.replace('__ID__', encodeURIComponent(id));
+                    const data = await requestCoupon(url, 'PATCH', {});
+                    if (typeof data.is_active === 'boolean') c.active = data.is_active;
+                    renderList();
+                    renderStats();
+                    renderTabCounts();
+                } catch (err) {
+                    c.active = previousActive;
+                    if (state.editing && state.editing.id === id) {
+                        state.editing.active = previousActive;
+                        state.editing._status = derivedStatus(c);
+                        renderPanel({ skipSyncEditing: true });
+                    }
+                    renderList();
+                    renderStats();
+                    renderTabCounts();
+                    showToast(err.message || 'Could not update the coupon', 'coral');
+                }
                 return;
             }
 
@@ -1132,7 +1262,7 @@
 
         // Save.
         if (saveBtn) {
-            saveBtn.addEventListener('click', () => {
+            saveBtn.addEventListener('click', async () => {
                 if (!state.editing) return;
                 const e = state.editing;
                 const codeOk = validateCode(e.code).ok;
@@ -1140,47 +1270,40 @@
                     if (codeErrorEl) codeErrorEl.hidden = false;
                     return;
                 }
-                const target = COUPONS.find((c) => c.id === e.id);
+                const isNew = !!e._isNew;
+                const target = isNew ? null : COUPONS.find((c) => c.id === e.id);
+                const previous = target ? JSON.parse(JSON.stringify(target)) : null;
+
+                const optimistic = {
+                    code: e.code,
+                    type: e.type,
+                    value: e.type === 'shipping' ? 0 : Number(e.value || 0),
+                    cap: e.type === 'percentage' && e.cap !== '' ? Number(e.cap) : null,
+                    minimum: e.minimum === '' ? null : Number(e.minimum || 0),
+                    usesMax: e.usesMax === '' ? null : Number(e.usesMax || 0),
+                    usesPerCustomer: e.usesPerCustomer === '' ? null : Number(e.usesPerCustomer || 0),
+                    startsAt: e.startsAt || '',
+                    endsAt:   e.endsAt   || '',
+                    scope: e.scope,
+                    scopeIds: Array.from(e.scopeIds),
+                    firstOrderOnly: !!e.firstOrderOnly,
+                    excludeSale: !!e.excludeSale,
+                    active: !!e.active,
+                };
+
+                // Optimistic local write — reverted below when the
+                // server rejects it.
+                let newC = null;
                 if (target) {
-                    Object.assign(target, {
-                        code: e.code,
-                        type: e.type,
-                        value: e.type === 'shipping' ? 0 : Number(e.value || 0),
-                        cap: e.type === 'percentage' && e.cap !== '' ? Number(e.cap) : null,
-                        minimum: e.minimum === '' ? null : Number(e.minimum || 0),
-                        usesMax: e.usesMax === '' ? null : Number(e.usesMax || 0),
-                        usesPerCustomer: e.usesPerCustomer === '' ? null : Number(e.usesPerCustomer || 0),
-                        startsAt: e.startsAt || '',
-                        endsAt:   e.endsAt   || '',
-                        scope: e.scope,
-                        scopeIds: Array.from(e.scopeIds),
-                        firstOrderOnly: !!e.firstOrderOnly,
-                        excludeSale: !!e.excludeSale,
-                        active: !!e.active,
-                    });
+                    Object.assign(target, optimistic);
                 } else {
-                    // New coupon.
                     const newId = 'cp-new-' + Date.now();
-                    const newC = {
+                    newC = Object.assign({
                         id: newId,
-                        code: e.code,
-                        type: e.type,
-                        value: e.type === 'shipping' ? 0 : Number(e.value || 0),
-                        cap: e.type === 'percentage' && e.cap !== '' ? Number(e.cap) : null,
-                        minimum: e.minimum === '' ? null : Number(e.minimum || 0),
-                        usesMax: e.usesMax === '' ? null : Number(e.usesMax || 0),
-                        usesPerCustomer: e.usesPerCustomer === '' ? null : Number(e.usesPerCustomer || 0),
                         uses: 0,
-                        startsAt: e.startsAt || '',
-                        endsAt:   e.endsAt   || '',
-                        scope: e.scope,
-                        scopeIds: Array.from(e.scopeIds),
-                        firstOrderOnly: !!e.firstOrderOnly,
-                        excludeSale: !!e.excludeSale,
-                        active: !!e.active,
                         discountGiven: 0,
                         categoryLabel: '',
-                    };
+                    }, optimistic);
                     COUPONS.unshift(newC);
                     e.id = newId;
                     e._isNew = false;
@@ -1192,13 +1315,60 @@
                 renderTabCounts();
                 renderList();
                 renderPanel();
-                showToast('Saved (demo)', 'lime');
+
+                // Persist.
+                const url = isNew
+                    ? COUPONS_API.store
+                    : COUPONS_API.base + '/' + encodeURIComponent(target.id);
+                saveBtn.disabled = true;
+                try {
+                    const data = await requestCoupon(url, isNew ? 'POST' : 'PUT', couponPayload(e));
+                    const saved = data.coupon;
+                    if (saved) {
+                        const record = Object.assign({}, newC || target, couponFromServer(saved));
+                        if (isNew) {
+                            const idx = COUPONS.findIndex((c) => c.id === newC.id);
+                            if (idx > -1) COUPONS[idx] = record;
+                            e.id = record.id;
+                            state.selectedId = record.id;
+                        } else {
+                            Object.assign(target, record);
+                        }
+                    }
+                    state.dirty = false;
+                    if (dirtyDotEl) dirtyDotEl.classList.remove('is-visible');
+                    renderStats();
+                    renderTabCounts();
+                    renderList();
+                    renderPanel();
+                    showToast(data.message || 'Saved', 'lime');
+                } catch (err) {
+                    // Revert the optimistic write and surface the message.
+                    if (isNew && newC) {
+                        const idx = COUPONS.findIndex((c) => c.id === newC.id);
+                        if (idx > -1) COUPONS.splice(idx, 1);
+                        e.id = '__new';
+                        e._isNew = true;
+                        state.selectedId = null;
+                    } else if (previous && target) {
+                        Object.assign(target, previous);
+                    }
+                    state.dirty = true;
+                    if (dirtyDotEl) dirtyDotEl.classList.add('is-visible');
+                    renderStats();
+                    renderTabCounts();
+                    renderList();
+                    renderPanel();
+                    showToast(err.message || 'Could not save the coupon', 'coral');
+                } finally {
+                    saveBtn.disabled = false;
+                }
             });
         }
 
         // Duplicate.
         if (duplicateBtn) {
-            duplicateBtn.addEventListener('click', () => {
+            duplicateBtn.addEventListener('click', async () => {
                 if (!state.editing) return;
                 const e = state.editing;
                 const source = COUPONS.find((c) => c.id === e.id);
@@ -1217,7 +1387,37 @@
                 renderTabCounts();
                 renderList();
                 renderPanel();
-                showToast('Duplicated (demo)', 'lime');
+
+                // Persist the copy — it is a brand new coupon.
+                duplicateBtn.disabled = true;
+                try {
+                    const data = await requestCoupon(COUPONS_API.store, 'POST', couponPayload(dup));
+                    const saved = data.coupon;
+                    if (saved) {
+                        const record = Object.assign({}, dup, couponFromServer(saved));
+                        const idx = COUPONS.findIndex((c) => c.id === dup.id);
+                        if (idx > -1) COUPONS[idx] = record;
+                        state.selectedId = record.id;
+                        state.editing = snapshotFromCoupon(record);
+                    }
+                    renderStats();
+                    renderTabCounts();
+                    renderList();
+                    renderPanel();
+                    showToast(data.message || 'Duplicated', 'lime');
+                } catch (err) {
+                    const idx = COUPONS.findIndex((c) => c.id === dup.id);
+                    if (idx > -1) COUPONS.splice(idx, 1);
+                    state.selectedId = source.id;
+                    state.editing = snapshotFromCoupon(source);
+                    renderStats();
+                    renderTabCounts();
+                    renderList();
+                    renderPanel();
+                    showToast(err.message || 'Could not duplicate the coupon', 'coral');
+                } finally {
+                    duplicateBtn.disabled = false;
+                }
             });
         }
 
@@ -1295,9 +1495,11 @@
             el.addEventListener('click', closeDeleteModal);
         }
         if (modalCancel) modalCancel.addEventListener('click', closeDeleteModal);
-        if (modalConfirm) modalConfirm.addEventListener('click', () => {
+        if (modalConfirm) modalConfirm.addEventListener('click', async () => {
             if (!state.editing) return;
-            const idx = COUPONS.findIndex((c) => c.id === state.editing.id);
+            const id = state.editing.id;
+            const idx = COUPONS.findIndex((c) => c.id === id);
+            const removed = idx > -1 ? COUPONS[idx] : null;
             if (idx > -1) COUPONS.splice(idx, 1);
             state.selectedId = null;
             state.editing = null;
@@ -1307,7 +1509,21 @@
             renderTabCounts();
             renderList();
             renderPanel();
-            showToast('Coupon deleted (demo)', 'coral');
+            showToast('Coupon deleted', 'coral');
+
+            // Persist the delete; restore the row when the server refuses.
+            modalConfirm.disabled = true;
+            try {
+                await requestDeleteCoupon(COUPONS_API.base + '/' + encodeURIComponent(id));
+            } catch (err) {
+                if (removed) COUPONS.splice(idx, 0, removed);
+                renderStats();
+                renderTabCounts();
+                renderList();
+                showToast(err.message || 'Could not delete the coupon', 'coral');
+            } finally {
+                modalConfirm.disabled = false;
+            }
         });
     };
 

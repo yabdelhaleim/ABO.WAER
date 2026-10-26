@@ -154,6 +154,7 @@
                                     <li class="product-page__size @if ($variant->quantity < 1) is-out @endif"
                                         data-color-id="{{ $block['color']->id }}"
                                         data-size-id="{{ $variant->size_id }}"
+                                        data-variant-id="{{ $variant->id }}"
                                         data-size-name="{{ $variant->size?->name }}"
                                         data-price="{{ (float) $variant->final_price }}"
                                         data-stock="{{ (int) $variant->quantity }}"
@@ -183,6 +184,7 @@
                     {{-- Hidden JSON used by the product.js hydration script. --}}
                     <script type="application/json" data-product-variants>{!! json_encode([
                         'slug' => $product->slug,
+                        'name' => $product->name,
                         'colors' => $variantsByColor->map(fn ($block) => [
                             'id' => $block['color']->id,
                             'name' => $block['color']->name,
@@ -190,6 +192,7 @@
                             'image' => $block['images']->first()?->path,
                             'sizes' => $block['sizes']->map(fn ($v) => [
                                 'id' => $v->size_id,
+                                'variant_id' => $v->id,
                                 'name' => $v->size?->name,
                                 'price' => (float) $v->final_price,
                                 'stock' => (int) $v->quantity,
@@ -208,13 +211,17 @@
                     </div>
                 @endif
 
-                {{-- Cart opens at launch — keep the button disabled but
-                     update its label with the chosen variant. --}}
+                {{-- The button is a real add-to-cart: it posts the chosen
+                     variant to /cart/items and keeps its label in sync with
+                     the selected colour and size. --}}
                 <div class="product-page__group">
                     <button type="button" class="store-btn store-btn--primary" disabled aria-disabled="true" data-product-atc>
-                        <span data-product-atc-label>ADD TO CART — SOON</span>
+                        <span data-product-atc-label>SELECT A SIZE</span>
                     </button>
-                    <p class="product-page__hint">Cart opens at launch. <a href="{{ route('shop') }}">Browse the collection →</a></p>
+                    <p class="product-page__hint" data-product-atc-hint>
+                        Free shipping over 1,500 EGP · Cash on delivery.
+                        <a href="{{ route('shop') }}">Browse the collection →</a>
+                    </p>
                 </div>
             </div>
         </div>
@@ -233,7 +240,7 @@
                             $relatedPrice = $related->min_price ?? $related->starting_price;
                         @endphp
                         <li class="related__item">
-                            <a href="{{ route('shop.show', ['slug' => $related->slug]) }}" class="related__link" aria-label="{{ $related->name }}">
+                            <a class="related__link" href="{{ route('shop.show', ['slug' => $related->slug]) }}" aria-label="{{ $related->name }}">
                                 <img src="{{ asset($relatedImage) }}" alt="{{ $related->name }}" loading="lazy" decoding="async" width="600" height="750">
                                 <div class="related__body">
                                     <h3 class="related__name">{{ $related->name }}</h3>

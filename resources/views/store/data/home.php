@@ -113,26 +113,11 @@ return [
         'success' => "YOU'RE IN ✓",
     ],
 
+    // The footer columns themselves live in
+    // resources/views/store/partials/footer.blade.php so every page of
+    // the store renders the same set of links. Only the tagline is
+    // editorial copy, so only the tagline is defined here.
     'footer' => [
         'tagline' => 'Not made to blend in — premium men\'s streetwear from Cairo.',
-        'columns' => [
-            'Shop' => [
-                ['label' => 'All products', 'href' => '/shop'],
-                ['label' => 'New arrivals', 'href' => '/shop?sort=newest'],
-                ['label' => 'Categories', 'href' => '/shop#categories'],
-                ['label' => 'Sale', 'href' => '/shop?sort=price-asc'],
-            ],
-            'Help' => [
-                ['label' => 'Contact us', 'href' => '#contact'],
-                ['label' => 'Shipping & returns', 'href' => '#shipping'],
-                ['label' => 'Size guide', 'href' => '#size-guide'],
-                ['label' => 'FAQ', 'href' => '#faq'],
-            ],
-            'Follow' => [
-                ['label' => 'Instagram', 'href' => '#instagram'],
-                ['label' => 'TikTok', 'href' => '#tiktok'],
-                ['label' => 'X / Twitter', 'href' => '#x'],
-            ],
-        ],
     ],
 ];

@@ -176,9 +176,14 @@ function renderOrder(order) {
     const payEl = $('[data-checkout-success-payment]');
     if (payEl) payEl.textContent = paymentLabel(order.paymentMethod);
 
-    // Order total.
+    // Order total. The stored order carries the final figure
+    // (subtotal + shipping − discount); older payloads only have the
+    // subtotal.
     const totalEl = $('[data-checkout-success-total]');
-    if (totalEl) totalEl.textContent = formatEGP(order.subtotal);
+    if (totalEl) {
+        const figure = Number.isFinite(Number(order.total)) ? Number(order.total) : Number(order.subtotal);
+        totalEl.textContent = formatEGP(figure);
+    }
 
     // Items.
     if (Array.isArray(order.items) && order.items.length > 0) {
@@ -201,32 +206,21 @@ function init() {
     // found — the same JS bundle is loaded on every Blade page.
     if (!document.querySelector('[data-checkout-success]')) return;
 
-    // Reveal the checkmark animation only after we've confirmed a
-    // real order payload exists. This prevents the animation from
-    // playing on direct visits that are about to be redirected.
-    let order = readOrder();
+    // The page is rendered from the stored order, so every value on
+    // screen is already correct. The payload in sessionStorage is the
+    // copy the browser kept from the submission; when it is there we
+    // refresh the page from it (same figures, no second request).
+    const order = readOrder();
 
-    // Fallback: if sessionStorage was cleared but the URL has the
-    // order number, build a minimal payload so the page can show
-    // the number (no items, no total — neutral fallbacks).
-    if (!order && window.__checkoutSuccessOrderNumber) {
-        order = {
-            number: window.__checkoutSuccessOrderNumber,
-            subtotal: 0,
-            items: [],
-            paymentMethod: '',
-            placedAt: Date.now(),
-        };
-    }
-
-    if (!order) {
-        // No payload, no fallback. Redirect to /shop — we must not
-        // show a fabricated success state.
+    if (order) {
+        renderOrder(order);
+    } else if (!window.__checkoutSuccessOrderNumber) {
+        // No payload and no order number in the page: this is not a
+        // real success page. Redirect to /shop — we must not show a
+        // fabricated success state.
         window.location.replace(FALLBACK_SHOP_URL);
         return;
     }
-
-    renderOrder(order);
 
     const mark = $('[data-checkout-success-mark]');
     if (mark) mark.hidden = false;

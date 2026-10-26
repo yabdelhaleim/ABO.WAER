@@ -20,6 +20,16 @@ import { PAGES, SETTINGS } from './content.mock.js';
 
 // ─── State ────────────────────────────────────────────────────────
 
+/**
+ * The CSRF token the Blade layout puts in the document head. Needed by
+ * the contact form because it posts through `fetch` rather than a
+ * native form submit.
+ */
+function csrfToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.getAttribute('content') : '';
+}
+
 const state = {
     settings: { ...SETTINGS },
     page: null,
@@ -32,12 +42,38 @@ const state = {
 
 /**
  * Returns the page object for the given slug, or null if it does
- * not exist. Today this returns the static mock map. A real
- * backend can replace this with a `fetch('/api/pages/' + slug)`
- * call without touching any view, component, or styling.
+ * not exist.
+ *
+ * The page is rendered by the server from the `pages` table, so the
+ * copy a customer reads is whatever the admin last saved. This reads
+ * that rendered page back out of the DOM and hands it to the template
+ * as a single HTML block.
+ *
+ * A page with no saved copy yet falls back to the bundled mock, so a
+ * freshly created page still has a designed layout instead of a blank
+ * screen. As soon as the admin saves, the saved copy wins.
  */
 export async function getPage(slug) {
     await Promise.resolve();
+
+    const titleEl = $('.content__title');
+    const bodyEl = $('.content__body');
+
+    if (titleEl && bodyEl) {
+        const html = bodyEl.innerHTML.trim();
+        if (html !== '') {
+            return {
+                slug,
+                group: 'info',
+                title: titleEl.textContent.trim(),
+                summary: '',
+                updatedAt: '',
+                status: 'published',
+                blocks: [{ type: 'html', html }],
+            };
+        }
+    }
+
     const page = PAGES[slug] ?? null;
     return page ? structuredClone(page) : null;
 }
@@ -454,6 +490,7 @@ function onFormSubmit(ev, form) {
     const name = String(data.get('name') || '').trim();
     const email = String(data.get('email') || '').trim();
     const topic = String(data.get('topic') || '').trim();
+    const order = String(data.get('order') || '').trim();
     const message = String(data.get('message') || '').trim();
     const errors = {};
 
@@ -492,13 +529,86 @@ function onFormSubmit(ev, form) {
         return;
     }
 
-    // Success state — replace the form in place, no network call.
+    const submit = form.querySelector('button[type="submit"]');
+    if (submit) {
+        submit.disabled = true;
+        submit.setAttribute('data-loading', 'true');
+    }
+
+    // The optional order number is not a column of its own — fold it
+    // into the message body so the admin inbox still sees it.
+    const body = order ? `${message}\n\nOrder number: ${order}` : message;
+
+    const payload = new FormData(form);
+    payload.set('message', body);
+    payload.delete('order');
+
+    fetch('/contact', {
+        method: 'POST',
+        body: payload,
+        credentials: 'same-origin',
+        headers: {
+            Accept: 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': csrfToken(),
+        },
+    })
+        .then(async (response) => {
+            const payload = await response.json().catch(() => null);
+
+            if (!response.ok) {
+                const serverErrors = payload?.errors || {};
+                let painted = false;
+                for (const [field, msgs] of Object.entries(serverErrors)) {
+                    const wrap = form.querySelector(`[data-field="${field}"]`);
+                    if (!wrap) continue;
+                    wrap.classList.add('is-error');
+                    const input = wrap.querySelector('input,select,textarea');
+                    if (input) {
+                        input.setAttribute('aria-invalid', 'true');
+                        input.setAttribute('aria-describedby', `content-${field}-err`);
+                    }
+                    const err = wrap.querySelector('.content__field-error');
+                    if (err) err.textContent = Array.isArray(msgs) ? msgs[0] : String(msgs);
+                    painted = true;
+                }
+
+                if (!painted) {
+                    const err = form.querySelector('.content__field-error');
+                    if (err) err.textContent = payload?.message || 'Something went wrong. Try again.';
+                }
+
+                if (submit) {
+                    submit.disabled = false;
+                    submit.removeAttribute('data-loading');
+                }
+                return;
+            }
+
+            renderFormSuccess(form, name, payload?.message);
+        })
+        .catch(() => {
+            const err = form.querySelector('.content__field-error');
+            if (err) err.textContent = 'Network error. Check your connection and try again.';
+            if (submit) {
+                submit.disabled = false;
+                submit.removeAttribute('data-loading');
+            }
+        });
+}
+
+/**
+ * Replace the form with the confirmation panel once the server has
+ * accepted the message.
+ */
+function renderFormSuccess(form, name, serverMessage) {
     const success = el('div', { class: 'content__form-success', tabindex: '-1' });
     success.appendChild(el('h3', { class: 'content__form-success-title' }, 'MESSAGE SENT ✓'));
     const sub = el('p', { class: 'content__form-success-body' });
     sub.appendChild(document.createTextNode('Thanks '));
     sub.appendChild(el('strong', {}, name));
-    sub.appendChild(document.createTextNode('. We will reply within 24 hours.'));
+    sub.appendChild(document.createTextNode('. '));
+    sub.appendChild(document.createTextNode(serverMessage || 'We will reply within 24 hours.'));
     success.appendChild(sub);
     form.replaceWith(success);
     success.focus();
@@ -558,7 +668,21 @@ function buildCols(block) {
     return grid;
 }
 
+/**
+ * A block of admin-authored HTML, straight from the `pages` table.
+ *
+ * The copy is written by an authenticated admin through the protected
+ * admin.pages.update route, so it is trusted the same way the server
+ * trusts it when it echoes the body into the page.
+ */
+function buildHtml(block) {
+    const wrap = el('div', { class: 'content__body' });
+    wrap.innerHTML = block.html || '';
+    return wrap;
+}
+
 const BLOCK_BUILDERS = {
+    html: buildHtml,
     stats: buildStats,
     text: buildText,
     steps: buildSteps,
@@ -941,11 +1065,16 @@ async function init() {
 
     usedIds.clear();
 
-    // Loading state (~500ms).
-    const skel = renderSkeleton();
-    shell.appendChild(skel);
-    await new Promise((r) => setTimeout(r, 500));
-    skel.remove();
+    // Loading state (~500ms) — only when the server did not already
+    // render the page. When it did, the copy is on screen and showing
+    // a skeleton over it would only cause a flash.
+    const serverRendered = !!$('.content__body');
+    if (!serverRendered) {
+        const skel = renderSkeleton();
+        shell.appendChild(skel);
+        await new Promise((r) => setTimeout(r, 500));
+        skel.remove();
+    }
 
     // Force-state overrides for design review.
     if (state.forceState === 'notfound') {
