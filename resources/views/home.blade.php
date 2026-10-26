@@ -28,7 +28,7 @@
                         <img
                             class="hero__photo"
                             data-home-photo
-                            src="{{ asset('storage/' . $banner->image_path) }}"
+                            src="{{ \App\Services\ImageUrl::make($banner->image_path) }}"
                             alt="{{ $banner->title_ar ?? $banner->title ?? '' }}"
                             width="800"
                             height="450"
@@ -155,7 +155,7 @@
                 <a class="cat-card" href="{{ route('shop', ['category' => $category->slug]) }}" data-home-reveal>
                     <div class="cat-card__media">
                         <img
-                            src="{{ $category->image ? asset('storage/' . $category->image) : asset('store/images/category-placeholder.jpg') }}"
+                            src="{{ \App\Services\ImageUrl::make($category->image, \App\Services\ImageUrl::CATEGORY_PLACEHOLDER) }}"
                             alt="{{ $category->name_ar ?? $category->name }}"
                             width="600"
                             height="800"
@@ -205,7 +205,7 @@
                 <article class="product" data-home-reveal>
                     <a class="product__media" href="{{ route('shop.show', $product->slug) }}" aria-label="{{ $product->name_ar ?? $product->name }}">
                         <img
-                            src="{{ $product->images->first()?->thumb_path ? asset('storage/' . $product->images->first()->thumb_path) : asset('store/images/product-placeholder.jpg') }}"
+                            src="{{ \App\Services\ImageUrl::make($product->images->first()?->thumb_path) }}"
                             alt="{{ $product->name_ar ?? $product->name }}"
                             width="600"
                             height="750"

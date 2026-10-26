@@ -81,12 +81,22 @@ function withCacheBust(url) {
     return url + (url.includes('?') ? '&' : '?') + 'v=' + Date.now();
 }
 
+/**
+ * Turn an image path stored in the database into a URL the browser can
+ * load. Mirrors App\Services\ImageUrl: an image saved on the `public`
+ * disk lives under /storage/, and an absolute URL is used as-is.
+ */
 function thumbUrl(image) {
     if (!image) return '';
-    if (image.startsWith('http') || image.startsWith('/') || image.startsWith('data:')) {
+    if (image.startsWith('http://') || image.startsWith('https://') || image.startsWith('//')) {
         return image;
     }
-    return '/' + image.replace(/^\/+/, '');
+    if (image.startsWith('data:')) {
+        return image;
+    }
+    const trimmed = image.replace(/^\/+/, '');
+    if (trimmed.startsWith('storage/')) return '/' + trimmed;
+    return '/storage/' + trimmed;
 }
 
 // ─── Rendering ─────────────────────────────────────────────────────

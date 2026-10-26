@@ -73,7 +73,7 @@ class SeoAndErrorPagesTest extends TestCase
 
         ProductImage::create([
             'product_color_id' => $pivot->id,
-            'path' => 'images/streetwear-hero.jpg',
+            'path' => 'products/drop-02-hoodie.webp',
             'sort_order' => 0,
         ]);
 
@@ -282,11 +282,14 @@ class SeoAndErrorPagesTest extends TestCase
 
         $response->assertOk();
 
-        // The product's own photo, not the generic hero shot.
+        // The product's own photo, not the generic hero shot. The photo is
+        // stored on the `public` disk, so its URL carries the storage
+        // prefix — and it is absolute, or social networks drop it.
+        $expectedImage = asset('storage/products/drop-02-hoodie.webp');
         $response->assertSee('og:type" content="product', false);
         $response->assertSee('og:title" content="Drop 02 Hoodie', false);
         $response->assertSee(
-            'og:image" content="'.asset('images/streetwear-hero.jpg').'"',
+            'og:image" content="'.$expectedImage.'"',
             false,
         );
 
@@ -298,7 +301,7 @@ class SeoAndErrorPagesTest extends TestCase
         // Canonical + Twitter card follow the same image.
         $response->assertSee('rel="canonical"', false);
         $response->assertSee('twitter:card" content="summary_large_image', false);
-        $response->assertSee('name="twitter:image" content="'.asset('images/streetwear-hero.jpg').'"', false);
+        $response->assertSee('name="twitter:image" content="'.$expectedImage.'"', false);
     }
 
     public function test_share_card_never_carries_the_title_suffix(): void

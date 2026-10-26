@@ -602,10 +602,18 @@ function withCacheBust(url) {
     return url + (url.includes('?') ? '&' : '?') + 'v=' + Date.now();
 }
 
+/**
+ * Turn an image path stored in the database into a URL the browser can
+ * load. Mirrors App\Services\ImageUrl: an image saved on the `public`
+ * disk lives under /storage/, and an absolute URL is used as-is.
+ */
 function assetUrl(path) {
     if (!path) return path;
-    if (path.startsWith('http') || path.startsWith('/') || path.startsWith('data:')) return path;
-    return '/' + path.replace(/^\/+/, '');
+    if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('//')) return path;
+    if (path.startsWith('data:')) return path;
+    const trimmed = path.replace(/^\/+/, '');
+    if (trimmed.startsWith('storage/')) return '/' + trimmed;
+    return '/storage/' + trimmed;
 }
 
 function productShowUrl(slug) {

@@ -55,7 +55,7 @@
                    data-home-reveal>
                     <div class="shop-cat__media">
                         <img
-                            src="{{ asset($cat->image ?: 'images/streetwear-hero.jpg') }}"
+                            src="{{ \App\Services\ImageUrl::make($cat->image, \App\Services\ImageUrl::CATEGORY_PLACEHOLDER) }}"
                             alt="{{ $cat->name }}"
                             width="600"
                             height="450"
@@ -275,7 +275,9 @@
             <ul class="shop-grid" data-shop-grid>
                 @foreach ($products as $i => $product)
                     @php
-                        $imagePath = $product->primaryImage?->path ?: 'images/streetwear-hero.jpg';
+                        // Null when the product has no image — ImageUrl falls
+                        // back to the placeholder in that case.
+                        $imagePath = $product->primaryImage?->path;
                         $price = $product->min_price ?? $product->starting_price;
                         $categorySlug = $product->category?->slug;
                         $badge = $product->display_badge;
@@ -297,7 +299,7 @@
                         <a class="shop-card" href="{{ route('shop.show', ['slug' => $product->slug]) }}" aria-label="{{ $product->name }}">
                             <div class="shop-card__media">
                                 <img
-                                    src="{{ asset($imagePath) }}"
+                                    src="{{ \App\Services\ImageUrl::make($imagePath) }}"
                                     alt="{{ $product->name }}"
                                     width="600"
                                     height="750"

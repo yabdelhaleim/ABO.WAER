@@ -6,12 +6,13 @@
 {{-- Share card (Open Graph / Twitter). Driven by layouts.store so a
      WhatsApp, Facebook or Instagram link to this product renders a rich
      card with the product photo instead of the generic hero shot.
-     `og_image` is wrapped in asset() here because the layout requires an
-     absolute URL. `$product->primaryImage` reads the already eager-loaded
-     productColors.images relation, so this costs no extra query. --}}
+     `og_image` is wrapped in ImageUrl::absolute() here because the layout
+     requires an absolute URL. `$product->primaryImage` reads the already
+     eager-loaded productColors.images relation, so this costs no extra
+     query. --}}
 @section('og_type', 'product')
 @section('og_title', $product->name)
-@section('og_image', asset($product->primaryImage?->path ?: 'images/streetwear-hero.jpg'))
+@section('og_image', \App\Services\ImageUrl::absolute($product->primaryImage?->path))
 @section('og_image_alt', $product->name)
 @section('og_extra')
     @php
@@ -50,7 +51,9 @@
         $legacyProduct['name'] = $product->name;
         $legacyProduct['price'] = (float) ($startingPrice ?? 0);
 
-        $primaryImage = $product->primaryImage?->path ?: 'images/streetwear-hero.jpg';
+        // Null when the product has no image — ImageUrl falls back to the
+        // placeholder in that case.
+        $primaryImage = $product->primaryImage?->path;
     @endphp
 
     <section class="product-page" aria-label="{{ $product->name }}"
@@ -62,7 +65,7 @@
             <div class="product-page__media" data-product-gallery>
                 {{-- Always render the first image so the gallery is never empty. --}}
                 <img
-                    src="{{ asset($primaryImage) }}"
+                    src="{{ \App\Services\ImageUrl::make($primaryImage) }}"
                     alt="{{ $product->name }}"
                     width="900"
                     height="1125"
@@ -88,7 +91,7 @@
                                             data-color-id="{{ $block['color']->id }}"
                                             data-color-hex="{{ $block['color']->hex_code }}"
                                             aria-label="Show {{ $block['color']->name }}">
-                                        <img src="{{ asset($block['images']->first()->path) }}" alt="{{ $product->name }} in {{ $block['color']->name }}" loading="lazy" decoding="async" width="120" height="150">
+                                        <img src="{{ \App\Services\ImageUrl::make($block['images']->first()->path) }}" alt="{{ $product->name }} in {{ $block['color']->name }}" loading="lazy" decoding="async" width="120" height="150">
                                     </button>
                                 </li>
                             @endif
@@ -189,7 +192,7 @@
                             'id' => $block['color']->id,
                             'name' => $block['color']->name,
                             'hex' => $block['color']->hex_code,
-                            'image' => $block['images']->first()?->path,
+                            'image' => \App\Services\ImageUrl::make($block['images']->first()?->path),
                             'sizes' => $block['sizes']->map(fn ($v) => [
                                 'id' => $v->size_id,
                                 'variant_id' => $v->id,
@@ -236,12 +239,12 @@
                 <ul class="related__grid">
                     @foreach ($relatedProducts as $related)
                         @php
-                            $relatedImage = $related->primaryImage?->path ?: 'images/streetwear-hero.jpg';
+                            $relatedImage = $related->primaryImage?->path;
                             $relatedPrice = $related->min_price ?? $related->starting_price;
                         @endphp
                         <li class="related__item">
                             <a class="related__link" href="{{ route('shop.show', ['slug' => $related->slug]) }}" aria-label="{{ $related->name }}">
-                                <img src="{{ asset($relatedImage) }}" alt="{{ $related->name }}" loading="lazy" decoding="async" width="600" height="750">
+                                <img src="{{ \App\Services\ImageUrl::make($relatedImage) }}" alt="{{ $related->name }}" loading="lazy" decoding="async" width="600" height="750">
                                 <div class="related__body">
                                     <h3 class="related__name">{{ $related->name }}</h3>
                                     <p class="related__price">{{ number_format((float) ($relatedPrice ?? 0), 0, '.', ',') }} EGP</p>

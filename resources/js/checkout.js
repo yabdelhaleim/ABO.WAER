@@ -83,6 +83,20 @@ function clearCart() {
     try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* private mode */ }
 }
 
+/**
+ * Turn an image path stored in the database into a URL the browser can
+ * load. Mirrors App\Services\ImageUrl: an image saved on the `public`
+ * disk lives under /storage/, and an absolute URL is used as-is.
+ */
+function assetUrl(path) {
+    if (!path) return path;
+    if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('//')) return path;
+    if (path.startsWith('data:')) return path;
+    const trimmed = path.replace(/^\/+/, '');
+    if (trimmed.startsWith('storage/')) return '/' + trimmed;
+    return '/storage/' + trimmed;
+}
+
 function generateOrderNumber() {
     // Fallback only. The order number is minted by the server inside
     // the order transaction; this is here for the rare case where the
@@ -249,7 +263,7 @@ function renderSummary(cart) {
             if (line.image) {
                 const img = document.createElement('img');
                 img.className = 'checkout__summary-thumb-img';
-                img.src = '/' + line.image.replace(/^\/+/, '');
+                img.src = assetUrl(line.image);
                 img.alt = '';
                 img.loading = 'lazy';
                 img.width = 56;
