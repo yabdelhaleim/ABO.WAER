@@ -89,7 +89,7 @@
                 </span>
             </summary>
             <div class="checkout__mobile-summary-body" id="checkout-mobile-summary-body">
-                <x-checkout.summary :show-title="false" />
+                <x-checkout.summary :show-title="false" id-suffix="mobile" />
             </div>
         </details>
 
@@ -256,7 +256,7 @@
 
             {{-- Desktop right-rail summary --}}
             <div class="checkout__aside">
-                <x-checkout.summary />
+                <x-checkout.summary id-suffix="desktop" />
             </div>
         </div>
 

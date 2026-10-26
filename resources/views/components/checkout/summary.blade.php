@@ -5,17 +5,32 @@
     server has no cart). This component only renders the shell, the
     eyebrow, the items list placeholder, the totals rows, and the
     "EDIT CART" link.
+
+    Props
+    -----
+    @param  bool    $showTitle  Render the "ORDER SUMMARY" heading.
+    @param  string  $idSuffix   Makes the heading id unique. The summary
+                                is rendered twice on the checkout page
+                                (a mobile copy inside the collapsible
+                                panel and the desktop rail), so every
+                                id has to carry the suffix of the copy
+                                it belongs to.
 --}}
 
 @props([
     'showTitle' => true,
+    'idSuffix' => null,
 ])
 
 @php
-    $titleId = 'checkout-summary-title';
+    $titleId = 'checkout-summary-title'.($idSuffix ? '-'.$idSuffix : '');
 @endphp
 
-<aside class="checkout__summary" aria-labelledby="{{ $titleId }}" data-checkout-summary>
+<aside
+    class="checkout__summary"
+    @if ($showTitle) aria-labelledby="{{ $titleId }}" @else aria-label="Order summary" @endif
+    data-checkout-summary
+>
     @if ($showTitle)
         <h2 class="checkout__summary-title" id="{{ $titleId }}">ORDER SUMMARY</h2>
     @endif

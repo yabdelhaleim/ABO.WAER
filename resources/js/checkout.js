@@ -251,72 +251,89 @@ function hydrate() {
 
 // ─── Rendering ─────────────────────────────────────────────────────
 
-function renderSummary(cart) {
-    const list = $('[data-checkout-summary-items]');
-    if (list) {
-        list.replaceChildren(...cart.items.map((line) => {
-            const li = document.createElement('li');
-            li.className = 'checkout__summary-item';
+/**
+ * Build the markup for one line of the order summary.
+ *
+ * Shared by every copy of the summary on the page — the mobile panel
+ * and the desktop rail show the same lines.
+ */
+function buildSummaryItem(line) {
+    const li = document.createElement('li');
+    li.className = 'checkout__summary-item';
 
-            const thumb = document.createElement('div');
-            thumb.className = 'checkout__summary-thumb';
-            if (line.image) {
-                const img = document.createElement('img');
-                img.className = 'checkout__summary-thumb-img';
-                img.src = assetUrl(line.image);
-                img.alt = '';
-                img.loading = 'lazy';
-                img.width = 56;
-                img.height = 70;
-                thumb.appendChild(img);
-            } else {
-                const init = document.createElement('span');
-                init.className = 'checkout__summary-thumb-initial';
-                init.textContent = (line.name || '?').charAt(0).toUpperCase();
-                thumb.appendChild(init);
-            }
-            const qtyBadge = document.createElement('span');
-            qtyBadge.className = 'checkout__summary-qty';
-            qtyBadge.textContent = String(line.qty);
-            thumb.appendChild(qtyBadge);
-            li.appendChild(thumb);
+    const thumb = document.createElement('div');
+    thumb.className = 'checkout__summary-thumb';
+    if (line.image) {
+        const img = document.createElement('img');
+        img.className = 'checkout__summary-thumb-img';
+        img.src = assetUrl(line.image);
+        img.alt = '';
+        img.loading = 'lazy';
+        img.width = 56;
+        img.height = 70;
+        thumb.appendChild(img);
+    } else {
+        const init = document.createElement('span');
+        init.className = 'checkout__summary-thumb-initial';
+        init.textContent = (line.name || '?').charAt(0).toUpperCase();
+        thumb.appendChild(init);
+    }
+    const qtyBadge = document.createElement('span');
+    qtyBadge.className = 'checkout__summary-qty';
+    qtyBadge.textContent = String(line.qty);
+    thumb.appendChild(qtyBadge);
+    li.appendChild(thumb);
 
-            const body = document.createElement('div');
-            body.className = 'checkout__summary-body';
-            const name = document.createElement('p');
-            name.className = 'checkout__summary-name';
-            name.textContent = line.name;
-            body.appendChild(name);
+    const body = document.createElement('div');
+    body.className = 'checkout__summary-body';
+    const name = document.createElement('p');
+    name.className = 'checkout__summary-name';
+    name.textContent = line.name;
+    body.appendChild(name);
 
-            if (line.color || line.size) {
-                const chips = document.createElement('p');
-                chips.className = 'checkout__summary-chips';
-                const parts = [];
-                if (line.color) parts.push(`Color · ${line.color}`);
-                if (line.size)  parts.push(`Size · ${line.size}`);
-                chips.textContent = parts.join(' · ');
-                body.appendChild(chips);
-            }
-
-            const lineTotal = document.createElement('p');
-            lineTotal.className = 'checkout__summary-line-total';
-            lineTotal.textContent = formatEGP(line.line_total);
-            body.appendChild(lineTotal);
-
-            li.appendChild(body);
-            return li;
-        }));
+    if (line.color || line.size) {
+        const chips = document.createElement('p');
+        chips.className = 'checkout__summary-chips';
+        const parts = [];
+        if (line.color) parts.push(`Color · ${line.color}`);
+        if (line.size)  parts.push(`Size · ${line.size}`);
+        chips.textContent = parts.join(' · ');
+        body.appendChild(chips);
     }
 
+    const lineTotal = document.createElement('p');
+    lineTotal.className = 'checkout__summary-line-total';
+    lineTotal.textContent = formatEGP(line.line_total);
+    body.appendChild(lineTotal);
+
+    li.appendChild(body);
+    return li;
+}
+
+function renderSummary(cart) {
     const count = cart.items.reduce((s, l) => s + l.qty, 0);
     const subtotalText = formatEGP(cart.subtotal);
 
-    const summaryCount = $('[data-checkout-summary-count]');
-    if (summaryCount) summaryCount.textContent = String(count);
-    const summarySubtotal = $('[data-checkout-summary-subtotal]');
-    if (summarySubtotal) summarySubtotal.textContent = subtotalText;
-    const summaryTotal = $('[data-checkout-summary-total]');
-    if (summaryTotal) summaryTotal.textContent = subtotalText;
+    // The order summary is rendered twice — a mobile copy inside the
+    // collapsible panel and the desktop rail. Every copy has to be
+    // filled in, otherwise whichever one the visitor is looking at
+    // keeps showing "0 items / 0 EGP".
+    $$('[data-checkout-summary]').forEach((summary) => {
+        const list = $('[data-checkout-summary-items]', summary);
+        if (list) {
+            list.replaceChildren(...cart.items.map((line) => buildSummaryItem(line)));
+        }
+
+        const summaryCount = $('[data-checkout-summary-count]', summary);
+        if (summaryCount) summaryCount.textContent = String(count);
+
+        const summarySubtotal = $('[data-checkout-summary-subtotal]', summary);
+        if (summarySubtotal) summarySubtotal.textContent = subtotalText;
+
+        const summaryTotal = $('[data-checkout-summary-total]', summary);
+        if (summaryTotal) summaryTotal.textContent = subtotalText;
+    });
+
     const mobileCount = $('[data-checkout-mobile-summary-count]');
     if (mobileCount) mobileCount.textContent = String(count);
     const mobileTotal = $('[data-checkout-mobile-summary-total]');
@@ -329,10 +346,7 @@ function renderEmpty() {
     // The JS that called us already redirected to /cart. As a
     // safety net, render a faint "no items" state so the page
     // isn't visually broken if the redirect is blocked.
-    const list = $('[data-checkout-summary-items]');
-    if (list) {
-        list.replaceChildren();
-    }
+    $$('[data-checkout-summary-items]').forEach((list) => list.replaceChildren());
 }
 
 // ─── Field validation (mirrors the server-side rules) ──────────────
