@@ -144,7 +144,12 @@ async function submitOrder(form) {
         data = null;
     }
 
-    return { ok: response.ok, status: response.status, data, message: '' };
+    // The server answers a failed POST with a JSON envelope. Its
+    // `message` is the only part the shopper can be shown — the rest of
+    // the envelope (errors, stack) is for the console.
+    const message = data && typeof data.message === 'string' ? data.message : '';
+
+    return { ok: response.ok, status: response.status, data, message };
 }
 
 /**
@@ -180,6 +185,52 @@ function showFormError(message) {
 
 function clearFormError() {
     const errEl = $('[data-checkout-form] .checkout__form-error');
+    if (errEl) errEl.remove();
+}
+
+/**
+ * A recoverable failure that belongs next to the submit button: the
+ * session the form was rendered with is gone (419), or the endpoint is
+ * throttled (429). The shopper's attention is already on the button, so
+ * the message lands there — with a link that reloads the page, because
+ * in both cases the way forward is to try again.
+ */
+function showSubmitError(message, { reload = false } = {}) {
+    const wrap = $('[data-checkout-submit-wrap]');
+    if (!wrap || !message) return;
+
+    let errEl = wrap.querySelector('[data-checkout-submit-error]');
+    if (!errEl) {
+        errEl = document.createElement('p');
+        errEl.className = 'checkout__submit-error';
+        errEl.setAttribute('role', 'alert');
+        errEl.setAttribute('data-checkout-submit-error', '');
+        wrap.appendChild(errEl);
+    }
+
+    errEl.textContent = message;
+
+    if (reload) {
+        const link = document.createElement('a');
+        link.className = 'checkout__submit-error-link';
+        link.href = window.location.href;
+        link.textContent = 'Reload the page';
+        errEl.appendChild(document.createTextNode(' '));
+        errEl.appendChild(link);
+    }
+
+    // On a phone the CTA lives in a fixed bottom bar, so the message can
+    // land off-screen — or behind the bar. Bring it into the middle of
+    // the viewport: the shopper just tapped the button and is waiting
+    // for an answer.
+    if (typeof errEl.scrollIntoView === 'function') {
+        const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        errEl.scrollIntoView({ block: 'center', behavior: reduced ? 'auto' : 'smooth' });
+    }
+}
+
+function clearSubmitError() {
+    const errEl = $('[data-checkout-submit-wrap] [data-checkout-submit-error]');
     if (errEl) errEl.remove();
 }
 
@@ -492,6 +543,7 @@ function onSubmit(ev) {
 
     setBusy(form, true);
     clearFormError();
+    clearSubmitError();
 
     // Populate hidden fields. The server prices the order from the
     // database; cart_json is the fallback for a cart that only ever
@@ -522,6 +574,28 @@ function onSubmit(ev) {
                 if (firstInput && typeof firstInput.focus === 'function') {
                     firstInput.focus({ preventScroll: false });
                 }
+                return;
+            }
+
+            // The session the form was rendered with is gone. The cart
+            // lives in localStorage, so a reload puts the shopper back
+            // on the form with nothing lost — that is the way out, not
+            // the server's (cryptic) "Page Expired".
+            if (response.status === 419) {
+                showSubmitError(
+                    'Your session expired before the order went through. Reload the page and try again — your cart is still here.',
+                    { reload: true },
+                );
+                return;
+            }
+
+            // The endpoint is throttled. Nothing was written, so waiting
+            // a moment and trying again is enough.
+            if (response.status === 429) {
+                showSubmitError(
+                    'Too many attempts in a row. Give it a minute, then try again — your cart is still here.',
+                    { reload: true },
+                );
                 return;
             }
 

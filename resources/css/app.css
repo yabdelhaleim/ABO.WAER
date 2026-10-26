@@ -5639,6 +5639,35 @@ html.size-guide-open body {
     to { transform: rotate(360deg); }
 }
 
+/* Recoverable failure next to the submit button — an expired session
+   (419) or a throttled endpoint (429). The message sits under the
+   button, where the shopper is already looking. */
+
+.checkout__submit-error {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    margin: 0;
+    color: var(--abo-danger);
+    font-size: 0.82rem;
+    line-height: 1.5;
+    text-align: center;
+    justify-content: center;
+}
+
+.checkout__submit-error-link {
+    color: var(--abo-lime);
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+}
+
+.checkout__submit-error-link:hover,
+.checkout__submit-error-link:focus-visible {
+    color: var(--abo-lime-hover);
+}
+
 .checkout__terms {
     margin: 0;
     text-align: center;

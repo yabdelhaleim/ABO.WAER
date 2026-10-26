@@ -1,7 +1,7 @@
 /*
- * ABO — Custom error pages (404 / 403 / 500).
+ * ABO — Custom error pages (404 / 403 / 500 / 401 / 419 / 429).
  *
- * Scope: the three views in resources/views/errors/ extend
+ * Scope: the six views in resources/views/errors/ extend
  * layouts.store, so this file only styles the error body — the nav,
  * announcement bar and footer come from the shared layout. That is what
  * keeps an error page looking like the store instead of Laravel's
@@ -87,6 +87,26 @@
     font-family: var(--font-sans);
     font-size: clamp(0.95rem, 1.4vw, 1.05rem);
     line-height: 1.7;
+}
+
+/* ─── Bilingual pages (401 / 419 / 429) ────────────────────────────── */
+
+/* The English half of a bilingual page: a smaller line under the
+   Arabic heading or paragraph. */
+.error-page__note {
+    margin: -0.6rem 0 0;
+    max-width: 46ch;
+    color: var(--abo-gray);
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    line-height: 1.6;
+}
+
+/* The brand tracking is tuned for Latin display type; on a connected
+   script it pulls the letters apart, so the Arabic copy opts out. */
+.error-page [dir="rtl"] {
+    letter-spacing: normal;
+    text-transform: none;
 }
 
 /* ─── Actions ───────────────────────────────────────────────────── */

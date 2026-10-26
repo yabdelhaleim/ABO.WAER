@@ -394,7 +394,7 @@ class SeoAndErrorPagesTest extends TestCase
         // which maps to resources/views/errors/{code}.blade.php. The paths
         // are only registered lazily inside the exception handler, so this
         // asserts the files are on disk rather than asking the View facade.
-        foreach ([404, 403, 500] as $code) {
+        foreach ([404, 403, 500, 401, 419, 429] as $code) {
             $this->assertFileExists(
                 resource_path("views/errors/{$code}.blade.php"),
                 "A custom {$code} view must exist.",

@@ -233,7 +233,7 @@
                 </fieldset>
 
                 {{-- Submit (desktop only; the mobile bar holds the equivalent CTA) --}}
-                <div class="checkout__submit-wrap">
+                <div class="checkout__submit-wrap" data-checkout-submit-wrap>
                     <button
                         type="submit"
                         class="checkout__submit"
