@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Category;
 use App\Models\SizeGuide;
 use App\Models\SizeGuideRow;
 use Illuminate\Database\Eloquent\Collection;
@@ -10,6 +11,28 @@ use Illuminate\Support\Facades\DB;
 class SizeGuideService
 {
     /**
+     * The measuring instructions the storefront shows under a size
+     * table. They are static — the database stores no such copy — and
+     * they carry no numbers, so they can never disagree with the
+     * measurements above them.
+     *
+     * @var list<array{label: string, hint: string}>
+     */
+    protected const HOW_TO_MEASURE = [
+        ['label' => 'A · Chest', 'hint' => 'Measured flat, 1 cm below the armhole.'],
+        ['label' => 'B · Length', 'hint' => 'From the highest point of the shoulder to the hem.'],
+        ['label' => 'C · Shoulder', 'hint' => 'From one shoulder seam to the other, across the back.'],
+        ['label' => 'D · Sleeve', 'hint' => 'From the shoulder seam to the end of the cuff.'],
+    ];
+
+    /**
+     * The measurement columns the storefront table shows, in order.
+     *
+     * @var list<string>
+     */
+    protected const COLUMNS = ['chest', 'length', 'shoulder', 'sleeve'];
+
+    /**
      * List every size guide (with rows eager-loaded) ordered by id desc.
      */
     public function listForAdmin(): Collection
@@ -17,6 +40,62 @@ class SizeGuideService
         return SizeGuide::with(['category', 'rows'])
             ->orderByDesc('id')
             ->get();
+    }
+
+    /**
+     * The published guide of a category, with its measurement rows.
+     *
+     * A guide belongs to a category (size_guides.category_id) and a
+     * product belongs to a category too, so the guide a shopper needs is
+     * the published one of the product's own category. `is_active` is
+     * the switch the admin flips to publish a guide.
+     */
+    public function publishedForCategory(?Category $category): ?SizeGuide
+    {
+        if (! $category) {
+            return null;
+        }
+
+        return SizeGuide::query()
+            ->where('category_id', $category->id)
+            ->where('is_active', true)
+            ->with('rows')
+            ->orderByDesc('id')
+            ->first();
+    }
+
+    /**
+     * The storefront chart payload for a guide.
+     *
+     * The shape is the one resources/views/components/size-guide/modal
+     * .blade.php documents: the measurements are filed under the
+     * category slug, so the modal looks the product's own category up
+     * and never falls back to another category's numbers.
+     *
+     * @return array{unit: string, types: array<string, array{columns: list<string>, rows: list<array{size: string, measurements: array<string, float|null>}>}>, howToMeasure: list<array{label: string, hint: string}>}
+     */
+    public function chartFor(SizeGuide $guide, Category $category): array
+    {
+        return [
+            'unit' => 'cm',
+            'types' => [
+                $category->slug => [
+                    'columns' => self::COLUMNS,
+                    'rows' => $guide->rows
+                        ->map(fn (SizeGuideRow $row): array => [
+                            'size' => $row->size_name,
+                            'measurements' => [
+                                'chest' => $row->chest,
+                                'length' => $row->length,
+                                'shoulder' => $row->shoulder,
+                                'sleeve' => $row->sleeve,
+                            ],
+                        ])
+                        ->all(),
+                ],
+            ],
+            'howToMeasure' => self::HOW_TO_MEASURE,
+        ];
     }
 
     /**

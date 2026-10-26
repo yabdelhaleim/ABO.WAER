@@ -8,6 +8,7 @@ use App\Models\Color;
 use App\Models\Product;
 use App\Models\Size;
 use App\Models\Variant;
+use App\Services\SizeGuideService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -15,6 +16,10 @@ use Illuminate\View\View;
 
 class ShopController extends Controller
 {
+    public function __construct(
+        protected SizeGuideService $sizeGuides,
+    ) {}
+
     /**
      * Shop catalog page with filter, sort, and pagination.
      */
@@ -271,11 +276,23 @@ class ShopController extends Controller
                 ->get();
         }
 
+        // The size guide is published per category, so the guide this
+        // product needs is the published one of its own category. A
+        // guide without measurement rows has nothing to publish yet, so
+        // it is treated as missing and the modal keeps its "coming
+        // soon" state.
+        $sizeChart = null;
+        $guide = $this->sizeGuides->publishedForCategory($product->category);
+
+        if ($guide && $guide->rows->isNotEmpty()) {
+            $sizeChart = $this->sizeGuides->chartFor($guide, $product->category);
+        }
+
         return view('product', [
             'product' => $product,
             'variantsByColor' => $variantsByColor,
             'relatedProducts' => $related,
-            'sizeChart' => null,
+            'sizeChart' => $sizeChart,
         ]);
     }
 }
