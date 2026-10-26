@@ -53,19 +53,15 @@ class CheckoutController extends Controller
         // back to /cart.
         $data['products'] = $this->cart->getStorefrontCatalog();
 
-        $governorates = Governorate::query()
+        // The governorates come from the database, so an edit in the
+        // admin reaches the drop-down straight away. The name is the
+        // option value because that is what OrderService resolves the
+        // order against.
+        $data['governorates'] = Governorate::query()
             ->where('is_active', true)
-            ->orderBy('sort_order')
             ->orderBy('name')
             ->pluck('name')
             ->all();
-
-        // Keep the static 27-name list as a Blade-level fallback so
-        // the page still renders before the admin has populated the
-        // governorates table.
-        $data['governorates'] = ! empty($governorates)
-            ? $governorates
-            : ($data['governorates'] ?? []);
 
         return view('checkout', $data);
     }

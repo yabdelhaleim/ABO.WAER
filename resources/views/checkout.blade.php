@@ -40,7 +40,9 @@
             ],
             $products ?? []
         );
-        $governorates = require resource_path('views/store/data/governorates.php');
+        // The governorates arrive from the controller — they are read
+        // from the database so an edit in the admin reaches the
+        // drop-down straight away.
         // Single source of truth for the list of payment methods
         // the storefront currently supports. Mirrored in
         // resources/js/checkout.js for the radios.

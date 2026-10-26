@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Order;
 use Database\Seeders\CatalogSeeder;
+use Database\Seeders\ShippingSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -13,6 +14,9 @@ class CheckoutTest extends TestCase
     // source the cart page uses, so a line that survives on /cart is not
     // rejected on /checkout. The catalog fixture mirrors the editorial
     // product set in resources/views/store/data/home.php.
+    //
+    // The shipping seeder puts the 27 governorates in the database: the
+    // checkout reads them from there, not from a static list.
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -20,6 +24,7 @@ class CheckoutTest extends TestCase
         parent::setUp();
 
         $this->seed(CatalogSeeder::class);
+        $this->seed(ShippingSeeder::class);
     }
 
     // ─── Helpers ──────────────────────────────────────────────────

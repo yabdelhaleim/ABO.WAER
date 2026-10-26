@@ -68,6 +68,11 @@ class ShippingSeeder extends Seeder
     /**
      * Create a shipping zone and attach its governorates.
      *
+     * The zone is created only when it is missing, so a fee the admin
+     * has tuned by hand survives a re-run of the seeder. The
+     * governorates are updated in place: re-running the seeder has to
+     * repair a half-populated table, not only ever add to it.
+     *
      * @param  list<array{0: string, 1: string}>  $governorates  [english name, arabic name] pairs
      */
     protected function seedZone(
@@ -90,7 +95,10 @@ class ShippingSeeder extends Seeder
         ]);
 
         foreach ($governorates as $position => [$governorateName, $governorateNameAr]) {
-            Governorate::firstOrCreate(['name' => $governorateName], [
+            // Only the columns this seeder owns are written back — a
+            // per-governorate fee or delivery window the admin set by
+            // hand is left alone.
+            Governorate::updateOrCreate(['name' => $governorateName], [
                 'name_ar' => $governorateNameAr,
                 'shipping_zone_id' => $zone->id,
                 'allows_cod' => $allowsCod,
