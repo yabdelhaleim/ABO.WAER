@@ -105,6 +105,18 @@
 
     {{-- ─── Toolbar ─────────────────────────────────────────────── --}}
     <section class="abo-admin-card abo-admin-orders__toolbar" aria-label="Filter orders">
+        @if ($customerFilter)
+            {{-- The screen was narrowed to one customer — the link
+                 from the customers screen. The chip says who, and the
+                 cross takes the filter off. --}}
+            <p class="abo-admin-orders__customer-filter">
+                <span class="abo-admin-orders__customer-filter-label">CUSTOMER</span>
+                <span class="abo-admin-orders__customer-filter-name">{{ $customerFilter['name'] }}</span>
+                <a class="abo-admin-orders__customer-filter-clear"
+                   href="{{ route('admin.orders.index') }}"
+                   aria-label="Show all customers again">&times;</a>
+            </p>
+        @endif
         <div class="abo-admin-orders__filter-search">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" class="abo-admin-orders__filter-icon">
                 <path d="M21 20.3 16.7 16a8 8 0 1 0-1.4 1.4L20.3 21 21 20.3zM4 10a6 6 0 1 1 12 0 6 6 0 0 1-12 0z"
@@ -477,6 +489,11 @@
          table, serialised here, and consumed by
          public/admin/js/orders.js. --}}
     <script type="application/json" id="abo-admin-orders-data">{!! $ordersJson !!}</script>
+
+    {{-- The customer the screen is narrowed to, when it was opened
+         with ?customer=<id>. orders.js starts with that filter
+         applied. --}}
+    <script type="application/json" id="abo-admin-orders-customer-filter">@json($customerFilter)</script>
 
     {{-- The three mutation endpoints the page calls back into. Each
          carries an __ORDER__ placeholder that orders.js swaps for the

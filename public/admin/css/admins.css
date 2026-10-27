@@ -889,6 +889,8 @@
 
 .abo-admin-admins__chip--view   .abo-admin-admins__chip-level { color: var(--abo-admin-gray); }
 .abo-admin-admins__chip--manage .abo-admin-admins__chip-level { color: var(--abo-lime); }
+.abo-admin-admins__chip--none   { opacity: 0.45; }
+.abo-admin-admins__chip--none   .abo-admin-admins__chip-level { color: var(--abo-admin-gray); }
 
 /* Switch (active toggle) */
 .abo-admin-admins__switch-row {

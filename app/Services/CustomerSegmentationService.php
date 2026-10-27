@@ -29,13 +29,18 @@ class CustomerSegmentationService
 {
     /**
      * Lifetime spend, in EGP, that qualifies a customer as VIP on its own.
+     *
+     * The thresholds live in CustomerMetricsService — the one place that
+     * says what a customer's numbers mean — so the audience a campaign
+     * reaches and the segment the customers screen shows can never drift
+     * apart.
      */
-    public const float VIP_MINIMUM_TOTAL_SPEND = 2000.00;
+    public const float VIP_MINIMUM_TOTAL_SPEND = CustomerMetricsService::VIP_MINIMUM_TOTAL_SPEND;
 
     /**
      * Delivered-order count that qualifies a customer as VIP on its own.
      */
-    public const int VIP_MINIMUM_ORDER_COUNT = 3;
+    public const int VIP_MINIMUM_ORDER_COUNT = CustomerMetricsService::VIP_MINIMUM_ORDER_COUNT;
 
     /**
      * How long a cart line may sit untouched before the customer counts as

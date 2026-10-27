@@ -1022,7 +1022,7 @@
                         active: !!savedCat.is_active,
                         visibleInStore: !!savedCat.is_visible,
                         showInHomepage: !!savedCat.show_in_homepage,
-                        cover: savedCat.image ? `/storage/${savedCat.image}` : null
+                        cover: savedCat.image_url || null
                     };
 
                     if (!isNew) {

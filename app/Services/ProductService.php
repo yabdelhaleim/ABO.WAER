@@ -11,9 +11,21 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class ProductService
 {
+    /**
+     * The stock level below which a product is flagged as "low" in the
+     * admin catalog.
+     *
+     * The threshold is a constant for now. It travels to the front end
+     * inside the payload so the admin list and the admin service agree
+     * on the number; when the settings screen grows a real field, the
+     * constant becomes the fallback of that field.
+     */
+    public const LOW_STOCK_THRESHOLD = 10;
+
     public function __construct(protected ImageService $images) {}
 
     /**
@@ -22,9 +34,23 @@ class ProductService
      */
     public function listForAdmin(): Collection
     {
-        return Product::with(['category', 'variants', 'images'])
+        return Product::with([
+            'category',
+            'variants.size',
+            'colors',
+            'images',
+        ])
             ->orderByDesc('id')
             ->get();
+    }
+
+    /**
+     * The categories the catalog is sorted by, in the order the store
+     * shows them.
+     */
+    public function listCategories(): Collection
+    {
+        return Category::orderBy('sort_order')->orderBy('name')->get();
     }
 
     /**
@@ -37,11 +63,91 @@ class ProductService
     public function loadFormData(?Product $product = null): array
     {
         return [
-            'product' => $product?->load(['variants', 'colors', 'images']) ?? new Product,
-            'categories' => Category::orderBy('sort_order')->orderBy('name')->get(),
+            'product' => $product?->load(['variants.size', 'variants.color', 'colors', 'images', 'productColors']) ?? new Product,
+            'categories' => $this->listCategories(),
             'colors' => Color::orderBy('sort_order')->orderBy('name')->get(),
             'sizes' => Size::orderBy('group')->orderBy('sort_order')->orderBy('name')->get(),
         ];
+    }
+
+    /**
+     * The colour × size matrix the form shows.
+     *
+     * One row per pair the product offers. A pair that already has a
+     * variant carries that variant, so the form opens on the prices and
+     * the stock the database holds instead of an empty table.
+     *
+     * The colours come from the pivot AND from the variants: a product
+     * whose pivot was never filled still has variants, and a form that
+     * hid them would delete them on the next save.
+     *
+     * @return array<int, array{key: string, color: Color, size: Size, variant: Variant|null}>
+     */
+    public function formMatrix(?Product $product, Collection $colors, Collection $sizes): array
+    {
+        if (! $product || ! $product->exists) {
+            return [];
+        }
+
+        $colorById = $colors->keyBy('id');
+        $sizeById = $sizes->keyBy('id');
+
+        $selectedColorIds = $product->colors->pluck('id')
+            ->merge($product->variants->pluck('color_id'))
+            ->unique()
+            ->values();
+
+        $variants = $product->variants->keyBy(fn (Variant $variant) => $variant->color_id.':'.$variant->size_id);
+
+        $rows = [];
+
+        foreach ($selectedColorIds as $colorId) {
+            $color = $colorById->get($colorId);
+
+            if (! $color) {
+                continue;
+            }
+
+            foreach ($product->variants->pluck('size_id')->unique() as $sizeId) {
+                $key = $colorId.':'.$sizeId;
+                $size = $sizeById->get($sizeId);
+
+                if (! $size || ! $variants->has($key)) {
+                    continue;
+                }
+
+                $rows[] = [
+                    'key' => $key,
+                    'color' => $color,
+                    'size' => $size,
+                    'variant' => $variants->get($key),
+                ];
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * The colour ids a product offers.
+     *
+     * The pivot is the source of truth, but a product whose pivot was
+     * never filled still has variants — those colours are part of the
+     * product and must stay ticked in the form.
+     *
+     * @return array<int, int>
+     */
+    public function formColorIds(?Product $product): array
+    {
+        if (! $product || ! $product->exists) {
+            return [];
+        }
+
+        return $product->colors->pluck('id')
+            ->merge($product->variants->pluck('color_id'))
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**
@@ -156,7 +262,7 @@ class ProductService
     protected function syncVariants(Product $product, array $variants): void
     {
         $incoming = collect($variants)
-            ->filter(fn ($v) => isset($v['color_id'], $v['size_id']))
+            ->filter(fn ($v) => isset($v['color_id'], $v['size_id']) && $v['color_id'] !== '' && $v['size_id'] !== '')
             ->map(function (array $row) use ($product) {
                 $colorId = (int) $row['color_id'];
                 $sizeId = (int) $row['size_id'];
@@ -175,15 +281,31 @@ class ProductService
                 ];
             });
 
-        // Remove variants that no longer appear in the submitted list.
+        // Each product must have at least one valid variant with a color and size.
+        if ($incoming->isEmpty()) {
+            throw ValidationException::withMessages([
+                'variants' => 'Each product must have at least one variant with a color and size.',
+            ]);
+        }
+
+        // Remove variants belonging to this product that no longer appear in the submitted list.
         $incomingKeys = $incoming
             ->map(fn ($row) => $row['color_id'].':'.$row['size_id'])
             ->all();
 
-        $product->variants()
-            ->whereNotIn('color_id', $incoming->pluck('color_id')->unique()->all() ?: [0])
-            ->orWhereNotIn('size_id', $incoming->pluck('size_id')->unique()->all() ?: [0])
-            ->delete();
+        $existingVariants = $product->variants()->get();
+        $idsToDelete = [];
+
+        foreach ($existingVariants as $existing) {
+            $pairKey = $existing->color_id.':'.$existing->size_id;
+            if (! in_array($pairKey, $incomingKeys, true)) {
+                $idsToDelete[] = $existing->id;
+            }
+        }
+
+        if ($idsToDelete !== []) {
+            $product->variants()->whereIn('id', $idsToDelete)->delete();
+        }
 
         // Ensure each incoming row has the unique composite key set for upsert.
         $rows = $incoming->map(fn ($row) => $row + [

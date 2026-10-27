@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\CampaignAudience;
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\AdminNotificationController;
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
@@ -9,9 +8,12 @@ use App\Http\Controllers\Admin\CampaignController as AdminCampaignController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\ColorSizeController;
 use App\Http\Controllers\Admin\CouponController as AdminCouponController;
+use App\Http\Controllers\Admin\CustomerController as AdminCustomerController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\PageController as AdminPageController;
+use App\Http\Controllers\Admin\PasswordResetController;
+use App\Http\Controllers\Admin\ProductBulkController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\ShippingController;
 use App\Http\Controllers\Admin\SizeGuideController;
@@ -26,9 +28,8 @@ use App\Http\Controllers\Store\CouponController as StoreCouponController;
 use App\Http\Controllers\Store\HomeController;
 use App\Http\Controllers\Store\OrderController;
 use App\Http\Controllers\Store\PageController as StorePageController;
+use App\Http\Controllers\Store\SearchController;
 use App\Http\Controllers\Store\ShopController;
-use App\Models\Product;
-use App\Services\ProductService;
 use Illuminate\Support\Facades\Route;
 
 // ─── Store: Public ───────────────────────────────────────────────────────────
@@ -50,6 +51,13 @@ Route::middleware('web')->group(function () {
     // Product detail — DB-driven, eager-loaded with variants, sizes, colors,
     // and per-color images for the JS variant selector.
     Route::get('/shop/{slug}', [ShopController::class, 'show'])->name('shop.show');
+
+    // Search — DB-driven via Store\SearchController. The term travels in
+    // the `q` query string, so a result page is a shareable URL and the
+    // page works with JavaScript disabled. Declared before the sitemap
+    // route and outside `/shop/{slug}` so it can never be shadowed by
+    // the product route above.
+    Route::get('/search', [SearchController::class, 'index'])->name('search');
 
     // Sitemap — the crawlable map of the public catalog (home, shop,
     // categories, active products, content pages), served as
@@ -177,269 +185,293 @@ Route::middleware('web')->prefix('admin')->name('admin.')->group(function () {
         ->middleware('throttle:login');
 });
 
+// ─── Admin: Password reset (no admin session required) ───────────────────────
+// A recovery link is only useful to an admin who cannot sign in, so these
+// routes deliberately sit OUTSIDE the `admin` middleware group further down
+// — a guest reaching them is the expected case, not a mistake.
+//
+// The paths and names are namespaced under `admin.` so they never collide
+// with the store front's `password.*` routes, and so the link the admin
+// notification builds lands on the admin flow.
+//
+// The request route answers the same way for every address, so it cannot be
+// used to discover which addresses belong to an admin.
+Route::middleware('web')->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/password/request', [PasswordResetController::class, 'showLinkRequestForm'])
+        ->name('password.request');
+    Route::post('/password/email', [PasswordResetController::class, 'sendResetLinkEmail'])
+        ->name('password.email')
+        ->middleware('throttle:6,1');
+    Route::get('/password/reset/{token}', [PasswordResetController::class, 'showResetForm'])
+        ->name('password.reset');
+    Route::post('/password/update', [PasswordResetController::class, 'reset'])
+        ->name('password.update');
+});
+
 // ─── Admin: Dashboard preview (front-end only) ──────────────────────────────
 // The dashboard is now backed by Admin\DashboardController (the preview
 // closure used to live here while the front-end was front-end-only).
 // The former preview route is removed; visit /admin after logging in
 // to see the wired dashboard, and /admin/login to authenticate first.
 
-// ─── Admin: Products preview (front-end only) ──────────────────────────────
-// Placeholder routes that render the new admin.products views WITHOUT
-// auth — used to preview the front-end design before the catalog is
-// connected to the database. Closure-only, no controller, no model,
-// no validation. The existing protected admin routes are untouched.
-Route::middleware('web')->prefix('admin/products')->name('admin.products.v2.')->group(function () {
-    Route::get('/', function () {
-        return view('admin.products.index');
-    })->name('index');
-
-    Route::get('/create', function () {
-        return view('admin.products.form', ['mode' => 'create', 'product' => null]);
-    })->name('create');
-
-    Route::get('/{id}/edit', function (string $id) {
-        $product = is_numeric($id) ? Product::find($id) : null;
-        if ($product) {
-            return app(ProductController::class)->edit($product);
-        }
-
-        $service = app(ProductService::class);
-
-        return view('admin.products.form', $service->loadFormData() + [
-            'mode' => 'edit',
-            'product' => ['id' => $id],
-        ]);
-    })->name('edit');
-});
+// ─── Admin: Products (no preview) ───────────────────────────────────────────
+// The products preview group is gone. `/admin/products` and
+// `/admin/products/create` were registered here and then registered again
+// by the protected group further down, and Laravel keys its route table by
+// method + URI — so the protected copies silently replaced these and the
+// previews were unreachable.
+//
+// The third one was not harmless: `/admin/products/{id}/edit` used a
+// different parameter name than the protected `/admin/products/{product}/edit`,
+// which makes them two different table keys, and the preview won the match.
+// Its fallback branch rendered an edit form for a product id that may not
+// exist at all. The protected route answers that path now, and answers it
+// the same way for every id — see the protected group below.
 
 // (Categories moved to protected admin routes below)
 
-// ─── Admin: Colors & Sizes preview (front-end only) ─────────────────────────
-// Placeholder route that renders the new admin.colors-sizes.index view WITHOUT
-// auth — used to preview the front-end design before the catalog is wired up
-// to the database. Closure-only, no controller, no model, no validation. The
-// existing protected admin routes are untouched. To open the page in a
-// browser: visit /admin/colors-sizes.
-Route::middleware('web')->get('/admin/colors-sizes', function () {
-    return view('admin.colors-sizes.index');
-})->name('admin.colors-sizes.v2');
+// ─── Admin: Colors & Sizes (no preview) ─────────────────────────────────────
+// The `/admin/colors-sizes` preview closure is gone for the same reason as
+// the products one: the protected group registers the very same method +
+// URI below, so the preview was already unreachable. The screen is served
+// by Admin\ColorSizeController.
 
-// ─── Admin: Size guides preview (front-end only) ────────────────────────────
-// Placeholder route that renders the new admin.size-guides view WITHOUT
-// auth — used to preview the front-end design before the size-chart
-// catalog is connected to the database. Closure-only, no controller,
-// no model, no validation. The existing protected admin routes are
-// untouched. To open the page in a browser: visit /admin/size-guides.
-Route::middleware('web')->get('/admin/size-guides', function () {
-    return view('admin.size-guides.index');
-})->name('admin.size-guides.v2');
+// ─── Admin: Size guides (no preview) ────────────────────────────────────────
+// Likewise: `/admin/size-guides` was registered twice, and the protected
+// copy below is the one that answers.
 
-// ─── Admin: Customers preview (front-end only) ─────────────────────────────
-// Placeholder route that renders the new admin.customers.index view WITHOUT
-// auth — used to preview the front-end design before the customers catalog
-// is connected to the database. Closure-only, no controller, no model, no
-// validation. The existing protected admin routes are untouched. To open the
-// page in a browser: visit /admin/customers.
-Route::middleware('web')->get('/admin/customers', function () {
-    return view('admin.customers.index');
-})->name('admin.customers.v2');
+// ─── Admin: Customers ───────────────────────────────────────────────────────
+// The customers screen is served by the protected group further down, from
+// Admin\CustomerController::index — the list, the figures and the detail
+// slide-over all come from the database. The `/admin/customers` preview that
+// used to sit here is gone: it rendered forty invented customers, and the
+// wired one is the only one that should be reachable.
 
 // ─── Admin: Coupons ────────────────────────────────────────────────────────
 // Coupons is now backed by Admin\CouponController. The previous preview
 // closure (admin.coupons.v2) has been removed; the five routes below
 // are the only ones /admin/coupons serves.
 
-// ─── Admin: Banners preview (front-end only) ────────────────────────────────
-// Placeholder route that renders the new admin.banners.index view WITHOUT
-// auth — used to preview the front-end design before the banners catalog
-// is wired up to the database. Closure-only, no controller, no model, no
-// validation. The existing protected admin routes are untouched. To open
-// the page in a browser: visit /admin/banners.
+// ─── Admin: Banners (no preview) ────────────────────────────────────────────
+// The `/admin/banners` preview closure is gone: the protected group below
+// registers the same method + URI, so the preview was already unreachable.
+// The screen is served by Admin\BannerController.
 
 // ─── Admin: Settings preview (front-end only) ─────────────────────────────
-// Placeholder route that renders the new admin.settings.index view WITHOUT
-// auth — used to preview the front-end design before the settings catalog
-// is connected to the database. Closure-only, no controller, no model,
-// no validation. No protected admin.settings route exists, so the URL
-// stays `/admin/settings` (no `-v2` suffix needed) and only the route
-// name is suffixed with `.v2` (per the project convention). To open the
-// page in a browser: visit /admin/settings.
-Route::middleware('web')->get('/admin/settings', function () {
+// Placeholder route that renders the new admin.settings.index view — used to
+// preview the front-end design before the settings catalog is connected to
+// the database. Closure-only, no controller, no model, no validation. No
+// protected admin.settings route exists, so the URL stays `/admin/settings`
+// (no `-v2` suffix needed) and only the route name is suffixed with `.v2`
+// (per the project convention).
+//
+// No protected route shadows this one either, so the `admin` middleware is
+// what keeps the settings page off the public internet. To open the page in
+// a browser: log in at /admin/login, then visit /admin/settings.
+Route::middleware(['web', 'admin', 'admin.permission:settings'])->get('/admin/settings', function () {
     return view('admin.settings.index');
 })->name('admin.settings.v2');
 
-// ─── Admin: Admins preview (front-end only) ──────────────────────────────
-// Placeholder route that renders the new admin.admins.index-v2 view WITHOUT
-// auth — used to preview the front-end design before the admins catalog
-// is connected to the database. Closure-only, no controller, no model, no
-// validation. The existing protected admin.admins.index / store / toggle /
-// destroy routes and the legacy admin.admins.index Blade view are
-// untouched (this view is `index-v2.blade.php`, not the legacy index).
-//
-// Note: the URL is also suffixed with `-v2` (`/admin/admins-v2`) because
-// Laravel's RouteCollection keys routes by HTTP method + URI, so a
-// second GET to the same `/admin/admins` URI as the protected
-// `admin.admins.index` route below would be silently overwritten. The
-// route name is `admin.admins.v2` (also suffixed, as the spec requires).
-// To open the page in a browser: visit /admin/admins-v2.
-Route::middleware('web')->get('/admin/admins-v2', function () {
-    return view('admin.admins.index-v2');
-})->name('admin.admins.v2');
+// ─── Admin: Admins ─────────────────────────────────────────────────────────
+// The admins page is served by the protected group further down, from
+// Admin\AdminController::index — the list, the role map and the trail
+// all come from the database. The `/admin/admins-v2` preview that used
+// to sit here is gone: it rendered the same screen with made-up
+// accounts, and the wired one is the only one that should be reachable.
 
-// ─── Admin: Campaigns preview (front-end only) ─────────────────────────
-// Placeholder route that renders the new admin.campaigns.index view
-// WITHOUT auth — used to preview the front-end design before the
-// marketing catalog is connected to the database. The fully wired
-// (and auth-protected) admin.campaigns.* routes live in the protected
-// admin group below; visit /admin/campaigns after logging in.
-//
-// This placeholder is intentionally kept so the front-end preview still
-// works in local development — it just returns the view without data.
-// To open the page in a browser: visit /admin/campaigns (the v2
-// preview) or /admin/login → /admin/campaigns (the wired version).
-//
-// NOTE: unlike the admins-v2 preview above, this one is NOT suffixed in the
-// URI, so it collides with the protected `admin.campaigns.index` route
-// registered later in the same file. Laravel's RouteCollection keys routes
-// by method + URI, so this closure is silently overwritten and the name
-// `admin.campaigns.v2` does not resolve — the protected route wins. The
-// `audienceCounts` below is kept in step with the wired route's view data so
-// the closure still renders correctly if the collision is ever resolved.
-Route::middleware('web')->get('/admin/campaigns', function () {
-    return view('admin.campaigns.index', [
-        'stats' => ['active_campaigns_count' => 0, 'total_sent_count' => 0, 'avg_open_rate' => 0.0, 'avg_click_rate' => 0.0],
-        'campaignsJson' => '[]',
-        // Zeroed for the same reason the stats above are: this route is a
-        // database-free preview, so the audience cards render empty rather
-        // than querying for a segment size nobody is going to send to.
-        'audienceCounts' => array_fill_keys(array_map(
-            fn (CampaignAudience $audience) => $audience->value,
-            CampaignAudience::cases(),
-        ), 0),
-    ]);
-})->name('admin.campaigns.v2');
+// ─── Admin: Campaigns (no preview) ──────────────────────────────────────────
+// The `/admin/campaigns` preview closure is gone. It was registered on the
+// very same method + URI as the protected `admin.campaigns.index` route
+// further down, so the protected copy had already replaced it and the
+// name `admin.campaigns.v2` never resolved. The screen is served by
+// Admin\CampaignController.
 
 // ─── Admin: Reports preview (front-end only) ──────────────────────────
-// Placeholder route that renders the new admin.reports.index view WITHOUT
-// auth — used to preview the front-end design before the analytics page
-// is wired up to the database. Closure-only, no controller, no model,
-// no validation. No protected admin.reports route exists, so the URL
-// stays `/admin/reports` (no `-v2` suffix needed) and only the route name
-// is suffixed with `.v2` (per the project convention). To open the page in
-// a browser: visit /admin/reports. The Reports link in the sidebar
-// partial (resources/views/admin/partials/sidebar.blade.php) is the
-// shared `#/reports` item; we pass `activeHash` here so the sidebar
+// Placeholder route that renders the new admin.reports.index view — used to
+// preview the front-end design before the analytics page is wired up to the
+// database. Closure-only, no controller, no model, no validation. No
+// protected admin.reports route exists, so the URL stays `/admin/reports`
+// (no `-v2` suffix needed) and only the route name is suffixed with `.v2`
+// (per the project convention).
+//
+// Nothing shadows this route, so the `admin` middleware is what keeps the
+// analytics page off the public internet. To open the page in a browser:
+// log in at /admin/login, then visit /admin/reports. The Reports link in
+// the sidebar partial (resources/views/admin/partials/sidebar.blade.php) is
+// the shared `#/reports` item; we pass `activeHash` here so the sidebar
 // highlights Reports while this preview is open.
-Route::middleware('web')->get('/admin/reports', function () {
+Route::middleware(['web', 'admin', 'admin.permission:reports'])->get('/admin/reports', function () {
     return view('admin.reports.index', ['activeHash' => '#/reports']);
 })->name('admin.reports.v2');
 
 // ─── Admin: Protected ────────────────────────────────────────────────────────
+//
+// Every route below sits behind two middlewares:
+//
+//   admin             — the caller is an active admin of the back office.
+//   admin.permission  — the caller's ROLE reaches the module the route
+//                       belongs to. A read needs the "view" level, a
+//                       write the "manage" level; the levels live in
+//                       App\Enums\AdminRole.
+//
+// The second one is the real protection. The interface used to describe
+// the roles in JavaScript only, so every signed-in admin could reach
+// every screen no matter what their role said. The rules now live on
+// the server, and the interface merely mirrors them.
 
 Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::post('/logout', [AdminAuthController::class, 'destroy'])->name('logout');
 
-    Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+    // Dashboard
+    Route::middleware('admin.permission:dashboard')->group(function () {
+        Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
-    // The JSON half of the dashboard's Today / 7 days / 30 days
-    // segmented control. admin.js fetches this and re-draws the KPI
-    // cards, the Sales vs Profit bars and the sparklines in place, so
-    // switching range never reloads the page. The range travels as a
-    // path segment and is validated inside
-    // DashboardController::rangeData against DashboardService::RANGES —
-    // the same list the buttons render from.
-    Route::get('/dashboard/range/{range}', [DashboardController::class, 'rangeData'])->name('dashboard.range');
+        // The JSON half of the dashboard's Today / 7 days / 30 days
+        // segmented control. admin.js fetches this and re-draws the KPI
+        // cards, the Sales vs Profit bars and the sparklines in place, so
+        // switching range never reloads the page. The range travels as a
+        // path segment and is validated inside
+        // DashboardController::rangeData against DashboardService::RANGES —
+        // the same list the buttons render from.
+        Route::get('/dashboard/range/{range}', [DashboardController::class, 'rangeData'])->name('dashboard.range');
+    });
 
-    Route::get('/admins', [AdminController::class, 'index'])->name('admins.index');
-    Route::post('/admins', [AdminController::class, 'store'])->name('admins.store');
-    Route::patch('/admins/{admin}/toggle', [AdminController::class, 'toggleActive'])->name('admins.toggle');
-    Route::delete('/admins/{admin}', [AdminController::class, 'destroy'])->name('admins.destroy');
+    // Admins — the back office itself. Only the owner reaches the
+    // "manage" level here, so creating, editing, suspending and deleting
+    // an account stay with them; a manager may look at the list.
+    Route::middleware('admin.permission:admins')->group(function () {
+        Route::get('/admins', [AdminController::class, 'index'])->name('admins.index');
+        Route::post('/admins', [AdminController::class, 'store'])->name('admins.store');
+        Route::match(['put', 'patch'], '/admins/{admin}', [AdminController::class, 'update'])->name('admins.update');
+        Route::patch('/admins/{admin}/toggle', [AdminController::class, 'toggleActive'])->name('admins.toggle');
+        Route::delete('/admins/{admin}', [AdminController::class, 'destroy'])->name('admins.destroy');
+    });
+
+    // Customers — the list, the two things an operator may change about
+    // a customer (their tags and note, and whether they are blocked),
+    // and the export.
+    Route::middleware('admin.permission:customers')->group(function () {
+        Route::get('/customers', [AdminCustomerController::class, 'index'])->name('customers.index');
+        // The export is declared ahead of the {customer} route: Laravel
+        // matches in registration order, so a later `/customers/{customer}`
+        // would swallow the word "export" as a customer id.
+        Route::get('/customers/export', [AdminCustomerController::class, 'export'])->name('customers.export');
+        Route::match(['put', 'patch'], '/customers/{customer}', [AdminCustomerController::class, 'update'])->name('customers.update');
+        Route::patch('/customers/{customer}/block', [AdminCustomerController::class, 'block'])->name('customers.block');
+    });
 
     // Categories
-    Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
-    Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');
-    Route::match(['put', 'patch'], '/categories/{category}', [CategoryController::class, 'update'])->name('categories.update');
-    Route::delete('/categories/{category}', [CategoryController::class, 'destroy'])->name('categories.destroy');
+    Route::middleware('admin.permission:categories')->group(function () {
+        Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
+        Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');
+        Route::match(['put', 'patch'], '/categories/{category}', [CategoryController::class, 'update'])->name('categories.update');
+        Route::delete('/categories/{category}', [CategoryController::class, 'destroy'])->name('categories.destroy');
+    });
 
     // Colors & Sizes
-    Route::get('/colors-sizes', [ColorSizeController::class, 'index'])->name('colors-sizes.index');
-    Route::post('/colors', [ColorSizeController::class, 'storeColor'])->name('colors.store');
-    Route::match(['put', 'patch'], '/colors/{color}', [ColorSizeController::class, 'updateColor'])->name('colors.update');
-    Route::delete('/colors/{color}', [ColorSizeController::class, 'destroyColor'])->name('colors.destroy');
-    Route::post('/sizes', [ColorSizeController::class, 'storeSize'])->name('sizes.store');
-    Route::match(['put', 'patch'], '/sizes/{size}', [ColorSizeController::class, 'updateSize'])->name('sizes.update');
-    Route::delete('/sizes/{size}', [ColorSizeController::class, 'destroySize'])->name('sizes.destroy');
+    Route::middleware('admin.permission:colors_sizes')->group(function () {
+        Route::get('/colors-sizes', [ColorSizeController::class, 'index'])->name('colors-sizes.index');
+        Route::post('/colors', [ColorSizeController::class, 'storeColor'])->name('colors.store');
+        Route::match(['put', 'patch'], '/colors/{color}', [ColorSizeController::class, 'updateColor'])->name('colors.update');
+        Route::delete('/colors/{color}', [ColorSizeController::class, 'destroyColor'])->name('colors.destroy');
+        Route::post('/sizes', [ColorSizeController::class, 'storeSize'])->name('sizes.store');
+        Route::match(['put', 'patch'], '/sizes/{size}', [ColorSizeController::class, 'updateSize'])->name('sizes.update');
+        Route::delete('/sizes/{size}', [ColorSizeController::class, 'destroySize'])->name('sizes.destroy');
+    });
 
     // Products
-    Route::get('/products', [ProductController::class, 'index'])->name('products.index');
-    Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');
-    Route::post('/products', [ProductController::class, 'store'])->name('products.store');
-    Route::get('/products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
-    Route::match(['put', 'patch'], '/products/{product}', [ProductController::class, 'update'])->name('products.update');
-    Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
-    Route::patch('/products/{product}/toggle-archive', [ProductController::class, 'toggleArchive'])->name('products.toggle-archive');
+    //
+    // `/products/bulk` and `/products/export` are declared BEFORE the
+    // `{product}` routes: Laravel matches in registration order, so a
+    // later `/products/{product}` would swallow the word "bulk" as a
+    // product id.
+    Route::middleware('admin.permission:products')->group(function () {
+        Route::get('/products', [ProductController::class, 'index'])->name('products.index');
+        Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');
+        Route::post('/products', [ProductController::class, 'store'])->name('products.store');
+        Route::post('/products/bulk', ProductBulkController::class)->name('products.bulk');
+        Route::get('/products/export', [ProductController::class, 'export'])->name('products.export');
+        Route::get('/products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
+        Route::match(['put', 'patch'], '/products/{product}', [ProductController::class, 'update'])->name('products.update');
+        Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
+        Route::patch('/products/{product}/toggle-archive', [ProductController::class, 'toggleArchive'])->name('products.toggle-archive');
+    });
 
     // Size Guides
-    Route::get('/size-guides', [SizeGuideController::class, 'index'])->name('size-guides.index');
-    Route::post('/size-guides', [SizeGuideController::class, 'store'])->name('size-guides.store');
-    Route::match(['put', 'patch'], '/size-guides/{sizeGuide}', [SizeGuideController::class, 'update'])->name('size-guides.update');
-    Route::delete('/size-guides/{sizeGuide}', [SizeGuideController::class, 'destroy'])->name('size-guides.destroy');
+    Route::middleware('admin.permission:size_guides')->group(function () {
+        Route::get('/size-guides', [SizeGuideController::class, 'index'])->name('size-guides.index');
+        Route::post('/size-guides', [SizeGuideController::class, 'store'])->name('size-guides.store');
+        Route::match(['put', 'patch'], '/size-guides/{sizeGuide}', [SizeGuideController::class, 'update'])->name('size-guides.update');
+        Route::delete('/size-guides/{sizeGuide}', [SizeGuideController::class, 'destroy'])->name('size-guides.destroy');
+    });
 
     // Orders — the list page serialises the whole order table into one
     // JSON array that public/admin/js/orders.js hydrates; the three
     // mutations below are the only calls that file makes back. An order
     // binds by primary key or by order number (see Order::resolveRouteBinding)
     // because the browser addresses orders by their order number.
-    Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');
-    Route::patch('/orders/{order}/status', [AdminOrderController::class, 'updateStatus'])->name('orders.status');
-    Route::post('/orders/{order}/cancel', [AdminOrderController::class, 'cancel'])->name('orders.cancel');
-    Route::patch('/orders/{order}/tracking', [AdminOrderController::class, 'updateTracking'])->name('orders.tracking');
+    Route::middleware('admin.permission:orders')->group(function () {
+        Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');
+        Route::patch('/orders/{order}/status', [AdminOrderController::class, 'updateStatus'])->name('orders.status');
+        Route::post('/orders/{order}/cancel', [AdminOrderController::class, 'cancel'])->name('orders.cancel');
+        Route::patch('/orders/{order}/tracking', [AdminOrderController::class, 'updateTracking'])->name('orders.tracking');
+    });
 
     // Banners
-    Route::get('/banners', [BannerController::class, 'index'])->name('banners.index');
-    Route::post('/banners', [BannerController::class, 'store'])->name('banners.store');
-    Route::match(['put', 'patch'], '/banners/{banner}', [BannerController::class, 'update'])->name('banners.update');
-    Route::delete('/banners/{banner}', [BannerController::class, 'destroy'])->name('banners.destroy');
+    Route::middleware('admin.permission:banners')->group(function () {
+        Route::get('/banners', [BannerController::class, 'index'])->name('banners.index');
+        Route::post('/banners', [BannerController::class, 'store'])->name('banners.store');
+        Route::match(['put', 'patch'], '/banners/{banner}', [BannerController::class, 'update'])->name('banners.update');
+        Route::delete('/banners/{banner}', [BannerController::class, 'destroy'])->name('banners.destroy');
+    });
 
     // Coupons — see Admin\CouponController. The list page hydrates from
     // a single JSON payload (admin.coupons.index); the four mutations
     // below are the only AJAX calls coupons.js makes back.
-    Route::get('/coupons', [AdminCouponController::class, 'index'])->name('coupons.index');
-    Route::post('/coupons', [AdminCouponController::class, 'store'])->name('coupons.store');
-    Route::match(['put', 'patch'], '/coupons/{coupon}', [AdminCouponController::class, 'update'])->name('coupons.update');
-    Route::patch('/coupons/{coupon}/toggle', [AdminCouponController::class, 'toggle'])->name('coupons.toggle');
-    Route::delete('/coupons/{coupon}', [AdminCouponController::class, 'destroy'])->name('coupons.destroy');
+    Route::middleware('admin.permission:coupons')->group(function () {
+        Route::get('/coupons', [AdminCouponController::class, 'index'])->name('coupons.index');
+        Route::post('/coupons', [AdminCouponController::class, 'store'])->name('coupons.store');
+        Route::match(['put', 'patch'], '/coupons/{coupon}', [AdminCouponController::class, 'update'])->name('coupons.update');
+        Route::patch('/coupons/{coupon}/toggle', [AdminCouponController::class, 'toggle'])->name('coupons.toggle');
+        Route::delete('/coupons/{coupon}', [AdminCouponController::class, 'destroy'])->name('coupons.destroy');
+    });
 
     // Campaigns — see Admin\CampaignController. The list page hydrates
     // from window.CAMPAIGNS_DATA that CampaignController::index prepares
-    // via App\Services\Admin\CampaignService. The five mutations below are
-    // the AJAX calls campaigns.js makes back.
-    Route::get('/campaigns', [AdminCampaignController::class, 'index'])->name('campaigns.index');
-    Route::post('/campaigns', [AdminCampaignController::class, 'store'])->name('campaigns.store');
-    // Declared ahead of /campaigns/{campaign} so the literal first segment
-    // wins if the bindings are ever loosened to a single-segment form.
-    Route::get('/campaigns/audience-count/{audience}', [AdminCampaignController::class, 'previewAudienceCount'])->name('campaigns.audienceCount');
-    Route::get('/campaigns/{campaign}', [AdminCampaignController::class, 'show'])->name('campaigns.show');
-    Route::post('/campaigns/{campaign}/send-now', [AdminCampaignController::class, 'sendNow'])->name('campaigns.sendNow');
-    Route::match(['put', 'patch'], '/campaigns/{campaign}', [AdminCampaignController::class, 'update'])->name('campaigns.update');
-    Route::delete('/campaigns/{campaign}', [AdminCampaignController::class, 'destroy'])->name('campaigns.destroy');
-    Route::post('/campaigns/{campaign}/duplicate', [AdminCampaignController::class, 'duplicate'])->name('campaigns.duplicate');
+    // via App\Services\Admin\CampaignService. The five mutations below
+    // are the AJAX calls campaigns.js makes back.
+    Route::middleware('admin.permission:campaigns')->group(function () {
+        Route::get('/campaigns', [AdminCampaignController::class, 'index'])->name('campaigns.index');
+        Route::post('/campaigns', [AdminCampaignController::class, 'store'])->name('campaigns.store');
+        // Declared ahead of /campaigns/{campaign} so the literal first segment
+        // wins if the bindings are ever loosened to a single-segment form.
+        Route::get('/campaigns/audience-count/{audience}', [AdminCampaignController::class, 'previewAudienceCount'])->name('campaigns.audienceCount');
+        Route::get('/campaigns/{campaign}', [AdminCampaignController::class, 'show'])->name('campaigns.show');
+        Route::post('/campaigns/{campaign}/send-now', [AdminCampaignController::class, 'sendNow'])->name('campaigns.sendNow');
+        Route::match(['put', 'patch'], '/campaigns/{campaign}', [AdminCampaignController::class, 'update'])->name('campaigns.update');
+        Route::delete('/campaigns/{campaign}', [AdminCampaignController::class, 'destroy'])->name('campaigns.destroy');
+        Route::post('/campaigns/{campaign}/duplicate', [AdminCampaignController::class, 'duplicate'])->name('campaigns.duplicate');
+    });
 
     // Pages
-    Route::get('/pages', [AdminPageController::class, 'index'])->name('pages.index');
-    Route::match(['put', 'patch'], '/pages/{page}', [AdminPageController::class, 'update'])->name('pages.update');
+    Route::middleware('admin.permission:pages')->group(function () {
+        Route::get('/pages', [AdminPageController::class, 'index'])->name('pages.index');
+        Route::match(['put', 'patch'], '/pages/{page}', [AdminPageController::class, 'update'])->name('pages.update');
+    });
 
     // Shipping — zones, their governorates, and the global shipping settings.
     // Every mutation affects either a single row or a zone/its children, so
     // the multi-table cases are wrapped in a transaction inside ShippingService.
-    Route::get('/shipping', [ShippingController::class, 'index'])->name('shipping.index');
-    Route::post('/shipping/settings', [ShippingController::class, 'updateSettings'])->name('shipping.settings.update');
-    Route::post('/shipping/zones', [ShippingController::class, 'storeZone'])->name('shipping.zones.store');
-    Route::match(['put', 'patch'], '/shipping/zones/{shippingZone}', [ShippingController::class, 'updateZone'])->name('shipping.zones.update');
-    Route::delete('/shipping/zones/{shippingZone}', [ShippingController::class, 'destroyZone'])->name('shipping.zones.destroy');
-    Route::post('/shipping/governorates', [ShippingController::class, 'storeGovernorate'])->name('shipping.governorates.store');
-    Route::match(['put', 'patch'], '/shipping/governorates/{governorate}', [ShippingController::class, 'updateGovernorate'])->name('shipping.governorates.update');
-    Route::delete('/shipping/governorates/{governorate}', [ShippingController::class, 'destroyGovernorate'])->name('shipping.governorates.destroy');
+    Route::middleware('admin.permission:shipping')->group(function () {
+        Route::get('/shipping', [ShippingController::class, 'index'])->name('shipping.index');
+        Route::post('/shipping/settings', [ShippingController::class, 'updateSettings'])->name('shipping.settings.update');
+        Route::post('/shipping/zones', [ShippingController::class, 'storeZone'])->name('shipping.zones.store');
+        Route::match(['put', 'patch'], '/shipping/zones/{shippingZone}', [ShippingController::class, 'updateZone'])->name('shipping.zones.update');
+        Route::delete('/shipping/zones/{shippingZone}', [ShippingController::class, 'destroyZone'])->name('shipping.zones.destroy');
+        Route::post('/shipping/governorates', [ShippingController::class, 'storeGovernorate'])->name('shipping.governorates.store');
+        Route::match(['put', 'patch'], '/shipping/governorates/{governorate}', [ShippingController::class, 'updateGovernorate'])->name('shipping.governorates.update');
+        Route::delete('/shipping/governorates/{governorate}', [ShippingController::class, 'destroyGovernorate'])->name('shipping.governorates.destroy');
+    });
 
     // Admin bell — the JSON half behind the notification bell in
     // resources/views/admin/partials/topbar.blade.php.
@@ -452,6 +484,10 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     // route would collide with it (admin.js POSTs to the literal
     // /mark-all-read). Both routes are JSON-only — every payload the
     // front-end works with travels through /admin/notifications.
+    //
+    // No module permission applies here: the bell is the signed-in
+    // admin's own inbox, and marking one's own notifications read is
+    // not a change to any module's rows.
     Route::prefix('notifications')->name('notifications.')->group(function () {
         Route::get('/', [AdminNotificationController::class, 'index'])->name('index');
         Route::post('/mark-all-read', [AdminNotificationController::class, 'markAllAsRead'])->name('markAllRead');

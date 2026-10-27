@@ -28,7 +28,7 @@
                         <img
                             class="hero__photo"
                             data-home-photo
-                            src="{{ asset('storage/' . $banner->image_path) }}"
+                            src="{{ $banner->image_url }}"
                             alt="{{ $banner->title_ar ?? $banner->title ?? '' }}"
                             width="800"
                             height="450"
@@ -138,7 +138,7 @@
                 <a class="cat-card" href="{{ route('shop', ['category' => $category->slug]) }}" data-home-reveal>
                     <div class="cat-card__media">
                         <img
-                            src="{{ $category->image ? asset('storage/' . $category->image) : asset('store/images/category-placeholder.jpg') }}"
+                            src="{{ $category->image_url ?: asset('store/images/product-placeholder.jpg') }}"
                             alt="{{ $category->name_ar ?? $category->name }}"
                             width="600"
                             height="800"
@@ -153,25 +153,10 @@
                     </div>
                 </a>
             @empty
-                @foreach (($legacyCategories ?? []) as $cat)
-                    <a class="cat-card" href="{{ $cat['href'] }}" data-home-reveal>
-                        <div class="cat-card__media">
-                            <img
-                                src="{{ asset($cat['image']) }}"
-                                alt="{{ $cat['alt'] }}"
-                                width="600"
-                                height="800"
-                                loading="lazy"
-                                decoding="async"
-                            >
-                            <span class="cat-card__watermark" aria-hidden="true">ABO</span>
-                        </div>
-                        <div class="cat-card__foot">
-                            <span class="cat-card__name">{{ strtoupper($cat['name']) }}</span>
-                            <span class="cat-card__underline" aria-hidden="true"></span>
-                        </div>
-                    </a>
-                @endforeach
+                {{-- No category is published for the homepage yet. The
+                     page says so instead of showing editorial cards that
+                     do not exist in the catalog. --}}
+                <p class="categories__empty">More categories are coming soon.</p>
             @endforelse
         </div>
     </section>
@@ -188,7 +173,7 @@
                 <article class="product" data-home-reveal>
                     <a class="product__media" href="{{ route('shop.show', $product->slug) }}" aria-label="{{ $product->name_ar ?? $product->name }}">
                         <img
-                            src="{{ $product->images->first()?->thumb_path ? asset('storage/' . $product->images->first()->thumb_path) : asset('store/images/product-placeholder.jpg') }}"
+                            src="{{ $product->images->first()?->thumb_url ?: asset('store/images/product-placeholder.jpg') }}"
                             alt="{{ $product->name_ar ?? $product->name }}"
                             width="600"
                             height="750"
@@ -218,34 +203,10 @@
                     </div>
                 </article>
             @empty
-                @foreach (($legacyProducts ?? []) as $product)
-                    <article class="product" data-home-reveal>
-                        <a class="product__media" href="{{ route('shop.show', ['slug' => $product['slug']]) }}" aria-label="{{ $product['name'] }}">
-                            <img
-                                src="{{ asset($product['image']) }}"
-                                alt="{{ $product['name'] }}"
-                                width="600"
-                                height="750"
-                                loading="lazy"
-                                decoding="async"
-                            >
-                            @if (!empty($product['badge']))
-                                <span class="product__badge product__badge--{{ \Illuminate\Support\Str::slug($product['badge']) }}">
-                                    {{ strtoupper($product['badge']) }}
-                                </span>
-                            @endif
-                        </a>
-                        <div class="product__body">
-                            <h3 class="product__name">{{ $product['name'] }}</h3>
-                            <p class="product__price">{{ number_format($product['price'], 0, '.', ',') }} EGP</p>
-                            <ul class="product__colors" aria-label="Available colors">
-                                @foreach ($product['colors'] as $hex)
-                                    <li class="product__color" style="--swatch: {{ $hex }};" aria-label="Color {{ $hex }}"></li>
-                                @endforeach
-                            </ul>
-                        </div>
-                    </article>
-                @endforeach
+                {{-- No featured product is published yet. The page says so
+                     instead of showing editorial cards for products that are
+                     not in the catalog. --}}
+                <p class="newdrop__empty">The next drop is being packed. Check back soon.</p>
             @endforelse
         </div>
     </section>

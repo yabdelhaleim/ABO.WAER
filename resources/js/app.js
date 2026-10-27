@@ -11,9 +11,12 @@ import './product.js';
 import './size-guide.js';
 import './cart.js';
 import './checkout.js';
-import './success.js';
 import './orders.js';
-import './content.js';
+// Content pages are rendered server-side from the `pages` table
+// (Store\PageController → resources/views/content.blade.php). The
+// former front-end-only renderer (content.js + content.mock.js) used
+// to overwrite that HTML with static mock data after load; it has been
+// removed so the database is the single source of truth.
 
 // ─── Instant page transitions: prefetch internal links on hover/touch ───────
 document.addEventListener('mouseover', (e) => {

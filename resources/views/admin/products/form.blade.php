@@ -1,12 +1,19 @@
 {{--
-    Admin · Product form — shared create + edit (front-end only).
+    Admin · Product form — shared create + edit.
 
     Used by both /admin/products/create and /admin/products/{id}/edit.
-    The mode and the prefilled product are passed in by the route
-    closure. In create mode the inputs are empty; in edit mode the
-    static array in products.js is used to hydrate the fields via
-    data-attribute (so the same view serves both routes without
-    server-side lookups).
+    The mode and the prefilled product come from
+    Admin\ProductController::create() / edit(), which read the
+    products table. The form used to be hydrated from a hard-coded
+    sample array in products.js, so it opened on an empty name and an
+    empty variant table — and saving it wiped the variants the
+    product actually had.
+
+    Everything on the page is a real input that posts to the server:
+    the colours and the sizes come from the catalogue, the variant
+    rows carry the prices and the stock, the images are the ones the
+    product has. products.js only rebuilds the colour × size matrix
+    when the operator changes the selection.
 
     Layout (two columns on desktop, stacked on tablet/mobile):
       LEFT (1.8fr):
@@ -14,14 +21,14 @@
         2. Images (up to 8 slots, drag to reorder, colour attach)
         3. Variants (colours + sizes chips, generated matrix table)
       RIGHT (1fr):
-        1. Status (segmented Active / Draft)
+        1. Status (segmented Active / Archived)
         2. Pricing (price, compare-at, cost, live margin)
         3. Organize (category, size guide, tags)
         4. Store preview (live mini product card)
 
     Top action bar: ← Products, Discard, Save as draft, SAVE AND PUBLISH.
-    Buttons are visual only — clicking the lime button shows the
-    "Saved (demo)" toast wired by products.js.
+    The two save buttons set the status of the product and submit the
+    form; the discard button asks first.
 
     Reuses abo-admin-card, abo-admin-btn, abo-admin-segmented,
     abo-admin-pill, etc. New classes are prefixed abo-admin-products-.
@@ -45,6 +52,26 @@
     $colorsList = $colors ?? collect();
     $sizesList = $sizes ?? collect();
     $categoriesList = $categories ?? collect();
+
+    // The images the product already carries, and the colour each one
+    // hangs on, so the form can show them and let the operator drop one.
+    $existingImages = $isModel ? $product->images : collect();
+    $imageColors = $isModel
+        ? $product->productColors->mapWithKeys(fn ($pivot) => [$pivot->id => $pivot->color])->filter()
+        : collect();
+
+    // The colour × size matrix the product offers, one row per pair.
+    $variantRows = $isModel
+        ? app(\App\Services\ProductService::class)->formMatrix($product, $colorsList, $sizesList)
+        : [];
+
+    // The colours the product offers — the pivot plus the colours its
+    // variants carry.
+    $productColorIds = $isModel
+        ? app(\App\Services\ProductService::class)->formColorIds($product)
+        : [];
+
+    $isArchived = $isModel ? (bool) $product->is_archived : false;
 @endphp
 
 @section('content')
@@ -65,14 +92,17 @@
                 'id' => (string) $product->id,
                 'name' => $product->name,
                 'nameAr' => $product->name_ar ?? '',
+                'slug' => $product->slug,
                 'categoryId' => $product->category_id ? (string) $product->category_id : null,
                 'description' => $product->description ?? '',
                 'archived' => (bool) $product->is_archived,
                 'featured' => (bool) $product->is_featured,
                 'colors' => $product->colors ? $product->colors->pluck('id')->map(fn ($id) => (string) $id)->all() : [],
+                'sizes' => $product->variants->pluck('size_id')->map(fn ($id) => (string) $id)->unique()->values()->all(),
                 'variants' => $product->variants ? $product->variants->map(fn ($v) => [
                     'colorId' => (string) $v->color_id,
                     'sizeId' => (string) $v->size_id,
+                    'sku' => $v->sku,
                     'price' => (float) $v->price,
                     'cost' => (float) $v->cost,
                     'discountPrice' => $v->discount_price !== null ? (float) $v->discount_price : null,
@@ -144,9 +174,39 @@
                         <input id="abo-admin-products-name"
                                type="text"
                                name="name"
+                               value="{{ old('name', $isModel ? $product->name : '') }}"
                                placeholder="e.g. Oversize hoodie"
                                autocomplete="off"
-                               data-abo-admin-products-field="name">
+                               data-abo-admin-products-field="name"
+                               data-abo-admin-products-lang-field="en">
+                    </div>
+
+                    <div class="abo-admin-products__field" data-abo-admin-products-lang-panel="ar" hidden>
+                        <label for="abo-admin-products-name-ar">اسم المنتج بالعربية</label>
+                        <input id="abo-admin-products-name-ar"
+                               type="text"
+                               name="name_ar"
+                               value="{{ old('name_ar', $isModel ? ($product->name_ar ?? '') : '') }}"
+                               placeholder="مثال: هودي اوفرسايز"
+                               autocomplete="off"
+                               dir="rtl"
+                               data-abo-admin-products-field="nameAr"
+                               data-abo-admin-products-lang-field="ar">
+                    </div>
+
+                    <div class="abo-admin-products__field">
+                        <label for="abo-admin-products-slug">URL slug</label>
+                        <input id="abo-admin-products-slug"
+                               type="text"
+                               name="slug"
+                               value="{{ old('slug', $isModel ? $product->slug : '') }}"
+                               placeholder="oversize-hoodie"
+                               autocomplete="off"
+                               data-abo-admin-products-field="slug">
+                        <p class="abo-admin-products__helper">
+                            The address of the product in the store. Changing it breaks the links
+                            that were already shared.
+                        </p>
                     </div>
 
                     <div class="abo-admin-products__field">
@@ -154,9 +214,16 @@
                         <input id="abo-admin-products-sku"
                                type="text"
                                name="sku"
+                               value="{{ $isModel ? ($product->variants->first()?->sku ?? '') : '' }}"
                                placeholder="ABO-0000"
                                autocomplete="off"
+                               readonly
+                               aria-readonly="true"
                                data-abo-admin-products-field="sku">
+                        <p class="abo-admin-products__helper">
+                            The SKU is derived from the product, the colour and the size of every row
+                            in the variants table.
+                        </p>
                     </div>
 
                     <div class="abo-admin-products__field">
@@ -165,7 +232,7 @@
                                   name="description"
                                   rows="4"
                                   placeholder="Short product description…"
-                                  data-abo-admin-products-field="description"></textarea>
+                                  data-abo-admin-products-field="description">{{ old('description', $isModel ? ($product->description ?? '') : '') }}</textarea>
                     </div>
                 </article>
 
@@ -180,35 +247,54 @@
                         Attach images to a colour so the store switches photos when the customer picks it.
                     </p>
 
-                    <div class="abo-admin-products__colour-picker" role="group" aria-label="Attach next image to colour">
-                        <span class="abo-admin-products__hint">Attach to:</span>
-                        @foreach ([
-                            ['value' => '', 'label' => 'None',     'hex' => null],
-                            ['value' => 'black', 'label' => 'Black', 'hex' => '#0D0F11'],
-                            ['value' => 'grey',  'label' => 'Grey',  'hex' => '#8D928A'],
-                            ['value' => 'olive', 'label' => 'Olive', 'hex' => '#5C6A48'],
-                            ['value' => 'lime',  'label' => 'Lime',  'hex' => '#C6FF00'],
-                        ] as $opt)
-                            <button type="button"
-                                    class="abo-admin-products__colour-chip @if ($loop->first) is-active @endif"
-                                    data-abo-admin-products-colour="{{ $opt['value'] }}"
-                                    title="{{ $opt['label'] }}"
-                                    aria-pressed="{{ $loop->first ? 'true' : 'false' }}">
-                                @if ($opt['hex'])
-                                    <span class="abo-admin-products__colour-swatch"
-                                          style="--swatch: {{ $opt['hex'] }};"></span>
-                                @endif
-                                {{ $opt['label'] }}
-                            </button>
-                        @endforeach
-                    </div>
-
                     <div class="abo-admin-products__images"
                          role="list"
                          aria-label="Product images"
                          data-abo-admin-products-images>
-                        {{-- Slots are injected by products.js. First slot
-                             gets a "COVER" label automatically. --}}
+                        @forelse ($existingImages as $image)
+                            @php($imageColor = $imageColors->get($image->product_color_id))
+                            <div class="abo-admin-products__image-slot filled"
+                                 role="listitem"
+                                 data-abo-admin-products-image="{{ $image->id }}">
+                                <img src="{{ $image->thumb_url ?: $image->url }}"
+                                     alt="{{ $imageColor?->name ?? 'Product image' }}"
+                                     loading="lazy"
+                                     decoding="async">
+                                @if ($imageColor)
+                                    <span class="abo-admin-products__image-colour">
+                                        <span class="abo-admin-products__image-colour-dot"
+                                              style="--swatch: {{ $imageColor->hex_code ?? '#8D928A' }};"></span>
+                                        {{ $imageColor->name }}
+                                    </span>
+                                @endif
+                                <label class="abo-admin-products__image-remove">
+                                    <input type="checkbox"
+                                           name="removed_images[]"
+                                           value="{{ $image->id }}"
+                                           data-abo-admin-products-image-remove>
+                                    <span>Remove</span>
+                                </label>
+                            </div>
+                        @empty
+                            <p class="abo-admin-products__helper">No images yet.</p>
+                        @endforelse
+                    </div>
+
+                    {{-- One upload per colour. The name carries the colour id, which is
+                         the key ProductRequest expects: images[<color id>][]. --}}
+                    <div class="abo-admin-products__image-uploads">
+                        @foreach ($colorsList as $color)
+                            <label class="abo-admin-products__image-upload">
+                                <span class="abo-admin-products__image-colour-dot"
+                                      style="--swatch: {{ $color->hex_code ?? '#8D928A' }};"></span>
+                                <span class="abo-admin-products__image-upload-name">{{ $color->name }}</span>
+                                <input type="file"
+                                       name="images[{{ $color->id }}][]"
+                                       accept="image/jpeg,image/png,image/webp"
+                                       multiple
+                                       data-abo-admin-products-upload>
+                            </label>
+                        @endforeach
                     </div>
                 </article>
 
@@ -221,32 +307,36 @@
                     <p class="abo-admin-products__hint">COLOURS</p>
                     <div class="abo-admin-products__chips" role="group" aria-label="Available colours"
                          data-abo-admin-products-variant-colors>
-                        @foreach ([
-                            ['value' => 'black', 'label' => 'Black', 'hex' => '#0D0F11'],
-                            ['value' => 'grey',  'label' => 'Grey',  'hex' => '#8D928A'],
-                            ['value' => 'olive', 'label' => 'Olive', 'hex' => '#5C6A48'],
-                            ['value' => 'lime',  'label' => 'Lime',  'hex' => '#C6FF00'],
-                            ['value' => 'coral', 'label' => 'Coral', 'hex' => '#FF7A5C'],
-                        ] as $c)
-                            <button type="button"
-                                    class="abo-admin-products__chip is-active"
-                                    data-abo-admin-products-variant-color="{{ $c['value'] }}"
-                                    aria-pressed="true">
+                        @foreach ($colorsList as $c)
+                            @php($colorSelected = in_array($c->id, $productColorIds, true))
+                            <label class="abo-admin-products__chip @if ($colorSelected) is-active @endif"
+                                   data-abo-admin-products-variant-color="{{ $c->id }}">
+                                <input type="checkbox"
+                                       name="colors[]"
+                                       value="{{ $c->id }}"
+                                       @checked($colorSelected)
+                                       data-abo-admin-products-variant-color-input>
                                 <span class="abo-admin-products__chip-dot"
-                                      style="--swatch: {{ $c['hex'] }};" aria-hidden="true"></span>
-                                {{ $c['label'] }}
-                            </button>
+                                      style="--swatch: {{ $c->hex_code ?? '#8D928A' }};" aria-hidden="true"></span>
+                                {{ $c->name }}
+                            </label>
                         @endforeach
                     </div>
 
                     <p class="abo-admin-products__hint">SIZES</p>
                     <div class="abo-admin-products__chips" role="group" aria-label="Available sizes"
                          data-abo-admin-products-variant-sizes>
-                        @foreach (['S', 'M', 'L', 'XL', 'XXL'] as $s)
-                            <button type="button"
-                                    class="abo-admin-products__chip is-active"
-                                    data-abo-admin-products-variant-size="{{ $s }}"
-                                    aria-pressed="true">{{ $s }}</button>
+                        @foreach ($sizesList as $s)
+                            @php($sizeSelected = $isModel && $product->variants->contains('size_id', $s->id))
+                            <label class="abo-admin-products__chip @if ($sizeSelected) is-active @endif"
+                                   data-abo-admin-products-variant-size="{{ $s->id }}">
+                                <input type="checkbox"
+                                       name="sizes[]"
+                                       value="{{ $s->id }}"
+                                       @checked($sizeSelected)
+                                       data-abo-admin-products-variant-size-input>
+                                {{ $s->name }}
+                            </label>
                         @endforeach
                     </div>
 
@@ -271,12 +361,60 @@
                                     <th scope="col">Variant</th>
                                     <th scope="col">SKU</th>
                                     <th scope="col">Stock</th>
-                                    <th scope="col">Price override</th>
+                                    <th scope="col">Price</th>
+                                    <th scope="col">Cost</th>
+                                    <th scope="col">Discount Price</th>
                                 </tr>
                             </thead>
                             <tbody data-abo-admin-products-variant-rows>
-                                {{-- Generated by products.js from the
-                                     selected colours × sizes matrix. --}}
+                                @forelse ($variantRows as $index => $row)
+                                    @php($variant = $row['variant'])
+                                    <tr data-abo-admin-products-variant-row="{{ $row['key'] }}">
+                                        <td>{{ $row['color']->name }} / {{ $row['size']->name }}</td>
+                                        <td>
+                                            <input type="hidden" name="variants[{{ $index }}][color_id]" value="{{ $row['color']->id }}">
+                                            <input type="hidden" name="variants[{{ $index }}][size_id]" value="{{ $row['size']->id }}">
+                                            <span class="abo-admin-products__variant-sku">{{ $variant?->sku ?? '—' }}</span>
+                                        </td>
+                                        <td>
+                                            <input type="number"
+                                                   name="variants[{{ $index }}][quantity]"
+                                                   value="{{ $variant?->quantity ?? 0 }}"
+                                                   min="0"
+                                                   step="1"
+                                                   data-abo-admin-products-variant-quantity>
+                                        </td>
+                                        <td>
+                                            <input type="number"
+                                                   name="variants[{{ $index }}][price]"
+                                                   value="{{ $variant ? (float) $variant->price : 0 }}"
+                                                   min="0"
+                                                   step="0.01"
+                                                   data-abo-admin-products-variant-price>
+                                        </td>
+                                        <td>
+                                            <input type="number"
+                                                   name="variants[{{ $index }}][cost]"
+                                                   value="{{ $variant ? (float) $variant->cost : 0 }}"
+                                                   min="0"
+                                                   step="0.01"
+                                                   data-abo-admin-products-variant-cost>
+                                        </td>
+                                        <td>
+                                            <input type="number"
+                                                   name="variants[{{ $index }}][discount_price]"
+                                                   value="{{ $variant?->discount_price !== null ? (float) $variant->discount_price : '' }}"
+                                                   min="0"
+                                                   step="0.01"
+                                                   placeholder="—"
+                                                   data-abo-admin-products-variant-discount>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr data-abo-admin-products-variant-empty>
+                                        <td colspan="6">Pick the colours and sizes the product comes in.</td>
+                                    </tr>
+                                @endforelse
                             </tbody>
                         </table>
                     </div>
@@ -295,10 +433,33 @@
                          role="tablist"
                          aria-label="Product status"
                          data-abo-admin-products-status>
-                        <button type="button" role="tab" aria-selected="true"
-                                class="is-active" data-status="active">Active</button>
-                        <button type="button" role="tab" aria-selected="false"
-                                data-status="draft">Draft</button>
+                        <label class="abo-admin-products__segment @if (! $isArchived) is-active @endif">
+                            <input type="radio"
+                                   name="is_archived"
+                                   value="0"
+                                   @checked(! $isArchived)
+                                   data-abo-admin-products-status-input>
+                            <span>Active</span>
+                        </label>
+                        <label class="abo-admin-products__segment @if ($isArchived) is-active @endif">
+                            <input type="radio"
+                                   name="is_archived"
+                                   value="1"
+                                   @checked($isArchived)
+                                   data-abo-admin-products-status-input>
+                            <span>Archived</span>
+                        </label>
+                    </div>
+
+                    <div class="abo-admin-products__field">
+                        <label for="abo-admin-products-featured">
+                            <input type="checkbox"
+                                   id="abo-admin-products-featured"
+                                   name="is_featured"
+                                   value="1"
+                                   @checked($isModel && $product->is_featured)>
+                            Show in the new drop on the home page
+                        </label>
                     </div>
                 </article>
 
@@ -308,34 +469,39 @@
                         <h2 class="abo-admin-card__title">PRICING</h2>
                     </header>
 
+                    <p class="abo-admin-products__helper">
+                        These three fields fill the rows of the variants table. Every price a
+                        customer sees comes from a variant row, not from here.
+                    </p>
+
                     <div class="abo-admin-products__field">
-                        <label for="abo-admin-products-price">Price (EGP)</label>
+                        <label for="abo-admin-products-price">Default price (EGP)</label>
                         <input id="abo-admin-products-price"
                                type="number"
                                min="0"
-                               step="1"
+                               step="0.01"
                                placeholder="0"
                                inputmode="numeric"
                                data-abo-admin-products-field="price">
                     </div>
 
                     <div class="abo-admin-products__field">
-                        <label for="abo-admin-products-compare">Compare at (EGP)</label>
+                        <label for="abo-admin-products-compare">Default discount price (EGP)</label>
                         <input id="abo-admin-products-compare"
                                type="number"
                                min="0"
-                               step="1"
+                               step="0.01"
                                placeholder="0"
                                inputmode="numeric"
                                data-abo-admin-products-field="compare">
                     </div>
 
                     <div class="abo-admin-products__field">
-                        <label for="abo-admin-products-cost">Cost (EGP)</label>
+                        <label for="abo-admin-products-cost">Default cost (EGP)</label>
                         <input id="abo-admin-products-cost"
                                type="number"
                                min="0"
-                               step="1"
+                               step="0.01"
                                placeholder="0"
                                inputmode="numeric"
                                data-abo-admin-products-field="cost">
@@ -378,29 +544,12 @@
                     </div>
 
                     <div class="abo-admin-products__field">
-                        <label for="abo-admin-products-size-guide">Size guide</label>
-                        <select id="abo-admin-products-size-guide"
-                                class="abo-admin-products__select"
-                                data-abo-admin-products-field="size_guide">
-                            <option value="">No size guide</option>
-                            <option value="mens-standard">Men's standard</option>
-                            <option value="mens-oversize">Men's oversize</option>
-                            <option value="womens">Women's</option>
-                        </select>
-                    </div>
-
-                    <div class="abo-admin-products__field">
-                        <label for="abo-admin-products-tags">Tags</label>
-                        <div class="abo-admin-products__tags" data-abo-admin-products-tags>
-                            <ul class="abo-admin-products__taglist" data-abo-admin-products-taglist
-                                aria-label="Selected tags"></ul>
-                            <input id="abo-admin-products-tags"
-                                   type="text"
-                                   class="abo-admin-products__taginput"
-                                   placeholder="Press Enter to add…"
-                                   autocomplete="off"
-                                   data-abo-admin-products-taginput>
-                        </div>
+                        <label for="abo-admin-products-size-guide">Size chart</label>
+                        <p id="abo-admin-products-size-guide" class="abo-admin-products__helper">
+                            The size chart follows the category of the product. The chart of
+                            <strong>{{ $categoriesList->firstWhere('id', $isModel ? $product->category_id : null)?->name ?? 'the selected category' }}</strong>
+                            is the one the store shows on the product page.
+                        </p>
                     </div>
                 </article>
 
@@ -452,7 +601,7 @@
     <div class="abo-admin-products__toast" role="status" aria-live="polite" hidden
          data-abo-admin-products-toast>
         <span class="abo-admin-products__toast-dot" aria-hidden="true"></span>
-        <span class="abo-admin-products__toast-text" data-abo-admin-products-toast-text>Saved (demo)</span>
+        <span class="abo-admin-products__toast-text" data-abo-admin-products-toast-text>Saved</span>
     </div>
 @endsection
 

@@ -14,6 +14,11 @@ class HomeController extends Controller
      * Home page — combines the static editorial copy (hero, ticker,
      * brand statement, why, newsletter, footer) with the live catalog
      * for the "Shop by category" and "New drop" sections.
+     *
+     * The two catalog sections are DB-only. A card that is not in the
+     * database is a card a shopper can click and not buy, so when the
+     * admin has published no category or no featured product the page
+     * says so instead of falling back to the editorial sample rows.
      */
     public function index(): View
     {
@@ -21,16 +26,6 @@ class HomeController extends Controller
         // why, newsletter, footer) — kept in resources/views/store/data/home.php
         // because those sections are pure presentation with no DB backing.
         $data = require resource_path('views/store/data/home.php');
-
-        // Keep the static category array as a Blade-level fallback so the
-        // grid keeps rendering its 4 cards before the admin has marked any
-        // category as "show_in_homepage".
-        $data['legacyCategories'] = $data['categories'] ?? [];
-
-        // Keep the static product array as a Blade-level fallback for the
-        // "New drop" strip. Same rationale as legacyCategories — the
-        // grid needs to look complete with zero DB rows.
-        $data['legacyProducts'] = $data['products'] ?? [];
 
         // 2. Active banners ordered by priority, then most recent.
         $data['banners'] = Banner::query()

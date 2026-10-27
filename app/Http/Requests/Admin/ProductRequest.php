@@ -66,12 +66,18 @@ class ProductRequest extends FormRequest
             'colors' => ['array'],
             'colors.*' => ['integer', 'exists:colors,id'],
 
-            'variants' => ['array'],
-            'variants.*.color_id' => ['required_with:variants', 'integer', 'exists:colors,id'],
-            'variants.*.size_id' => ['required_with:variants', 'integer', 'exists:sizes,id'],
-            'variants.*.price' => ['required_with:variants', 'numeric', 'min:0'],
-            'variants.*.cost' => ['required_with:variants', 'numeric', 'min:0'],
-            'variants.*.discount_price' => ['nullable', 'numeric', 'min:0'],
+            // The sizes the product comes in. The variants carry the
+            // real size ids; this list is the selection the operator
+            // made in the form.
+            'sizes' => ['array'],
+            'sizes.*' => ['integer', 'exists:sizes,id'],
+
+            'variants' => ['required', 'array', 'min:1'],
+            'variants.*.color_id' => ['required', 'integer', 'exists:colors,id'],
+            'variants.*.size_id' => ['required', 'integer', 'exists:sizes,id'],
+            'variants.*.price' => ['required', 'numeric', 'min:0'],
+            'variants.*.cost' => ['required', 'numeric', 'min:0'],
+            'variants.*.discount_price' => ['nullable', 'numeric', 'min:0', 'lt:variants.*.price'],
             'variants.*.quantity' => ['nullable', 'integer', 'min:0'],
 
             // Image upload hardening — strict mime allow-list plus a 2 MB
@@ -89,7 +95,7 @@ class ProductRequest extends FormRequest
             ],
 
             'removed_images' => ['array'],
-            'removed_images.*' => ['integer'],
+            'removed_images.*' => ['integer', 'exists:product_images,id'],
         ];
     }
 
@@ -103,8 +109,13 @@ class ProductRequest extends FormRequest
             'slug.unique' => 'This slug is already in use by another product.',
             'category_id.exists' => 'The selected category does not exist.',
             'colors.*.exists' => 'One of the selected colors is invalid.',
-            'variants.*.price.required_with' => 'Variant price is required.',
-            'variants.*.cost.required_with' => 'Variant cost is required.',
+            'variants.required' => 'Each product must have at least one variant with a color and size.',
+            'variants.min' => 'Each product must have at least one variant with a color and size.',
+            'variants.*.color_id.required' => 'Variant color is required.',
+            'variants.*.size_id.required' => 'Variant size is required.',
+            'variants.*.price.required' => 'Variant price is required.',
+            'variants.*.cost.required' => 'Variant cost is required.',
+            'variants.*.discount_price.lt' => 'Discount price must be less than the regular price.',
         ];
     }
 }

@@ -1,17 +1,17 @@
 {{--
-    Checkout page — front-end only.
+    Checkout page.
 
-    The page is server-rendered as a shell. The cart lives in
-    localStorage (see resources/js/cart.js) and is hydrated by the
-    page's <script> blocks; the server has no cart, so the order
-    summary is empty on first paint and filled in by
-    resources/js/checkout.js.
+    The page is server-rendered as a shell. The cart itself lives in the
+    database (App\Services\CartService) — the cart page and the product
+    page write to it, and this page reads it back through
+    GET /cart/summary, so the summary a customer reviews is the exact set
+    of rows the order is built from.
 
-    Submission is intercepted entirely by the JS: it computes the
-    order number client-side, stores a short-lived payload in
-    sessionStorage under `abo_last_order`, and navigates to
-    /checkout/success/{order_number}. The server has no order
-    processing in this task — that lives in a follow-up.
+    Submission goes to Store\CheckoutController::process. The JS posts
+    with `Accept: application/json` so the busy state and the inline
+    field errors stay intact; the server answers 201 with the order
+    number and the success URL, or 422 with per-field messages. The
+    order number is the server's — the client never invents one.
 --}}
 
 @extends('layouts.store')
@@ -29,18 +29,11 @@
 
 @section('content')
     @php
-        $productsPayload = array_map(
-            fn ($p) => [
-                'slug'    => $p['slug'],
-                'name'    => $p['name'],
-                'price'   => (int) $p['price'],
-                'image'   => $p['image'],
-                'category'=> $p['category'],
-                'colors'  => $p['colors'] ?? [],
-            ],
-            $products ?? []
-        );
-        $governorates = require resource_path('views/store/data/governorates.php');
+        // The catalog the page publishes. It comes from the live
+        // catalog (Store\CheckoutController::show → CartService), the
+        // same payload the cart page publishes, so a product's price and
+        // variant list are the ones the order is actually built from.
+        $productsPayload = $products ?? [];
         // Single source of truth for the list of payment methods
         // the storefront currently supports. Mirrored in
         // resources/js/checkout.js for the radios.
@@ -107,10 +100,12 @@
                 data-checkout-form
             >
                 @csrf
-                {{-- Hidden fields populated by JS on submit. Server does
-                     not exist for this task; the JS intercepts submit
-                     and navigates to the success route. The fields are
-                     here so a future server implementation can read them. --}}
+                {{-- Hidden fields populated by JS on submit. The cart is
+                     authoritative in the database — `cart_json` carries the
+                     same lines as a fallback for a visitor whose session
+                     cart was lost, and `expected_total` is the number the
+                     customer was shown. The server recomputes every price
+                     from the variants, so neither field is trusted. --}}
                 <input type="hidden" name="cart_json" value="" data-checkout-cart-json>
                 <input type="hidden" name="expected_total" value="0" data-checkout-expected-total>
                 {{-- Coupon code — populated by checkout.js once the customer

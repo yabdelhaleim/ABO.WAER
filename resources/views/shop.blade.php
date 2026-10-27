@@ -55,7 +55,7 @@
                    data-home-reveal>
                     <div class="shop-cat__media">
                         <img
-                            src="{{ asset($cat->image ?: 'images/streetwear-hero.jpg') }}"
+                            src="{{ $cat->image_url ?: asset('images/streetwear-hero.jpg') }}"
                             alt="{{ $cat->name }}"
                             width="600"
                             height="450"
@@ -261,7 +261,7 @@
             <ul class="shop-grid" data-shop-grid>
                 @foreach ($products as $i => $product)
                     @php
-                        $imagePath = $product->primaryImage?->path ?: 'images/streetwear-hero.jpg';
+                        $imageUrl = $product->primaryImage?->url ?: asset('images/streetwear-hero.jpg');
                         $price = $product->min_price ?? $product->starting_price;
                         $categorySlug = $product->category?->slug;
                         $badge = $product->display_badge;
@@ -276,7 +276,7 @@
                         <a class="shop-card" href="{{ route('shop.show', ['slug' => $product->slug]) }}" aria-label="{{ $product->name }}">
                             <div class="shop-card__media">
                                 <img
-                                    src="{{ asset($imagePath) }}"
+                                    src="{{ $imageUrl }}"
                                     alt="{{ $product->name }}"
                                     width="600"
                                     height="750"

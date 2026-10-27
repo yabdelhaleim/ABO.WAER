@@ -1,9 +1,10 @@
 // ABO — "My Orders" front-end module.
 //
 // Scope (per spec §0):
-//   - Orders come from a single function `getOrders()`, which now
-//     fetches the live API and falls back to orders.mock.js so the
-//     page still renders during design review or an API outage.
+//   - Orders come from a single function `getOrders()`, which fetches
+//     the live API. There is no mock fallback: a customer either sees
+//     their own orders or sees the error state. Rendering somebody
+//     else's fabricated order history is never the right answer.
 //   - Sorting, filtering and search run in the browser on the array.
 //   - Buttons that would need a backend only show a non-blocking
 //     lime toast — they do not perform any other action.
@@ -11,44 +12,39 @@
 // Page bootstrap (`init()`) runs when the module loads, and
 // re-renders on `?state=loading|empty|error` for design review.
 
-import { ORDERS } from './orders.mock.js';
-
 // ─── Single-source-of-truth data wrapper ────────────────────────────
 
 /**
  * Returns the list of orders for the current user, newest first.
  *
- * Fetches the customer's own orders from `orders.data`; the response
- * shape is the one documented at the top of orders.mock.js. Falls back
- * to the mock array when the request fails or returns an unexpected
- * body so the page never renders an empty shell.
+ * Fetches the customer's own orders from `orders.data` — the shape is
+ * the one App\Services\OrderService::presentOrder() produces.
  *
- * Always returns a promise so the call site does not need to know
- * whether the source is sync (mock) or async (real API).
+ * Rejects when the request fails or the body is not what we expect, so
+ * the caller can show the error state instead of an empty shell that
+ * reads like "you have no orders".
+ *
+ * @returns {Promise<Array<object>>}
  */
 export async function getOrders() {
-    try {
-        const response = await fetch('/orders/data', {
-            headers: {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-        });
+    const response = await fetch('/orders/data', {
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    });
 
-        if (response.ok) {
-            const data = await response.json();
-
-            if (data && Array.isArray(data.orders)) {
-                return data.orders;
-            }
-        }
-    } catch (err) {
-        console.warn('[orders] Failed to fetch live orders, falling back to mock.', err);
+    if (!response.ok) {
+        throw new Error(`The orders endpoint answered ${response.status}.`);
     }
 
-    return [...ORDERS].sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
+    const data = await response.json();
+
+    if (!data || !Array.isArray(data.orders)) {
+        throw new Error('The orders endpoint returned an unexpected body.');
+    }
+
+    return data.orders;
 }
 
 // ─── Tiny helpers ───────────────────────────────────────────────────
@@ -590,6 +586,9 @@ async function init() {
                     state.orders = orders;
                     setState('ready');
                     renderAll();
+                }).catch(() => {
+                    setState('error');
+                    renderError();
                 });
             }
         });
@@ -610,10 +609,21 @@ async function init() {
     renderToolbarCounts();
     renderLoading();
 
-    const [orders] = await Promise.all([
-        getOrders(),
-        new Promise((r) => setTimeout(r, 600)),
-    ]);
+    let orders = [];
+
+    try {
+        [orders] = await Promise.all([
+            getOrders(),
+            new Promise((r) => setTimeout(r, 600)),
+        ]);
+    } catch (err) {
+        // The API did not answer. Show the error state — never an empty
+        // list, which would read as "you have never ordered".
+        setState('error');
+        renderError();
+        return;
+    }
+
     state.orders = orders;
 
     setState('ready');

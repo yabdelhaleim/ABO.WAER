@@ -6,10 +6,15 @@
  * serve both the list page and the form page (and stay loaded
  * without errors on other admin pages that import it).
  *
- * NO network calls. NO localStorage. NO IndexedDB. Every piece of
- * data is either hard-coded in PRODUCTS / COLORS / SIZES below or
- * read from the DOM. Each section that would need real data is
- * marked TODO(backend).
+ * The catalog is read from the database: Admin\ProductController
+ * serialises the products table into window.__PRODUCTS__ and the list
+ * hydrates from it. The list used to answer from a hard-coded array of
+ * fourteen sample products, so the table showed products the store
+ * could not sell and every action on them was a no-op.
+ *
+ * The writes go back to the same admin endpoints the rest of the
+ * catalog uses: the toggle, the row menu and the bulk bar all talk
+ * to the server.
  *
  * Sections:
  *   initTodayDate        — set the header date (matches dashboard)
@@ -20,132 +25,23 @@
  */
 
 /* ──────────────────────────────────────────────────────────────
-   Static data
-   TODO(backend): replace with real data fetched from the API.
-   The shape is final; only the source changes.
+   Data
    ────────────────────────────────────────────────────────────── */
 
-const COLORS = {
-    black: { label: 'Black', hex: '#0D0F11' },
-    grey:  { label: 'Grey',  hex: '#8D928A' },
-    olive: { label: 'Olive', hex: '#5C6A48' },
-    lime:  { label: 'Lime',  hex: '#C6FF00' },
-    coral: { label: 'Coral', hex: '#FF7A5C' },
-    sand:  { label: 'Sand',  hex: '#C9A227' },
-    bone:  { label: 'Bone',  hex: '#E8E2D2' },
-};
+/*
+ * The catalog, straight from the products table. The controller sends
+ * one row per product with every field the list renders: the price
+ * and the stock come from the variant rows, the colours from the
+ * product_colors pivot, the cover from the first product image.
+ */
+const PRODUCTS = (typeof window !== 'undefined' && Array.isArray(window.__PRODUCTS__))
+    ? window.__PRODUCTS__
+    : [];
 
-const SIZES = ['S', 'M', 'L', 'XL', 'XXL'];
-
-const CATEGORIES = {
-    hoodies:  'Hoodies',
-    't-shirts': 'T-Shirts',
-    pants:    'Pants',
-    jackets:  'Jackets',
-};
-
-// 14 sample products — at least 12 per spec. Mix of statuses and
-// stock levels (in / low / out) so every UI state has coverage.
-const PRODUCTS = [
-    {
-        id: 'p-001', name: 'Oversize hoodie', sku: 'ABO-HD-001',
-        category: 'hoodies', price: 1890, compare: 2200, cost: 760,
-        status: 'active', stock: 42, low: 10,
-        colors: ['black', 'grey', 'olive', 'lime'],
-        sizes: ['S', 'M', 'L', 'XL', 'XXL'],
-    },
-    {
-        id: 'p-002', name: 'Cargo pants', sku: 'ABO-PT-002',
-        category: 'pants', price: 1450, compare: null, cost: 580,
-        status: 'active', stock: 7, low: 10,
-        colors: ['olive', 'black', 'sand'],
-        sizes: ['S', 'M', 'L', 'XL'],
-    },
-    {
-        id: 'p-003', name: 'Heavy tee', sku: 'ABO-TS-003',
-        category: 't-shirts', price: 690, compare: 850, cost: 220,
-        status: 'active', stock: 4, low: 10,
-        colors: ['black', 'bone', 'lime'],
-        sizes: ['S', 'M', 'L', 'XL', 'XXL'],
-    },
-    {
-        id: 'p-004', name: 'Zip jacket', sku: 'ABO-JK-004',
-        category: 'jackets', price: 2490, compare: null, cost: 940,
-        status: 'active', stock: 18, low: 5,
-        colors: ['black', 'olive'],
-        sizes: ['M', 'L', 'XL'],
-    },
-    {
-        id: 'p-005', name: 'Basic tee — Black', sku: 'ABO-TS-005',
-        category: 't-shirts', price: 590, compare: null, cost: 180,
-        status: 'active', stock: 0, low: 10,
-        colors: ['black', 'bone'],
-        sizes: ['S', 'M', 'L', 'XL', 'XXL'],
-    },
-    {
-        id: 'p-006', name: 'Drop 02 hoodie', sku: 'ABO-HD-006',
-        category: 'hoodies', price: 1990, compare: null, cost: 800,
-        status: 'draft', stock: 0, low: 10,
-        colors: ['black', 'lime'],
-        sizes: ['S', 'M', 'L', 'XL'],
-    },
-    {
-        id: 'p-007', name: 'Urban tee — Olive', sku: 'ABO-TS-007',
-        category: 't-shirts', price: 690, compare: 850, cost: 220,
-        status: 'active', stock: 22, low: 10,
-        colors: ['olive', 'black'],
-        sizes: ['S', 'M', 'L', 'XL', 'XXL'],
-    },
-    {
-        id: 'p-008', name: 'Limo bomber — Lime', sku: 'ABO-JK-008',
-        category: 'jackets', price: 2790, compare: null, cost: 1080,
-        status: 'active', stock: 3, low: 5,
-        colors: ['lime', 'black'],
-        sizes: ['M', 'L', 'XL'],
-    },
-    {
-        id: 'p-009', name: 'Linen overshirt', sku: 'ABO-JK-009',
-        category: 'jackets', price: 1690, compare: 1990, cost: 670,
-        status: 'active', stock: 12, low: 5,
-        colors: ['sand', 'bone'],
-        sizes: ['S', 'M', 'L', 'XL'],
-    },
-    {
-        id: 'p-010', name: 'Wide-leg pants', sku: 'ABO-PT-010',
-        category: 'pants', price: 1390, compare: null, cost: 540,
-        status: 'active', stock: 16, low: 8,
-        colors: ['black', 'grey', 'sand'],
-        sizes: ['S', 'M', 'L', 'XL'],
-    },
-    {
-        id: 'p-011', name: 'Crop hoodie', sku: 'ABO-HD-011',
-        category: 'hoodies', price: 1490, compare: null, cost: 600,
-        status: 'draft', stock: 0, low: 5,
-        colors: ['black', 'coral'],
-        sizes: ['S', 'M', 'L'],
-    },
-    {
-        id: 'p-012', name: 'Track jacket', sku: 'ABO-JK-012',
-        category: 'jackets', price: 1890, compare: 2290, cost: 720,
-        status: 'active', stock: 9, low: 6,
-        colors: ['olive', 'black'],
-        sizes: ['S', 'M', 'L', 'XL'],
-    },
-    {
-        id: 'p-013', name: 'Pocket tee', sku: 'ABO-TS-013',
-        category: 't-shirts', price: 590, compare: null, cost: 190,
-        status: 'active', stock: 31, low: 10,
-        colors: ['bone', 'black', 'olive'],
-        sizes: ['S', 'M', 'L', 'XL', 'XXL'],
-    },
-    {
-        id: 'p-014', name: 'Sweat shorts', sku: 'ABO-PT-014',
-        category: 'pants', price: 790, compare: null, cost: 280,
-        status: 'active', stock: 6, low: 8,
-        colors: ['grey', 'black', 'olive'],
-        sizes: ['S', 'M', 'L', 'XL'],
-    },
-];
+/* The categories the bulk "change category" picker offers. */
+const CATEGORIES = (typeof window !== 'undefined' && Array.isArray(window.__PRODUCT_CATEGORIES__))
+    ? window.__PRODUCT_CATEGORIES__
+    : [];
 
 /* ──────────────────────────────────────────────────────────────
    Tiny helpers
@@ -251,7 +147,10 @@ function openModal({ title, body, confirmLabel = 'Confirm', danger = true, onCon
     const bodyNode  = $('[data-abo-admin-products-modal-body]', modal);
     const confirm   = $('[data-abo-admin-products-modal-confirm]', modal);
     if (titleNode) titleNode.textContent = title;
-    if (bodyNode)  bodyNode.textContent  = body;
+    // The body may carry markup (the bulk "change category" picker puts
+    // a <select> in it), so it is set as HTML. Every value that reaches
+    // it is escaped by the caller.
+    if (bodyNode)  bodyNode.innerHTML   = body;
     if (confirm) {
         confirm.textContent = confirmLabel;
         confirm.classList.toggle('abo-admin-products__modal-confirm--safe', !danger);
@@ -306,7 +205,7 @@ const STATE = {
 };
 
 function stockState(p) {
-    if (p.status === 'draft') return 'draft';
+    if (p.status === 'archived') return 'archived';
     if (p.stock === 0) return 'out';
     if (p.stock < p.low) return 'low';
     return 'in';
@@ -314,8 +213,8 @@ function stockState(p) {
 
 function stockPill(p) {
     const state = stockState(p);
-    if (state === 'draft') {
-        return `<span class="abo-admin-products__stock-pill abo-admin-products__stock-pill--draft">Draft</span>`;
+    if (state === 'archived') {
+        return `<span class="abo-admin-products__stock-pill abo-admin-products__stock-pill--draft">Archived</span>`;
     }
     if (state === 'out') {
         return `<span class="abo-admin-products__stock-pill abo-admin-products__stock-pill--out">Out</span>`;
@@ -330,10 +229,12 @@ function matchesFilters(p) {
     const { q, category, status, stock } = STATE.filter;
     if (q) {
         const needle = q.toLowerCase();
-        if (!p.name.toLowerCase().includes(needle) &&
-            !p.sku.toLowerCase().includes(needle)) return false;
+        const haystack = [p.name, p.nameAr, p.sku, p.slug].filter(Boolean).join(' ').toLowerCase();
+        if (!haystack.includes(needle)) return false;
     }
-    if (category && p.category !== category) return false;
+    // The category filter carries the category id, so it is compared
+    // against the product's category id and not against its label.
+    if (category && p.categoryId !== category) return false;
     if (status && p.status !== status) return false;
     if (stock) {
         const s = stockState(p);
@@ -351,16 +252,18 @@ function sortProducts(arr) {
         case 'price-desc': out.sort((a, b) => b.price - a.price); break;
         case 'stock-asc':  out.sort((a, b) => a.stock - b.stock); break;
         case 'newest':
-        default:           out.sort((a, b) => (a.id < b.id ? 1 : -1));
+        // The ids travel as strings, so they are compared as numbers:
+        // a lexicographic order would put "99" after "100".
+        default:           out.sort((a, b) => Number(b.id) - Number(a.id));
     }
     return out;
 }
 
 function filteredSorted() {
     let arr = STATE.products.filter(matchesFilters);
-    if (STATE.stat === 'active') arr = arr.filter(p => p.status === 'active');
-    if (STATE.stat === 'draft')  arr = arr.filter(p => p.status === 'draft');
-    if (STATE.stat === 'low')    arr = arr.filter(p => {
+    if (STATE.stat === 'active')   arr = arr.filter(p => p.status === 'active');
+    if (STATE.stat === 'archived') arr = arr.filter(p => p.status === 'archived');
+    if (STATE.stat === 'low')      arr = arr.filter(p => {
         const s = stockState(p);
         return s === 'low' || s === 'out';
     });
@@ -371,7 +274,7 @@ function updateStatCards() {
     const root = document;
     const total     = STATE.products.length;
     const active    = STATE.products.filter(p => p.status === 'active').length;
-    const draft     = STATE.products.filter(p => p.status === 'draft').length;
+    const archived  = STATE.products.filter(p => p.status === 'archived').length;
     const lowOut    = STATE.products.filter(p => {
         const s = stockState(p);
         return s === 'low' || s === 'out';
@@ -383,7 +286,7 @@ function updateStatCards() {
     };
     set('all', total);
     set('active', active);
-    set('draft', draft);
+    set('archived', archived);
     set('low', lowOut);
 
     // Visual pressed state on the active filter card.
@@ -404,20 +307,29 @@ function productRow(p) {
     ]);
 
     const productTd = el('td');
+    const thumb = el('span', { class: 'abo-admin-products__product-thumb', 'aria-hidden': 'true' });
+    if (p.cover) {
+        const img = el('img', { src: p.cover, alt: '', loading: 'lazy', decoding: 'async' });
+        thumb.appendChild(img);
+    } else {
+        thumb.textContent = 'IMG';
+    }
     productTd.appendChild(el('div', { class: 'abo-admin-products__product' }, [
-        el('span', { class: 'abo-admin-products__product-thumb', 'aria-hidden': 'true' }, 'IMG'),
+        thumb,
         el('div', { class: 'abo-admin-products__product-text' }, [
             el('p', { class: 'abo-admin-products__product-name', text: p.name }),
-            el('p', { class: 'abo-admin-products__product-sku',  text: p.sku }),
+            el('p', { class: 'abo-admin-products__product-sku',  text: p.sku || p.slug }),
         ]),
     ]));
 
-    const categoryTd = el('td', { text: CATEGORIES[p.category] || p.category });
+    const categoryTd = el('td', { text: p.category || '—' });
 
     const priceTd = el('td');
-    priceTd.appendChild(el('span', { class: 'abo-admin-products__price-now', text: fmtEGP(p.price) }));
-    if (p.compare && p.compare > p.price) {
-        priceTd.appendChild(el('span', { class: 'abo-admin-products__price-was', text: fmtEGP(p.compare) }));
+    if (p.discount && p.discount < p.price) {
+        priceTd.appendChild(el('span', { class: 'abo-admin-products__price-now', text: fmtEGP(p.discount) }));
+        priceTd.appendChild(el('span', { class: 'abo-admin-products__price-was', text: fmtEGP(p.price) }));
+    } else {
+        priceTd.appendChild(el('span', { class: 'abo-admin-products__price-now', text: fmtEGP(p.price) }));
     }
 
     const variantsTd = el('td');
@@ -425,8 +337,8 @@ function productRow(p) {
     p.colors.slice(0, 4).forEach(c => {
         variantsInner.appendChild(el('span', {
             class: 'abo-admin-products__variant-dot',
-            style: `--swatch: ${COLORS[c]?.hex || '#8D928A'}`,
-            title: COLORS[c]?.label || c,
+            style: `--swatch: ${c.hex || '#8D928A'}`,
+            title: c.name || '',
         }));
     });
     if (p.colors.length > 4) {
@@ -588,10 +500,14 @@ function openRowMenu(id, anchor) {
     $$('.abo-admin-products__row-menu-btn[aria-expanded="true"]').forEach(b => b.setAttribute('aria-expanded', 'false'));
 
     const menu = el('div', { class: 'abo-admin-products__row-menu', role: 'menu' });
+    const product = STATE.products.find(p => p.id === id);
     const items = [
-        { label: 'Edit',      action: 'edit' },
-        { label: 'Duplicate', action: 'duplicate' },
-        { label: 'Delete',    action: 'delete', danger: true },
+        { label: 'Edit', action: 'edit' },
+        {
+            label: product && product.status === 'archived' ? 'Unarchive' : 'Archive',
+            action: product && product.status === 'archived' ? 'unarchive' : 'archive',
+        },
+        { label: 'Delete', action: 'delete', danger: true },
     ];
     items.forEach(({ label, action, danger }) => {
         const b = el('button', { type: 'button', role: 'menuitem', text: label });
@@ -634,20 +550,10 @@ function handleRowAction(action, id) {
         window.location.href = `/admin/products/${id}/edit`;
         return;
     }
-    if (action === 'duplicate') {
-        const src = STATE.products.find(p => p.id === id);
-        if (!src) return;
-        const copy = {
-            ...src,
-            id: 'p-' + (Math.random().toString(36).slice(2, 7)),
-            sku: src.sku + '-C',
-            name: src.name + ' (copy)',
-            status: 'draft',
-            stock: 0,
-        };
-        STATE.products.unshift(copy);
-        renderAll();
-        showToast('Product duplicated (demo)');
+    if (action === 'archive' || action === 'unarchive') {
+        // The archive flag lives on the product row, so the toggle goes
+        // to the server and the table is re-read from what it answers.
+        setProductArchived(id, action === 'archive');
         return;
     }
     if (action === 'delete') {
@@ -656,13 +562,87 @@ function handleRowAction(action, id) {
             body: 'Are you sure you want to delete this product? This action cannot be undone.',
             confirmLabel: 'DELETE',
             onConfirm: () => {
-                STATE.products = STATE.products.filter(p => p.id !== id);
-                STATE.selection.delete(id);
-                renderAll();
-                showToast('Product deleted (demo)');
+                bulkRequest('delete', [id]).then((res) => {
+                    if (!res || !res.success) return;
+                    STATE.products = STATE.products.filter(p => p.id !== id);
+                    STATE.selection.delete(id);
+                    renderAll();
+                    showToast(res.message || 'Product deleted.');
+                });
             },
         });
     }
+}
+
+/**
+ * The CSRF token the admin pages issue in the layout.
+ */
+function csrfToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.getAttribute('content') : '';
+}
+
+/**
+ * Ask the server to apply a bulk action to a set of products.
+ *
+ * @param  {string[]} action
+ * @param  {string[]} ids
+ * @param  {object}   [extra] additional body fields (e.g. category_id)
+ */
+function bulkRequest(action, ids, extra = {}) {
+    return fetch('/admin/products/bulk', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': csrfToken(),
+        },
+        body: JSON.stringify({ action, ids, ...extra }),
+    })
+        .then(res => res.json().catch(() => null))
+        .then(data => {
+            if (!data || data.success !== true) {
+                showToast((data && data.message) || 'The action could not be applied.');
+                return null;
+            }
+            return data;
+        })
+        .catch(() => {
+            showToast('The server could not be reached.');
+            return null;
+        });
+}
+
+/**
+ * Archive or unarchive one product and re-read it from the server.
+ */
+function setProductArchived(id, archived) {
+    const product = STATE.products.find(p => p.id === id);
+    if (!product) return;
+
+    fetch(`/admin/products/${id}/toggle-archive`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': csrfToken(),
+        },
+    })
+        .then(res => res.json().catch(() => null))
+        .then(data => {
+            if (!data || data.success !== true) {
+                showToast((data && data.message) || 'The product could not be updated.');
+                renderAll();
+                return;
+            }
+            product.status = archived ? 'archived' : 'active';
+            renderAll();
+            showToast(archived ? 'Product archived.' : 'Product restored.');
+        })
+        .catch(() => {
+            showToast('The server could not be reached.');
+            renderAll();
+        });
 }
 
 function renderAll() {
@@ -737,9 +717,8 @@ function initList() {
             const id = t.dataset.aboAdminProductsToggle;
             const p  = STATE.products.find(x => x.id === id);
             if (p) {
-                p.status = t.checked ? 'active' : 'draft';
-                renderAll();
-                showToast(t.checked ? 'Product activated (demo)' : 'Product set to draft (demo)');
+                // The checkbox is the is_archived flag on the product row.
+                setProductArchived(id, !t.checked);
             }
         }
     });
@@ -764,253 +743,274 @@ function initList() {
             const action = btn.dataset.aboAdminProductsBulkAction;
             const ids = [...STATE.selection];
             if (ids.length === 0) return;
-            if (action === 'activate') {
-                ids.forEach(id => {
-                    const p = STATE.products.find(x => x.id === id);
-                    if (p) p.status = 'active';
-                });
-                showToast(`${ids.length} product(s) activated (demo)`);
-            }
-            if (action === 'draft') {
-                ids.forEach(id => {
-                    const p = STATE.products.find(x => x.id === id);
-                    if (p) p.status = 'draft';
-                });
-                showToast(`${ids.length} product(s) set to draft (demo)`);
-            }
+
             if (action === 'category') {
-                // Demo: rotate the category so the user sees the change.
-                const keys = Object.keys(CATEGORIES);
-                ids.forEach((id, i) => {
-                    const p = STATE.products.find(x => x.id === id);
-                    if (p) p.category = keys[(keys.indexOf(p.category) + 1) % keys.length];
-                });
-                showToast(`${ids.length} product(s) category changed (demo)`);
+                openCategoryPicker(ids);
+                return;
             }
+
             if (action === 'delete') {
                 openModal({
                     title: 'DELETE PRODUCTS',
                     body: `Delete ${ids.length} product(s)? This action cannot be undone.`,
                     confirmLabel: 'DELETE',
                     onConfirm: () => {
-                        STATE.products = STATE.products.filter(p => !STATE.selection.has(p.id));
-                        STATE.selection.clear();
-                        renderAll();
-                        showToast(`${ids.length} product(s) deleted (demo)`);
+                        bulkRequest('delete', ids).then((res) => {
+                            if (!res || !res.success) return;
+                            STATE.products = STATE.products.filter(p => !STATE.selection.has(p.id));
+                            STATE.selection.clear();
+                            renderAll();
+                            showToast(res.message || `${ids.length} product(s) deleted.`);
+                        });
                     },
                 });
                 return;
             }
-            STATE.selection.clear();
-            renderAll();
-        });
-    });
 
-    // Import / Export demo buttons.
-    $$('[data-abo-admin-products-action]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const a = btn.dataset.aboAdminProductsAction;
-            showToast(`${a === 'import' ? 'Import' : 'Export'} (demo)`);
+            bulkRequest(action, ids).then((res) => {
+                if (!res || !res.success) return;
+                const archived = action === 'archive';
+                ids.forEach(id => {
+                    const p = STATE.products.find(x => x.id === id);
+                    if (p) p.status = archived ? 'archived' : 'active';
+                });
+                STATE.selection.clear();
+                renderAll();
+                showToast(res.message || `${ids.length} product(s) updated.`);
+            });
         });
     });
 
     renderAll();
 }
 
+/**
+ * Ask which category the selected products should move to, then apply
+ * the move on the server.
+ */
+function openCategoryPicker(ids) {
+    const options = CATEGORIES
+        .map(c => `<option value="${escapeHTML(c.id)}">${escapeHTML(c.name)}</option>`)
+        .join('');
+
+    openModal({
+        title: 'CHANGE CATEGORY',
+        body: `<p>Move ${ids.length} product(s) to:</p>
+               <select class="abo-admin-products__select" data-abo-admin-products-bulk-category>${options}</select>`,
+        confirmLabel: 'MOVE',
+        danger: false,
+        onConfirm: () => {
+            const select = $('[data-abo-admin-products-bulk-category]');
+            const categoryId = select ? select.value : '';
+            if (!categoryId) {
+                showToast('Pick a category first.');
+                return;
+            }
+            bulkRequest('category', ids, { category_id: categoryId }).then(res => {
+                if (!res || !res.success) return;
+                const category = CATEGORIES.find(c => c.id === categoryId);
+                ids.forEach(id => {
+                    const p = STATE.products.find(x => x.id === id);
+                    if (p) {
+                        p.categoryId = categoryId;
+                        if (category) p.category = category.name;
+                    }
+                });
+                STATE.selection.clear();
+                renderAll();
+                showToast(res.message || `${ids.length} product(s) moved.`);
+            });
+        },
+    });
+}
+
 /* ══════════════════════════════════════════════════════════════
    FORM PAGE
    ══════════════════════════════════════════════════════════════ */
 
+/*
+ * The form is a real form: it posts to Admin\ProductController and the
+ * server writes the product, its colours, its images and its variants.
+ *
+ * The script used to hydrate the form from the same hard-coded sample
+ * array the list used, so opening a real product showed an empty name,
+ * an empty variant table and a colour list the database never had —
+ * and saving it wiped the variants the product actually had. The form
+ * is now rendered by the server and the script only rebuilds the
+ * colour × size matrix when the operator changes the selection.
+ */
+
 const FORM = {
-    images: [],
-    selectedColors: new Set(['black', 'grey', 'olive', 'lime', 'coral']),
-    selectedSizes:  new Set(['S', 'M', 'L', 'XL', 'XXL']),
-    variants: [], // [{ color, size, sku, stock, price }]
-    nextImageColor: '',
-    tags: [],
-    status: 'active',
+    colors: [],   // [{ id, name, hex }]
+    sizes: [],    // [{ id, name }]
+    variants: [], // [{ colorId, sizeId, sku, price, cost, discountPrice, quantity }]
 };
 
-function makeImageSlot(index, image) {
-    const slot = el('div', {
-        class: 'abo-admin-products__image-slot' +
-               (image?.src ? ' filled' : ' abo-admin-products__image-slot--empty') +
-               (image?.src ? '' : ''),
-        role: 'listitem',
-        draggable: !!image?.src,
-        dataset: { aboAdminProductsImageIndex: index },
-    });
-    if (image?.src) slot.style.backgroundImage = `url("${image.src}")`;
-    if (index === 0 && image?.src) {
-        slot.appendChild(el('span', { class: 'abo-admin-products__image-cover', text: 'COVER' }));
-    }
-    if (image?.color) {
-        const wrap = el('span', { class: 'abo-admin-products__image-colour' }, [
-            el('span', { class: 'abo-admin-products__image-colour-dot', style: `--swatch: ${COLORS[image.color]?.hex}` }),
-            COLORS[image.color]?.label || image.color,
-        ]);
-        slot.appendChild(wrap);
-    }
-    if (image?.src) {
-        const remove = el('button', {
-            type: 'button', class: 'abo-admin-products__image-remove',
-            'aria-label': 'Remove image', text: '×',
-        });
-        remove.addEventListener('click', (e) => {
-            e.stopPropagation();
-            FORM.images = FORM.images.filter((_, i) => i !== index);
-            renderImages();
-        });
-        slot.appendChild(remove);
-    }
-    // Drag-and-drop handlers.
-    slot.addEventListener('dragstart', (e) => {
-        if (!image?.src) { e.preventDefault(); return; }
-        slot.classList.add('is-dragging');
-        e.dataTransfer.setData('text/plain', String(index));
-        e.dataTransfer.effectAllowed = 'move';
-    });
-    slot.addEventListener('dragend', () => slot.classList.remove('is-dragging'));
-    slot.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        slot.classList.add('is-drop-target');
-    });
-    slot.addEventListener('dragleave', () => slot.classList.remove('is-drop-target'));
-    slot.addEventListener('drop', (e) => {
-        e.preventDefault();
-        slot.classList.remove('is-drop-target');
-        const from = parseInt(e.dataTransfer.getData('text/plain'), 10);
-        const to   = index;
-        if (Number.isNaN(from) || from === to) return;
-        const [moved] = FORM.images.splice(from, 1);
-        FORM.images.splice(to, 0, moved);
-        renderImages();
-    });
-    return slot;
-}
+/**
+ * Read the payload the view publishes next to the form.
+ */
+function readFormPayload() {
+    const node = $('[data-abo-admin-products-form-payload]');
+    if (!node) return null;
 
-function renderImages() {
-    const wrap = $('[data-abo-admin-products-images]');
-    if (!wrap) return;
-    wrap.replaceChildren();
-    const filled = FORM.images.length;
-    for (let i = 0; i < filled; i++) {
-        wrap.appendChild(makeImageSlot(i, FORM.images[i]));
-    }
-    if (filled < 8) {
-        const add = el('div', {
-            class: 'abo-admin-products__image-slot abo-admin-products__image-slot--add',
-            role: 'listitem',
-            tabindex: '0',
-            'aria-label': 'Add image',
-        }, '+');
-        add.addEventListener('click', () => triggerFilePicker());
-        add.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); triggerFilePicker(); }
-        });
-        wrap.appendChild(add);
+    try {
+        return JSON.parse(node.textContent || '{}');
+    } catch {
+        return null;
     }
 }
 
-function triggerFilePicker() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.style.display = 'none';
-    document.body.appendChild(input);
-    input.addEventListener('change', () => {
-        const file = input.files?.[0];
-        if (!file) { input.remove(); return; }
-        const url = URL.createObjectURL(file);
-        FORM.images.push({ src: url, color: FORM.nextImageColor || '' });
-        renderImages();
-        input.remove();
-    });
-    input.click();
+/**
+ * The colour ids the operator ticked.
+ */
+function selectedColorIds() {
+    return $$('[data-abo-admin-products-variant-color-input]')
+        .filter((input) => input.checked)
+        .map((input) => input.value);
 }
 
-function renderVariantChips() {
-    // Colours
-    $$('[data-abo-admin-products-variant-color]').forEach(btn => {
-        const v = btn.dataset.aboAdminProductsVariantColor;
-        const active = FORM.selectedColors.has(v);
-        btn.classList.toggle('is-active', active);
-        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
-    });
-    // Sizes
-    $$('[data-abo-admin-products-variant-size]').forEach(btn => {
-        const v = btn.dataset.aboAdminProductsVariantSize;
-        const active = FORM.selectedSizes.has(v);
-        btn.classList.toggle('is-active', active);
-        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
-    });
+/**
+ * The size ids the operator ticked.
+ */
+function selectedSizeIds() {
+    return $$('[data-abo-admin-products-variant-size-input]')
+        .filter((input) => input.checked)
+        .map((input) => input.value);
 }
 
-function recomputeVariants() {
-    // Keep existing entries by (color, size) where still selected;
-    // remove entries whose (color, size) is no longer selected;
-    // add new entries for newly selected pairs with defaults.
-    const sel = new Set();
-    FORM.selectedColors.forEach(c => {
-        FORM.selectedSizes.forEach(s => sel.add(`${c}::${s}`));
-    });
-    // Remove obsolete
-    FORM.variants = FORM.variants.filter(v => sel.has(`${v.color}::${v.size}`));
-    // Add new
-    FORM.selectedColors.forEach(c => {
-        FORM.selectedSizes.forEach(s => {
-            if (!FORM.variants.find(v => v.color === c && v.size === s)) {
-                FORM.variants.push({
-                    color: c, size: s,
-                    sku: `ABO-${c.toUpperCase().slice(0, 2)}-${s}`,
-                    stock: 0,
-                    price: '',
-                });
-            }
+/**
+ * The SKU the server derives for a colour × size pair.
+ *
+ * ProductService::buildSku() strips the slug and appends the two ids,
+ * so the operator sees the same string the database will hold.
+ */
+function deriveSku(slug, colorId, sizeId) {
+    /*
+     * The same rule the server applies in ProductService::buildSku():
+     * the slug of the product, slugified without a separator and
+     * upper-cased, then the colour and the size of the row. A form
+     * that shows one SKU and writes another is a form nobody can
+     * trust.
+     */
+    const base = String(slug || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '');
+
+    return `${(base || 'PROD').toUpperCase()}-C${colorId}-S${sizeId}`;
+}
+
+/**
+ * Rebuild the colour × size matrix from the ticked boxes.
+ *
+ * A pair that already had a variant keeps its prices and its stock; a
+ * new pair starts from the default price the operator typed.
+ */
+function buildMatrix() {
+    const colorIds = selectedColorIds();
+    const sizeIds = selectedSizeIds();
+    const known = new Map(FORM.variants.map((v) => [`${v.colorId}:${v.sizeId}`, v]));
+    const slug = $('[data-abo-admin-products-field="slug"]')?.value || '';
+
+    const rows = [];
+
+    colorIds.forEach((colorId) => {
+        sizeIds.forEach((sizeId) => {
+            const key = `${colorId}:${sizeId}`;
+            const existing = known.get(key);
+
+            // The SKU is derived from the slug on every pass: the server
+            // rewrites it on every save, so the form must show the SKU
+            // the save is going to write.
+            rows.push({
+                ...(existing || {
+                    price: defaultPrice(),
+                    cost: defaultCost(),
+                    discountPrice: '',
+                    quantity: 0,
+                }),
+                colorId,
+                sizeId,
+                sku: deriveSku(slug, colorId, sizeId),
+            });
         });
     });
-    // Sort: colour then size.
-    const sizeOrder = Object.fromEntries(SIZES.map((s, i) => [s, i]));
-    FORM.variants.sort((a, b) => {
-        if (a.color !== b.color) return a.color.localeCompare(b.color);
-        return sizeOrder[a.size] - sizeOrder[b.size];
-    });
+
+    FORM.variants = rows;
+
     renderVariantsTable();
 }
 
+function defaultPrice() {
+    const value = parseFloat($('[data-abo-admin-products-field="price"]')?.value);
+    return isNaN(value) ? 0 : value;
+}
+
+function defaultCost() {
+    const value = parseFloat($('[data-abo-admin-products-field="cost"]')?.value);
+    return isNaN(value) ? 0 : value;
+}
+
+/**
+ * Paint the matrix. Every cell is a real input that posts to the
+ * server, so the table survives a save without any JavaScript.
+ */
 function renderVariantsTable() {
     const tbody = $('[data-abo-admin-products-variant-rows]');
     if (!tbody) return;
+
+    const colorById = new Map(FORM.colors.map((c) => [String(c.id), c]));
+    const sizeById = new Map(FORM.sizes.map((s) => [String(s.id), s]));
+
     tbody.replaceChildren();
-    FORM.variants.forEach((v, i) => {
-        const tr = el('tr');
-        const variantTd = el('td', { class: 'abo-admin-products__variant-cell' }, [
-            el('span', { class: 'abo-admin-products__variant-cell-dot', style: `--swatch: ${COLORS[v.color]?.hex}` }),
-            `${COLORS[v.color]?.label || v.color} / ${v.size}`,
-        ]);
-        const skuTd = el('td', { class: 'abo-admin-products__variant-cell' }, [
-            el('input', { type: 'text', value: v.sku, dataset: { aboAdminProductsVariantField: 'sku', index: i } }),
-        ]);
-        const low = v.stock < 5 && v.stock !== '';
-        const stockTd = el('td', { class: 'abo-admin-products__variant-cell' + (low ? ' abo-admin-products__variant-cell--low' : '') }, [
-            el('input', { type: 'number', min: '0', step: '1', value: v.stock === '' ? '' : v.stock, dataset: { aboAdminProductsVariantField: 'stock', index: i } }),
-        ]);
-        const priceTd = el('td', { class: 'abo-admin-products__variant-cell' }, [
-            el('input', { type: 'number', min: '0', step: '1', placeholder: 'Same', value: v.price === '' ? '' : v.price, dataset: { aboAdminProductsVariantField: 'price', index: i } }),
-        ]);
-        tr.append(variantTd, skuTd, stockTd, priceTd);
-        tbody.appendChild(tr);
+
+    if (FORM.variants.length === 0) {
+        tbody.appendChild(el('tr', { 'data-abo-admin-products-variant-empty': '' }, [
+            el('td', { colspan: '6', text: 'Pick the colours and sizes the product comes in.' }),
+        ]));
+
+        return;
+    }
+
+    FORM.variants.forEach((variant, index) => {
+        const color = colorById.get(String(variant.colorId));
+        const size = sizeById.get(String(variant.sizeId));
+
+        const hidden = (name, val) => el('input', {
+            type: 'hidden',
+            name: `variants[${index}][${name}]`,
+            value: val !== undefined ? val : (variant[name] ?? ''),
+        });
+
+        const number = (name, value, step) => el('input', {
+            type: 'number',
+            name: `variants[${index}][${name}]`,
+            value: value === '' || value === null || value === undefined ? '' : value,
+            min: '0',
+            step: step,
+            dataset: { aboAdminProductsVariantField: name, index },
+        });
+
+        tbody.appendChild(el('tr', { 'data-abo-admin-products-variant-row': `${variant.colorId}:${variant.sizeId}` }, [
+            el('td', { class: 'abo-admin-products__variant-cell' }, [
+                el('span', {
+                    class: 'abo-admin-products__variant-cell-dot',
+                    style: `--swatch: ${color?.hex || '#8D928A'}`,
+                }),
+                `${color?.name || variant.colorId} / ${size?.name || variant.sizeId}`,
+            ]),
+            el('td', { class: 'abo-admin-products__variant-cell' }, [
+                hidden('color_id', variant.colorId ?? variant.color_id),
+                hidden('size_id', variant.sizeId ?? variant.size_id),
+                el('span', { class: 'abo-admin-products__variant-sku', text: variant.sku || '—' }),
+            ]),
+            el('td', { class: 'abo-admin-products__variant-cell' }, [number('quantity', variant.quantity, '1')]),
+            el('td', { class: 'abo-admin-products__variant-cell' }, [number('price', variant.price, '0.01')]),
+            el('td', { class: 'abo-admin-products__variant-cell' }, [number('cost', variant.cost, '0.01')]),
+            el('td', { class: 'abo-admin-products__variant-cell' }, [number('discount_price', variant.discountPrice, '0.01')]),
+        ]));
     });
-    // Field change handler (delegation).
-    tbody.onchange = (e) => {
-        const t = e.target;
-        if (!t.dataset.aboAdminProductsVariantField) return;
-        const i  = +t.dataset.index;
-        const f  = t.dataset.aboAdminProductsVariantField;
-        FORM.variants[i][f] = t.value;
-        // Re-render to apply coral border on low stock.
-        if (f === 'stock') renderVariantsTable();
-    };
 }
 
 function recalcMargin() {
@@ -1054,75 +1054,31 @@ function recalcPreview() {
     }
 }
 
-function renderTags() {
-    const list = $('[data-abo-admin-products-taglist]');
-    if (!list) return;
-    list.replaceChildren();
-    FORM.tags.forEach((t, i) => {
-        const li = el('li', { class: 'abo-admin-products__tag' }, [
-            document.createTextNode(t),
-            el('button', {
-                type: 'button', class: 'abo-admin-products__tag-remove',
-                'aria-label': `Remove tag ${t}`, text: '×',
-            }),
-        ]);
-        li.querySelector('button').addEventListener('click', () => {
-            FORM.tags.splice(i, 1);
-            renderTags();
-        });
-        list.appendChild(li);
-    });
-}
-
 function initForm() {
     const form = $('[data-abo-admin-products-form]');
     if (!form) return;
 
     initModal();
 
-    // Hydrate from data-product-id (edit mode) by looking up the
-    // static PRODUCTS array.
-    const isEdit = form.dataset.mode === 'edit';
-    const id = form.dataset.productId;
-    let sample = null;
-    if (isEdit && id) sample = PRODUCTS.find(p => p.id === id) || null;
+    const payload = readFormPayload() || {};
 
-    if (sample) {
-        $('[data-abo-admin-products-field="name"]').value        = sample.name;
-        $('[data-abo-admin-products-field="sku"]').value         = sample.sku;
-        $('[data-abo-admin-products-field="description"]').value = sample.description || '';
-        $('[data-abo-admin-products-field="price"]').value       = sample.price;
-        $('[data-abo-admin-products-field="compare"]').value     = sample.compare || '';
-        $('[data-abo-admin-products-field="cost"]').value        = sample.cost;
-        $('[data-abo-admin-products-field="category"]').value    = sample.category;
-        FORM.status = sample.status;
-        $$('[data-abo-admin-products-status] button').forEach(b => {
-            const on = b.dataset.status === sample.status;
-            b.classList.toggle('is-active', on);
-            b.setAttribute('aria-selected', on ? 'true' : 'false');
-        });
-        FORM.selectedColors = new Set(sample.colors);
-        FORM.selectedSizes  = new Set(sample.sizes);
-        renderVariantChips();
-        recomputeVariants();
-        FORM.variants.forEach((v, i) => {
-            v.sku = `${sample.sku}-${v.color.slice(0, 2).toUpperCase()}-${v.size}`;
-            v.stock = sample.stock > 0 ? Math.floor(sample.stock / Math.max(sample.colors.length * sample.sizes.length, 1)) : 0;
-        });
-        renderVariantsTable();
-        FORM.images = [
-            { src: 'images/streetwear-hero.jpg', color: sample.colors[0] || '' },
-        ];
-        renderImages();
-    } else {
-        // Create: empty start. Pre-populate one empty image slot.
-        FORM.images = [{}];
-        renderImages();
-        renderVariantChips();
-        recomputeVariants();
-    }
+    FORM.colors = payload.colors || [];
+    FORM.sizes = payload.sizes || [];
+    FORM.variants = payload.product?.variants || [];
 
-    // Language switch.
+    // The defaults the operator typed are the starting point of a new
+    // variant row; the existing rows keep what the database holds.
+    const first = FORM.variants[0];
+    const priceField = $('[data-abo-admin-products-field="price"]');
+    const costField = $('[data-abo-admin-products-field="cost"]');
+    const compareField = $('[data-abo-admin-products-field="compare"]');
+
+    if (priceField && !priceField.value && first) priceField.value = first.price;
+    if (costField && !costField.value && first) costField.value = first.cost;
+    if (compareField && !compareField.value && first?.discountPrice) compareField.value = first.discountPrice;
+
+    // Language switch: the English and the Arabic name live side by side
+    // and the tabs decide which one is in front.
     $$('[data-abo-admin-products-lang]').forEach(btn => {
         btn.addEventListener('click', () => {
             const group = btn.parentElement;
@@ -1130,50 +1086,42 @@ function initForm() {
                 b.classList.toggle('is-active', b === btn);
                 b.setAttribute('aria-selected', b === btn ? 'true' : 'false');
             });
-        });
-    });
 
-    // Status segmented.
-    $$('[data-abo-admin-products-status] button').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const group = btn.parentElement;
-            $$('button', group).forEach(b => {
-                b.classList.toggle('is-active', b === btn);
-                b.setAttribute('aria-selected', b === btn ? 'true' : 'false');
+            const lang = btn.dataset.aboAdminProductsLang;
+
+            $$('[data-abo-admin-products-lang-panel]').forEach(panel => {
+                panel.hidden = panel.dataset.aboAdminProductsLangPanel !== lang;
             });
-            FORM.status = btn.dataset.status;
-        });
-    });
 
-    // Colour picker for next image.
-    $$('[data-abo-admin-products-colour]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const group = btn.parentElement;
-            $$('button', group).forEach(b => {
-                b.classList.toggle('is-active', b === btn);
-                b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+            $$('[data-abo-admin-products-lang-field]').forEach(field => {
+                field.closest('[data-abo-admin-products-lang-panel], .abo-admin-products__field')?.toggleAttribute('hidden', field.dataset.aboAdminProductsLangField !== lang);
             });
-            FORM.nextImageColor = btn.dataset.aboAdminProductsColour;
         });
     });
 
-    // Variant colour / size chips.
-    $$('[data-abo-admin-products-variant-color]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const v = btn.dataset.aboAdminProductsVariantColor;
-            if (FORM.selectedColors.has(v)) FORM.selectedColors.delete(v);
-            else FORM.selectedColors.add(v);
-            renderVariantChips();
-            recomputeVariants();
+    // Status segmented control — two radios that post the archive flag.
+    $$('[data-abo-admin-products-status-input]').forEach(input => {
+        input.addEventListener('change', () => {
+            const group = input.closest('[data-abo-admin-products-status]');
+            if (!group) return;
+            $$('[data-abo-admin-products-status-input]', group).forEach(radio => {
+                radio.closest('.abo-admin-products__segment')?.classList.toggle('is-active', radio.checked);
+            });
         });
     });
-    $$('[data-abo-admin-products-variant-size]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const v = btn.dataset.aboAdminProductsVariantSize;
-            if (FORM.selectedSizes.has(v)) FORM.selectedSizes.delete(v);
-            else FORM.selectedSizes.add(v);
-            renderVariantChips();
-            recomputeVariants();
+
+    // Colour and size chips: the checkboxes inside them are the values
+    // the server receives.
+    $$('[data-abo-admin-products-variant-color-input]').forEach(input => {
+        input.addEventListener('change', () => {
+            input.closest('[data-abo-admin-products-variant-color]')?.classList.toggle('is-active', input.checked);
+            buildMatrix();
+        });
+    });
+    $$('[data-abo-admin-products-variant-size-input]').forEach(input => {
+        input.addEventListener('change', () => {
+            input.closest('[data-abo-admin-products-variant-size]')?.classList.toggle('is-active', input.checked);
+            buildMatrix();
         });
     });
 
@@ -1183,41 +1131,55 @@ function initForm() {
         setAll.addEventListener('input', () => {
             const v = parseInt(setAll.value, 10);
             if (isNaN(v) || v < 0) return;
-            FORM.variants.forEach(r => r.stock = v);
+            FORM.variants.forEach((row) => { row.quantity = v; });
             renderVariantsTable();
         });
     }
 
+    // The matrix cells write back into the model.
+    const rows = $('[data-abo-admin-products-variant-rows]');
+    if (rows) {
+        rows.addEventListener('input', (e) => {
+            const field = e.target.dataset?.aboAdminProductsVariantField;
+            if (!field) return;
+            const index = Number(e.target.dataset.index);
+            if (!FORM.variants[index]) return;
+
+            if (field === 'discount_price') {
+                FORM.variants[index].discountPrice = e.target.value;
+            } else if (field === 'quantity') {
+                FORM.variants[index].quantity = e.target.value;
+            } else {
+                FORM.variants[index][field] = e.target.value;
+            }
+        });
+    }
+
     // Pricing → live margin / preview.
-    ['price', 'compare', 'cost'].forEach(k => {
+    ['price', 'compare', 'cost'].forEach((k) => {
         const n = $(`[data-abo-admin-products-field="${k}"]`);
         if (n) n.addEventListener('input', () => { recalcMargin(); recalcPreview(); });
     });
     const nameField = $('[data-abo-admin-products-field="name"]');
     if (nameField) nameField.addEventListener('input', recalcPreview);
-    recalcMargin();
-    recalcPreview();
 
-    // Tags input.
-    const tagInput = $('[data-abo-admin-products-taginput]');
-    if (tagInput) {
-        tagInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ',') {
-                e.preventDefault();
-                const v = tagInput.value.trim().replace(/,$/, '');
-                if (v && !FORM.tags.includes(v)) {
-                    FORM.tags.push(v);
-                    renderTags();
-                }
-                tagInput.value = '';
-            } else if (e.key === 'Backspace' && tagInput.value === '' && FORM.tags.length) {
-                FORM.tags.pop();
-                renderTags();
-            }
+    // A new slug changes every SKU the operator sees.
+    const slugField = $('[data-abo-admin-products-field="slug"]');
+    if (slugField) {
+        slugField.addEventListener('input', () => {
+            FORM.variants.forEach((variant) => {
+                variant.sku = deriveSku(slugField.value, variant.colorId, variant.sizeId);
+            });
+            renderVariantsTable();
         });
     }
 
-    // Action buttons (top bar).
+    recalcMargin();
+    recalcPreview();
+    renderVariantsTable();
+
+    // Action buttons (top bar). The form posts to the server, so
+    // "save" submits it — there is no local state to save.
     $$('[data-abo-admin-products-form-action]').forEach(btn => {
         btn.addEventListener('click', () => {
             const a = btn.dataset.aboAdminProductsFormAction;
@@ -1230,11 +1192,25 @@ function initForm() {
                         window.location.href = '/admin/products';
                     },
                 });
-            } else if (a === 'draft') {
-                showToast('Saved as draft (demo)');
-            } else if (a === 'publish') {
-                showToast('Saved (demo)');
+                return;
             }
+
+            // The two save buttons decide the status of the product:
+            // "save as draft" archives it, "save and publish" puts it
+            // back in the store.
+            if (a === 'draft' || a === 'publish') {
+                const radio = $(`[data-abo-admin-products-status-input][value="${a === 'draft' ? '1' : '0'}"]`);
+
+                if (radio) {
+                    radio.checked = true;
+
+                    $$('[data-abo-admin-products-status-input]').forEach((other) => {
+                        other.closest('.abo-admin-products__segment')?.classList.toggle('is-active', other === radio);
+                    });
+                }
+            }
+
+            form.submit();
         });
     });
 }

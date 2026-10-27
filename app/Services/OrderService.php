@@ -84,6 +84,17 @@ class OrderService
      */
     public function placeOrder(?Customer $customer, string $sessionId, array $checkoutData): Order
     {
+        // A blocked account may not place an order. The check lives
+        // here rather than in the controller because the checkout is
+        // open to the public: a session that was signed in before the
+        // account was blocked is still a session, and the order has to
+        // be refused where it is written.
+        if ($customer !== null && $customer->is_blocked) {
+            throw ValidationException::withMessages([
+                'email' => 'This account has been suspended.',
+            ]);
+        }
+
         $order = DB::transaction(function () use ($customer, $sessionId, $checkoutData): Order {
             $governorate = $this->resolveGovernorate($checkoutData['governorate']);
 
@@ -305,11 +316,10 @@ class OrderService
     /**
      * Every order belonging to a customer, shaped for the store front.
      *
-     * The shape is the contract resources/js/orders.js renders from
-     * (resources/js/orders.mock.js is the worked example): a step index the
-     * stepper and status badge key off, an eta line, line items, and a
-     * timeline. Timestamps come from order_status_history rather than the
-     * order row so every milestone shows when it actually happened.
+     * The shape is the contract resources/js/orders.js renders from: a step
+     * index the stepper and status badge key off, an eta line, line items,
+     * and a timeline. Timestamps come from order_status_history rather than
+     * the order row so every milestone shows when it actually happened.
      *
      * @return list<array<string, mixed>>
      */

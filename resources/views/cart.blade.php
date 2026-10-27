@@ -30,17 +30,25 @@
 
 @section('content')
     @php
-        // Slim payload for the JS — only what cart.js needs to
-        // validate and price lines. No fake numbers, no fabricated
-        // data: this is the real catalog from home.php.
+        // Slim payload for the JS — what cart.js needs to validate and
+        // price lines, plus the variant list that lets it address an exact
+        // colour × size row instead of guessing from the product. No fake
+        // numbers, no fabricated data: this is the real catalog from the
+        // database.
         $productsPayload = array_map(
             fn ($p) => [
                 'slug'    => $p['slug'],
                 'name'    => $p['name'],
-                'price'   => (int) $p['price'],
+                // The catalog carries decimal prices, so no integer cast
+                // here — truncating would quietly drop the cents off the
+                // shelf before the cart ever sees them.
+                'price'   => $p['price'],
                 'image'   => $p['image'],
                 'category'=> $p['category'],
                 'colors'  => $p['colors'] ?? [],
+                // Every colour × size combination, each carrying the
+                // variant id the cart API needs to address that row.
+                'variants'=> $p['variants'] ?? [],
             ],
             $products ?? []
         );

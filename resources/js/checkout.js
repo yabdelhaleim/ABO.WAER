@@ -1,30 +1,23 @@
-// ABO Checkout — front-end only.
+// ABO Checkout.
 //
-// State: nothing is persisted to the server. The cart lives in
-// localStorage (abo_cart, written by cart.js). On place order, the
-// JS:
-//   1. Re-validates every input client-side (mirrors the server
-//      rules that would be enforced by a future CheckoutRequest).
-//   2. Re-hydrates the cart from localStorage + the products JSON
-//      tag in the page; drops nothing silently — any invalid line
-//      rejects the whole submission and returns the user to /cart.
-//   3. Generates an order number client-side (ABO-XXXXXX) and
-//      writes a short payload to sessionStorage under
-//      `abo_last_order`.
-//   4. Clears the abo_cart localStorage key.
-//   5. Navigates to /checkout/success/{orderNumber}.
+// The server owns the cart and the order. This module:
+//   1. Reads the cart back from GET /cart/summary — the same rows
+//      OrderService::resolveCartItems() turns into an order — so the
+//      summary a customer reviews is the summary they are charged for.
+//   2. Validates the form in the browser for immediate feedback.
+//   3. Posts the fields to Store\CheckoutController::process. The
+//      server creates the order, takes the stock off, applies the
+//      coupon and answers 201 with the order number and the success
+//      URL; a 422 carries per-field messages we paint inline.
 //
-// The success page reads the same sessionStorage key. If it is
-// missing (direct visit, refresh, etc.) it redirects to /shop.
-// Prices and totals are never trusted from the client: every total
-// shown is recomputed from the products JSON at render time.
+// The client never invents an order number and never writes an order
+// to storage: if the request fails, no order exists, and the page says
+// so instead of showing a fabricated confirmation.
 
-const STORAGE_KEY = 'abo_cart';
-const ORDER_STORAGE_KEY = 'abo_last_order';
-const MAX_QTY_PER_LINE = 10;
-const MAX_CART_LINES = 20;
+import { apiRequest, assetUrl } from './cart-client.js';
+
+const SUMMARY_URL = '/cart/summary';
 const PHONE_REGEX = /^01[0125][0-9]{8}$/;
-const PHONE_NORMALIZE_REGEX = /[\s\-+]/g;
 const EGYPT_MOBILE_REGEX = /^(\+?20)?0?1[0125][0-9]{8}$/;
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -40,21 +33,6 @@ function formatEGP(n) {
     return `${Number(n).toLocaleString('en-EG')} EGP`;
 }
 
-function readCart() {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return { items: [] };
-        const parsed = JSON.parse(raw);
-        return { items: Array.isArray(parsed?.items) ? parsed.items : [] };
-    } catch (e) {
-        return { items: [] };
-    }
-}
-
-function readProducts() {
-    return readJSON('[data-checkout-products]') || [];
-}
-
 function readGovernorates() {
     return readJSON('[data-checkout-governorates]') || [];
 }
@@ -63,93 +41,54 @@ function readPaymentMethods() {
     return readJSON('[data-checkout-payment-methods]') || [];
 }
 
-function writeOrder(order) {
-    try { sessionStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(order)); } catch (e) { /* private mode */ }
-}
-
-function readOrder() {
-    try {
-        const raw = sessionStorage.getItem(ORDER_STORAGE_KEY);
-        return raw ? JSON.parse(raw) : null;
-    } catch (e) { return null; }
-}
-
-function clearCart() {
-    try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* private mode */ }
-}
-
-function generateOrderNumber() {
-    // Six zero-padded digits. In production this comes from the DB
-    // id inside a transaction; for the preview build we generate a
-    // random number. Prefix matches the spec.
-    const n = Math.floor(Math.random() * 1_000_000);
-    return 'ABO-' + n.toString().padStart(6, '0');
-}
-
 // ─── Hydration ─────────────────────────────────────────────────────
 
 /**
- * Same shape as cart.js's hydratedCart, but stricter: any unknown
- * slug, any color not in the product, any qty out of range, or any
- * line that exceeds the count cap returns null and surfaces a
- * reason. We never silently drop a line.
+ * The cart as the server sees it.
+ *
+ * `GET /cart/summary` returns the persisted lines with their variant id,
+ * their effective price and their stock. The shape is normalised here to
+ * the one the summary renderer works with, so the renderer stays a pure
+ * function of one array.
  */
-function validateCartStrict(rawItems, productsBySlug) {
-    if (!Array.isArray(rawItems) || rawItems.length === 0) {
-        return { ok: false, reason: 'empty' };
-    }
-    if (rawItems.length > MAX_CART_LINES) {
-        return { ok: false, reason: 'too_many_lines' };
-    }
-    const out = [];
-    for (let i = 0; i < rawItems.length; i++) {
-        const line = rawItems[i];
-        if (!line || typeof line !== 'object' || !line.slug) {
-            return { ok: false, reason: `Line ${i + 1} is missing a product.` };
-        }
-        const product = productsBySlug.get(line.slug);
-        if (!product) {
-            return { ok: false, reason: `Line ${i + 1} references a product that no longer exists.` };
-        }
-        const color = (typeof line.color === 'string' && line.color !== '') ? line.color : null;
-        if (color !== null && !product.colors.includes(color)) {
-            return { ok: false, reason: `Line ${i + 1} has a color that is no longer offered.` };
-        }
-        const size = (typeof line.size === 'string' && line.size !== '') ? line.size : null;
-        const qty = Math.floor(Number(line.qty));
-        if (!Number.isFinite(qty) || qty < 1 || qty > MAX_QTY_PER_LINE) {
-            return { ok: false, reason: `Line ${i + 1} has an invalid quantity.` };
-        }
-        out.push({
-            line_id: String(line.line_id || `pre-${i}`),
-            slug: product.slug,
-            name: product.name,
-            price: product.price,
-            image: product.image,
-            category: product.category,
-            color,
-            size,
-            qty,
-            line_total: product.price * qty,
-        });
-    }
-    return { ok: true, items: out };
+function presentItem(item) {
+    return {
+        line_id: String(item.id),
+        variant_id: item.variant_id,
+        slug: item.slug,
+        name: item.name || '',
+        price: Number(item.price) || 0,
+        image: item.image || null,
+        color: item.color || null,
+        size: item.size || null,
+        qty: Number(item.quantity) || 0,
+        line_total: Number(item.line_total) || 0,
+        available_stock: Number(item.available_stock) || 0,
+    };
 }
 
-function hydrate() {
-    const products = readProducts();
-    const productsBySlug = new Map(products.map((p) => [p.slug, p]));
-    const result = validateCartStrict(readCart().items, productsBySlug);
+async function hydrate() {
+    const result = await apiRequest('GET', SUMMARY_URL);
+
     if (!result.ok) {
-        // Send the user back to /cart with a reason. localStorage is
-        // not cleared here — the cart page can show the same reason
-        // and the user can fix the bad line themselves.
-        const reason = encodeURIComponent(result.reason);
-        window.location.assign(`/cart?reason=${reason}`);
+        showAlert(result.message || 'We could not load your cart. Please try again.');
+
         return null;
     }
-    const subtotal = result.items.reduce((s, l) => s + l.line_total, 0);
-    return { items: result.items, subtotal };
+
+    const summary = result.data || {};
+    const items = Array.isArray(summary.items) ? summary.items.map(presentItem) : [];
+
+    if (items.length === 0) {
+        window.location.assign('/cart?reason=empty');
+
+        return null;
+    }
+
+    return {
+        items,
+        subtotal: Number(summary.subtotal) || 0,
+    };
 }
 
 // ─── Rendering ─────────────────────────────────────────────────────
@@ -166,7 +105,7 @@ function renderSummary(cart) {
             if (line.image) {
                 const img = document.createElement('img');
                 img.className = 'checkout__summary-thumb-img';
-                img.src = '/' + line.image.replace(/^\/+/, '');
+                img.src = assetUrl(line.image);
                 img.alt = '';
                 img.loading = 'lazy';
                 img.width = 56;
@@ -228,14 +167,57 @@ function renderSummary(cart) {
     if (mobileBarTotal) mobileBarTotal.textContent = subtotalText;
 }
 
-function renderEmpty() {
-    // The JS that called us already redirected to /cart. As a
-    // safety net, render a faint "no items" state so the page
-    // isn't visually broken if the redirect is blocked.
-    const list = $('[data-checkout-summary-items]');
-    if (list) {
-        list.replaceChildren();
+// ─── Alerts ────────────────────────────────────────────────────────
+
+/**
+ * The page-level error banner.
+ *
+ * The Blade renders one only when the server bounced a submission back
+ * with validation errors; this creates the same markup on demand for
+ * the failures that happen in the browser (a failed request, an empty
+ * cart).
+ */
+function showAlert(message) {
+    if (!message) return;
+
+    let alert = $('[data-checkout-alert]');
+
+    if (!alert) {
+        const form = $('[data-checkout-form]');
+        if (!form) return;
+
+        alert = document.createElement('div');
+        alert.className = 'checkout__alert';
+        alert.setAttribute('role', 'alert');
+        alert.dataset.checkoutAlert = '';
+
+        const body = document.createElement('div');
+        const title = document.createElement('p');
+        title.className = 'checkout__alert-title';
+        title.textContent = 'We could not place your order.';
+        body.appendChild(title);
+
+        const list = document.createElement('ul');
+        list.className = 'checkout__alert-list';
+        body.appendChild(list);
+
+        alert.appendChild(body);
+        form.prepend(alert);
     }
+
+    const list = alert.querySelector('.checkout__alert-list');
+    if (list) {
+        const item = document.createElement('li');
+        item.textContent = message;
+        list.replaceChildren(item);
+    }
+
+    alert.hidden = false;
+}
+
+function clearAlert() {
+    const alert = $('[data-checkout-alert]');
+    if (alert) alert.hidden = true;
 }
 
 // ─── Field validation (mirrors the server-side rules) ──────────────
@@ -362,9 +344,37 @@ function setBusy(form, busy) {
     form.setAttribute('aria-busy', busy ? 'true' : 'false');
 }
 
-function onSubmit(ev) {
+/**
+ * Paint the server's 422 body onto the form.
+ *
+ * Laravel returns `{errors: {field: [message, …]}}`. Every entry that
+ * matches a form field becomes an inline error; the ones that do not
+ * (a stock problem, an empty cart) become the page-level banner.
+ */
+function applyServerErrors(errors) {
+    let bannerMessage = null;
+
+    for (const [field, messages] of Object.entries(errors || {})) {
+        const message = Array.isArray(messages) ? messages[0] : String(messages);
+        const wrap = document.querySelector(`[data-checkout-field="${field}"]`);
+
+        if (wrap) {
+            showFieldError(field, message);
+            continue;
+        }
+
+        bannerMessage = bannerMessage || message;
+    }
+
+    return bannerMessage;
+}
+
+async function onSubmit(ev) {
     ev.preventDefault();
     const form = ev.currentTarget;
+
+    clearAlert();
+
     const result = validateForm();
     if (!result.ok) {
         if (result.firstInvalid && typeof result.firstInvalid.focus === 'function') {
@@ -373,38 +383,45 @@ function onSubmit(ev) {
         return;
     }
 
-    // Re-hydrate the cart one more time and reject on any drift.
-    const cart = hydrate();
-    if (!cart) return; // hydrate() already redirected.
+    const formData = new FormData(form);
 
     setBusy(form, true);
 
-    // Populate hidden fields. Useful for a future server-side
-    // implementation; today only the JS reads them.
-    const cartJson = $('[data-checkout-cart-json]');
-    if (cartJson) cartJson.value = JSON.stringify({
-        items: cart.items.map((l) => ({ slug: l.slug, color: l.color, size: l.size, qty: l.qty })),
+    const response = await apiRequest('POST', form.action, {
+        name: result.values.name,
+        phone: result.values.phone,
+        email: formData.get('email') || null,
+        governorate: result.values.governorate,
+        area: result.values.area,
+        address: result.values.address,
+        notes: result.values.notes || null,
+        payment_method: result.values.payment_method,
+        cart_json: formData.get('cart_json') || null,
+        coupon_code: formData.get('coupon_code') || null,
     });
-    const expectedTotal = $('[data-checkout-expected-total]');
-    if (expectedTotal) expectedTotal.value = String(cart.subtotal);
 
-    // Generate the order number, write a short-lived payload, clear
-    // the cart, navigate to the success page.
-    const orderNumber = generateOrderNumber();
-    const order = {
-        number: orderNumber,
-        subtotal: cart.subtotal,
-        items: cart.items,
-        paymentMethod: result.values.payment_method || 'cod',
-        placedAt: Date.now(),
-    };
-    writeOrder(order);
-    clearCart();
+    if (response.ok && response.data && response.data.redirect_url) {
+        // The order exists. The server clears the persisted cart inside
+        // the same transaction; the browser copy is dropped here so the
+        // next visit starts from an empty cart.
+        try { localStorage.removeItem('abo_cart'); } catch (e) { /* private mode */ }
 
-    // Brief delay so the spinner is visible, then navigate.
-    setTimeout(() => {
-        window.location.assign(`/checkout/success/${orderNumber}`);
-    }, 450);
+        window.location.assign(response.data.redirect_url);
+
+        return;
+    }
+
+    setBusy(form, false);
+
+    if (response.status === 422 && response.data && response.data.errors) {
+        const banner = applyServerErrors(response.data.errors);
+
+        showAlert(banner || response.message || 'Please fix the highlighted fields.');
+
+        return;
+    }
+
+    showAlert(response.message || 'We could not place your order. Please try again.');
 }
 
 function onMobileBarSubmit() {
@@ -417,18 +434,30 @@ function onMobileBarSubmit() {
 
 // ─── Page init ─────────────────────────────────────────────────────
 
-function init() {
+async function init() {
     const form = $('[data-checkout-form]');
     if (!form) return; // probably on a different page
 
-    // Hydrate the summary; redirect to /cart on empty.
-    const cart = hydrate();
+    // Hydrate the summary from the server cart; redirect to /cart when
+    // it is empty.
+    const cart = await hydrate();
     if (!cart) return;
-    if (cart.items.length === 0) {
-        window.location.assign('/cart?reason=empty');
-        return;
-    }
+
     renderSummary(cart);
+
+    // The hidden fields the server reads.
+    const cartJson = $('[data-checkout-cart-json]');
+    if (cartJson) {
+        cartJson.value = JSON.stringify({
+            items: cart.items.map((l) => ({
+                variant_id: l.variant_id,
+                slug: l.slug,
+                qty: l.qty,
+            })),
+        });
+    }
+    const expectedTotal = $('[data-checkout-expected-total]');
+    if (expectedTotal) expectedTotal.value = String(cart.subtotal);
 
     form.addEventListener('submit', onSubmit);
     const mobileSubmit = $('[data-checkout-mobilebar-submit]');

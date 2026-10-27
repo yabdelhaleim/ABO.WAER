@@ -103,13 +103,21 @@ class OrderService
      * eager-loaded — that keeps this to three queries no matter how
      * many orders exist.
      *
+     * When a customer id is given, only that customer's orders are
+     * read: the screen reached with ?customer=<id> should not carry
+     * the whole book to show a handful of rows.
+     *
      * @return array<int, array<string, mixed>>
      */
-    public function getOrdersPayload(): array
+    public function getOrdersPayload(?int $customerId = null): array
     {
-        return Order::with(['items', 'statusHistory'])
-            ->latest('id')
-            ->get()
+        $query = Order::with(['items', 'statusHistory'])->latest('id');
+
+        if ($customerId !== null) {
+            $query->where('customer_id', $customerId);
+        }
+
+        return $query->get()
             ->map(fn (Order $order): array => $this->serializeOrder($order))
             ->all();
     }
@@ -275,6 +283,10 @@ class OrderService
             'id' => (string) $order->order_number,
             'createdAt' => $createdAt,
             'customer' => [
+                // The customer the order belongs to, so the orders
+                // screen can be narrowed to one account — the link
+                // from the customers screen leads here.
+                'id' => (string) $order->customer_id,
                 'name' => (string) $order->customer_name,
                 // The drawer runs .replace() on the phone, so it must
                 // never arrive as a number.

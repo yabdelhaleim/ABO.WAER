@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\ImageService;
 use Database\Factories\CategoryFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -16,6 +17,15 @@ class Category extends Model
 
     protected $guarded = [];
 
+    /**
+     * The resolved cover URL travels with the model so every consumer
+     * — Blade, the admin JSON payloads, the admin JS — reads the same
+     * URL instead of rebuilding it from the raw column.
+     *
+     * @var array<int, string>
+     */
+    protected $appends = ['image_url'];
+
     protected function casts(): array
     {
         return [
@@ -24,6 +34,22 @@ class Category extends Model
             'show_in_homepage' => 'boolean',
             'sort_order' => 'integer',
         ];
+    }
+
+    /**
+     * The public URL of the category cover image, or null when the
+     * category has no cover.
+     *
+     * The `image` column is resolved through ImageService::publicUrl(),
+     * which knows both conventions the column carries: an admin upload
+     * ("categories/abc.jpg", on the public disk) and a placeholder that
+     * ships with the app ("images/streetwear-hero.jpg", under public/).
+     * Views use this accessor instead of the raw column so no call site
+     * can render a 404.
+     */
+    public function getImageUrlAttribute(): ?string
+    {
+        return ImageService::publicUrl($this->image);
     }
 
     /**

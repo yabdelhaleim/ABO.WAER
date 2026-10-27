@@ -126,6 +126,10 @@
 
                         <div class="abo-auth__form-row" data-anim="fade-up" data-anim-delay="440">
                             <x-auth.checkbox name="remember" label="Remember me" />
+
+                            <a href="{{ route('admin.password.request') }}" class="abo-auth__link">
+                                Forgot password?
+                            </a>
                         </div>
 
                         <div data-anim="rise" data-anim-delay="500">

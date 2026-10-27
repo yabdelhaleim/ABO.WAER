@@ -3,16 +3,26 @@
 namespace Tests\Feature;
 
 use App\Models\Order;
+use App\Models\Product;
+use App\Models\Variant;
+use Database\Seeders\CatalogSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class CheckoutTest extends TestCase
 {
-    // The checkout pages read their copy from the static home.php data file,
-    // but one cross-page invariant renders /cart, which is backed by the live
-    // catalog. Migrations are therefore required for this file even though
-    // almost nothing here writes to the database.
+    // The checkout page now publishes the live catalog (the same payload
+    // the cart page publishes) and the success page reads a real Order
+    // row, so this file needs the database and a seeded catalog.
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->seed(CatalogSeeder::class);
+    }
+
     // ─── Helpers ──────────────────────────────────────────────────
 
     private function getCheckoutPage(): string
@@ -340,18 +350,46 @@ class CheckoutTest extends TestCase
 
     // ─── JSON payloads ────────────────────────────────────────────
 
-    public function test_products_payload_uses_only_real_products_and_prices(): void
+    public function test_products_payload_comes_from_the_live_catalog(): void
     {
         $products = $this->getProductsPayload();
-        $data = require resource_path('views/store/data/home.php');
-        $expected = collect($data['products'])->keyBy('slug')->all();
 
-        $this->assertNotEmpty($products);
+        $this->assertNotEmpty($products, 'the checkout publishes the live catalog');
+
         foreach ($products as $p) {
-            $this->assertArrayHasKey($p['slug'], $expected);
-            $this->assertSame($expected[$p['slug']]['name'], $p['name']);
-            $this->assertSame((int) $expected[$p['slug']]['price'], $p['price']);
+            // Every published product is a real row with a real price —
+            // the payload is built from the database, not from the
+            // editorial array the home page falls back to.
+            $product = Product::query()->where('slug', $p['slug'])->first();
+
+            $this->assertNotNull($product, "{$p['slug']} is a database product");
+            $this->assertSame($product->name, $p['name']);
+            $this->assertGreaterThan(0, $p['price']);
+
+            // The price is one of the product's own variant prices.
+            $variantPrices = $product->variants->map(fn (Variant $v) => (float) $v->final_price)->all();
+            $this->assertContains((float) $p['price'], $variantPrices);
         }
+    }
+
+    public function test_products_payload_follows_the_database_not_the_static_data_file(): void
+    {
+        $product = Product::query()->where('slug', 'drop-02-hoodie')->firstOrFail();
+
+        // The catalog quotes the cheapest in-stock variant, so every
+        // variant of the product moves together.
+        $product->variants()->update(['price' => 2345]);
+
+        $published = collect($this->getProductsPayload())->keyBy('slug');
+
+        // The price the page publishes is the one in the database. The
+        // editorial array in home.php is a home-page fallback; publishing
+        // it here meant the customer reviewed figures the order was never
+        // built from.
+        $this->assertSame(2345, (int) $published['drop-02-hoodie']['price']);
+
+        // The image travels as a full URL the browser can load.
+        $this->assertStringStartsWith('http', $published['drop-02-hoodie']['image']);
     }
 
     public function test_governorates_payload_has_27_real_egyptian_governorates(): void
@@ -390,13 +428,19 @@ class CheckoutTest extends TestCase
 
         // Animated checkmark: SVG with the .checkout-success__mark-circle
         // and .checkout-success__mark-check classes (the ones the CSS
-        // animates via stroke-dasharray). The element is hidden until
-        // the JS confirms a real order payload.
+        // animates via stroke-dasharray). The page is rendered from a
+        // real order, so the mark is visible — there is no client-side
+        // payload left to wait for.
         $compact = preg_replace('/\s+/', ' ', $html);
         $this->assertMatchesRegularExpression(
+            '#<div[^>]*\bdata-checkout-success-mark\b[^>]*>#',
+            $compact,
+            'success page must render the checkmark'
+        );
+        $this->assertDoesNotMatchRegularExpression(
             '#<div[^>]*\bdata-checkout-success-mark\b[^>]*\bhidden\b[^>]*>#',
             $compact,
-            'success page must render the checkmark, hidden until the JS confirms the order payload'
+            'the checkmark must not be hidden — the order is rendered server-side'
         );
         $this->assertStringContainsString('checkout-success__mark-circle', $html);
         $this->assertStringContainsString('checkout-success__mark-check', $html);
@@ -474,14 +518,15 @@ class CheckoutTest extends TestCase
         $this->assertStringNotContainsString('Recipient', $html);
     }
 
-    public function test_success_page_exposes_payment_methods_payload_to_the_js(): void
+    public function test_success_page_renders_the_payment_method_from_the_order(): void
     {
         $html = $this->getSuccessPage();
 
-        $this->assertStringContainsString('data-checkout-success-payment-methods', $html);
-        // The cod label is rendered into the JSON payload so the JS
-        // can look it up without hardcoding copy.
+        // The page is fully server-rendered, so the payment method is
+        // looked up from the order row instead of being published as a
+        // JSON payload for the JS to resolve.
         $this->assertStringContainsString('Cash on delivery', $html);
+        $this->assertStringNotContainsString('data-checkout-success-payment-methods', $html);
     }
 
     public function test_success_page_uses_the_store_layout(): void
@@ -492,12 +537,14 @@ class CheckoutTest extends TestCase
         $this->assertStringContainsString('store-footer', $html);
     }
 
-    public function test_success_page_exposes_order_number_to_the_js(): void
+    public function test_success_page_renders_the_order_number_from_the_database(): void
     {
         $html = $this->getSuccessPage('ABO-2026-6543');
 
-        $this->assertStringContainsString('window.__checkoutSuccessOrderNumber', $html);
+        // The order number is the URL parameter and the row the server
+        // loaded — there is no JS global to keep in sync.
         $this->assertStringContainsString('ABO-2026-6543', $html);
+        $this->assertStringNotContainsString('window.__checkoutSuccessOrderNumber', $html);
     }
 
     // ─── JS surface ───────────────────────────────────────────────
@@ -507,68 +554,61 @@ class CheckoutTest extends TestCase
         $app = file_get_contents(resource_path('js/app.js'));
         $this->assertNotFalse($app);
         $this->assertStringContainsString("import './checkout.js';", $app);
-        $this->assertStringContainsString("import './success.js';", $app);
 
         $source = file_get_contents(resource_path('js/checkout.js'));
         $this->assertNotFalse($source);
-        $this->assertStringContainsString('STORAGE_KEY', $source);
-        $this->assertStringContainsString('ORDER_STORAGE_KEY', $source);
-        $this->assertStringContainsString('MAX_QTY_PER_LINE = 10', $source);
-        $this->assertStringContainsString('MAX_CART_LINES = 20', $source);
+
+        // The module reads the cart from the server and posts to the
+        // server. It keeps the phone format check for instant feedback.
+        $this->assertStringContainsString("from './cart-client.js'", $source);
+        $this->assertStringContainsString("SUMMARY_URL = '/cart/summary'", $source);
         $this->assertStringContainsString('PHONE_REGEX', $source);
         $this->assertStringContainsString('01[0125][0-9]{8}', $source);
-        $this->assertStringContainsString('localStorage', $source);
-        $this->assertStringContainsString('sessionStorage', $source);
-        $this->assertStringContainsString('generateOrderNumber', $source);
-        $this->assertStringContainsString('validateCartStrict', $source);
         $this->assertStringContainsString('hydrate', $source);
         $this->assertStringContainsString('renderSummary', $source);
         $this->assertStringContainsString('validateForm', $source);
-        $this->assertStringContainsString('paymentMethod', $source);
+        $this->assertStringContainsString('payment_method', $source);
     }
 
-    public function test_success_js_is_present_and_wired(): void
+    public function test_checkout_js_does_not_write_an_order_to_the_client(): void
+    {
+        $source = file_get_contents(resource_path('js/checkout.js'));
+        $this->assertNotFalse($source);
+
+        // The server owns the order: the client never invents an order
+        // number, never stores one, and never writes an order payload.
+        $this->assertStringNotContainsString('generateOrderNumber', $source);
+        $this->assertStringNotContainsString('ORDER_STORAGE_KEY', $source);
+        $this->assertStringNotContainsString('sessionStorage', $source);
+        $this->assertStringNotContainsString('abo_last_order', $source);
+    }
+
+    public function test_checkout_js_posts_to_the_server_and_follows_its_redirect(): void
+    {
+        $source = file_get_contents(resource_path('js/checkout.js'));
+        $this->assertNotFalse($source);
+
+        // The submit handler posts the validated fields and follows the
+        // redirect URL the server answers with — the order number is
+        // never assembled on the client.
+        $this->assertStringContainsString("apiRequest('POST', form.action", $source);
+        $this->assertStringContainsString('redirect_url', $source);
+        $this->assertStringContainsString('window.location.assign(response.data.redirect_url)', $source);
+
+        // A 422 carries per-field messages that are painted inline.
+        $this->assertStringContainsString('applyServerErrors', $source);
+        $this->assertStringContainsString('response.status === 422', $source);
+    }
+
+    public function test_success_js_is_gone_because_the_page_is_server_rendered(): void
     {
         $app = file_get_contents(resource_path('js/app.js'));
         $this->assertNotFalse($app);
-        $this->assertStringContainsString("import './success.js';", $app);
+        $this->assertStringNotContainsString("import './success.js';", $app);
 
-        $source = file_get_contents(resource_path('js/success.js'));
-        $this->assertNotFalse($source);
-
-        // The success module must read the order payload and
-        // redirect to /shop when it's missing.
-        $this->assertStringContainsString('abo_last_order', $source);
-        $this->assertStringContainsString('sessionStorage', $source);
-        $this->assertStringContainsString('window.location.replace', $source);
-        $this->assertStringContainsString('/shop', $source);
-
-        // The success module renders order info, not personal data.
-        $this->assertStringContainsString('formatDate', $source);
-        $this->assertStringContainsString('paymentLabel', $source);
-        $this->assertStringContainsString('renderItems', $source);
-        $this->assertStringNotContainsString('console.log', $source);
-        $this->assertStringNotContainsString('localStorage', $source);
-    }
-
-    public function test_success_js_logs_no_personal_data(): void
-    {
-        $source = file_get_contents(resource_path('js/success.js'));
-
-        $this->assertNotFalse($source);
-        $this->assertDoesNotMatchRegularExpression('/console\.(log|warn|error)\(/', $source);
-        // No references to PII fields.
-        $this->assertStringNotContainsString('phone', $source);
-        $this->assertStringNotContainsString('address', $source);
-        $this->assertStringNotContainsString('governorate', $source);
-    }
-
-    public function test_checkout_js_enforces_qty_cap_in_one_place(): void
-    {
-        $source = file_get_contents(resource_path('js/checkout.js'));
-
-        $this->assertNotFalse($source);
-        $this->assertStringContainsString('const MAX_QTY_PER_LINE = 10;', $source);
+        // The success page renders every value from the Order row, so
+        // there is no client module left to hydrate it.
+        $this->assertFileDoesNotExist(resource_path('js/success.js'));
     }
 
     public function test_checkout_js_does_not_invent_prices_or_taxes(): void
@@ -583,11 +623,29 @@ class CheckoutTest extends TestCase
         $this->assertDoesNotMatchRegularExpression('/\b1\s?450\b/', $source);
         $this->assertDoesNotMatchRegularExpression('/\b2\s?790\b/', $source);
 
-        // No invented fees.
-        $this->assertStringNotContainsString('tax', $source);
-        $this->assertStringNotContainsString('discount', $source);
-        $this->assertStringNotContainsString('coupon', $source);
-        $this->assertStringNotContainsString('promo', $source);
+        // No invented fees. The module never computes a total, a tax, a
+        // discount or a shipping fee — every figure it renders comes
+        // from the server's summary.
+        $this->assertDoesNotMatchRegularExpression('/\btax\b/i', $source);
+        $this->assertDoesNotMatchRegularExpression('/\bdiscount\b/i', $source);
+        $this->assertDoesNotMatchRegularExpression('/\bshipping fee\b/i', $source);
+        $this->assertDoesNotMatchRegularExpression('/\bpromo\b/i', $source);
+
+        // The one figure the module shows — the subtotal — is the one
+        // the server sent, never one computed here.
+        $this->assertStringContainsString('cart.subtotal', $source);
+    }
+
+    public function test_checkout_js_does_not_reimplement_the_quantity_cap(): void
+    {
+        $source = file_get_contents(resource_path('js/checkout.js'));
+        $this->assertNotFalse($source);
+
+        // The cap lives on the server (CartService::MAX_QUANTITY_PER_LINE)
+        // and in the cart module's stepper. The checkout module does not
+        // carry a second copy of the number.
+        $this->assertStringNotContainsString('MAX_QTY_PER_LINE', $source);
+        $this->assertStringNotContainsString('MAX_CART_LINES', $source);
     }
 
     public function test_checkout_js_logs_no_personal_data(): void

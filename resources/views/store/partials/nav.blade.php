@@ -18,11 +18,14 @@
         </nav>
 
         <div class="store-header__actions">
-            <button type="button" class="store-header__icon" aria-label="Search">
+            {{-- Search is a real link to the server-rendered search page,
+                 so it works without JavaScript and the results page keeps
+                 the term in the URL. --}}
+            <a href="{{ route('search') }}" class="store-header__icon" aria-label="Search">
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path d="M21 20.3 16.7 16a8 8 0 1 0-1.4 1.4L20.3 21 21 20.3zM4 10a6 6 0 1 1 12 0 6 6 0 0 1-12 0z" fill="currentColor"/>
                 </svg>
-            </button>
+            </a>
 
             @auth
                 <a href="{{ route('account') }}" class="store-header__icon" aria-label="My account">
@@ -70,6 +73,8 @@
            class="store-header__sheet-link {{ request()->routeIs('about') ? 'is-active' : '' }}">About</a>
         <a href="{{ route('contact') }}"
            class="store-header__sheet-link {{ request()->routeIs('contact') ? 'is-active' : '' }}">Contact</a>
+        <a href="{{ route('search') }}"
+           class="store-header__sheet-link {{ request()->routeIs('search') ? 'is-active' : '' }}">Search</a>
         <a href="{{ route('cart') }}" class="store-header__sheet-link">
             Cart
             <span class="store-header__sheet-count" data-nav-cart-count hidden>0</span>

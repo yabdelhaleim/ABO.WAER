@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Store\CheckoutRequest;
 use App\Models\Governorate;
 use App\Models\Order;
+use App\Services\CartService;
 use App\Services\OrderService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
@@ -29,14 +30,18 @@ use Illuminate\Http\Request;
  */
 class CheckoutController extends Controller
 {
-    public function __construct(protected OrderService $orderService) {}
+    public function __construct(
+        protected OrderService $orderService,
+        protected CartService $cart,
+    ) {}
 
     /**
      * Render the checkout shell.
      *
      * The view still extends the shared home.php data file for its
-     * editorial chrome (announcement, hero, footer) — only the
-     * governorate <select> options are sourced from the database now.
+     * editorial chrome (announcement, hero, footer) — everything the
+     * form actually operates on comes from the database: the governorate
+     * <select> options and the product catalog the page prices against.
      */
     public function show(Request $request): View
     {
@@ -49,12 +54,20 @@ class CheckoutController extends Controller
             ->pluck('name')
             ->all();
 
-        // Keep the static 27-name list as a Blade-level fallback so
-        // the page still renders before the admin has populated the
-        // governorates table.
+        // Fall back to the shipped 27-name list only while the admin
+        // has not populated the governorates table, so the page still
+        // renders instead of shipping an empty dropdown.
         $data['governorates'] = ! empty($governorates)
             ? $governorates
-            : ($data['governorates'] ?? []);
+            : (require resource_path('views/store/data/governorates.php'));
+
+        // The catalog the checkout prices and validates against is the
+        // live one, exactly like the cart page — NOT the editorial
+        // product array that home.php carries for the home page's
+        // fallback grid. Publishing the static array here meant every
+        // real product slug failed the client-side check and the
+        // customer was bounced back to /cart before they could order.
+        $data['products'] = $this->cart->getStorefrontCatalog();
 
         return view('checkout', $data);
     }

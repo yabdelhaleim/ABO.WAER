@@ -175,6 +175,195 @@
     gap: clamp(2rem, 4vw, 3rem);
 }
 
+/* ─── Prose (admin-authored HTML) ───────────────────────────── */
+
+/*
+ * The page body is admin-edited HTML stored in `pages.content` /
+ * `pages.content_ar` and echoed by resources/views/content.blade.php.
+ * The rules below dress that HTML in the same brand vocabulary the
+ * former block renderer used — display font for headings, the skewed
+ * lime bar, bordered tables, the note panel — so a database-backed
+ * page keeps the design language instead of falling back to browser
+ * defaults.
+ */
+
+.content__prose {
+    max-width: 860px;
+    color: var(--abo-text);
+    font-size: clamp(1rem, 1.2vw, 1.06rem);
+}
+
+.content__prose > *:first-child { margin-top: 0; }
+
+.content__prose > *:last-child { margin-bottom: 0; }
+
+.content__prose h2,
+.content__prose h3,
+.content__prose h4 {
+    position: relative;
+    margin: 2.6rem 0 1rem;
+    padding-left: 1.15rem;
+    color: var(--abo-white);
+    font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+    font-weight: 800;
+    font-style: italic;
+    text-transform: uppercase;
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+}
+
+.content__prose h2 { font-size: clamp(1.4rem, 2.6vw, 2rem); }
+
+.content__prose h3 { font-size: clamp(1.15rem, 2vw, 1.4rem); }
+
+.content__prose h4 { font-size: clamp(1rem, 1.6vw, 1.15rem); }
+
+/* The skewed lime bar that used to sit before every block heading. */
+.content__prose h2::before,
+.content__prose h3::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.18em;
+    width: 4px;
+    height: 0.9em;
+    background: var(--abo-lime);
+    transform: skewX(var(--content-tilt));
+}
+
+.content__prose p {
+    margin: 0 0 1.15rem;
+    line-height: 1.7;
+}
+
+.content__prose ul,
+.content__prose ol {
+    margin: 0 0 1.4rem;
+    padding-left: 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.content__prose li {
+    line-height: 1.65;
+    padding-left: 0.25rem;
+}
+
+.content__prose ul li::marker { color: var(--abo-lime); }
+
+.content__prose ol li::marker {
+    color: var(--abo-lime);
+    font-weight: 700;
+}
+
+.content__prose a {
+    color: var(--abo-lime);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.content__prose a:hover,
+.content__prose a:focus-visible { color: var(--abo-white); }
+
+.content__prose strong { color: var(--abo-white); font-weight: 700; }
+
+.content__prose blockquote {
+    margin: 0 0 1.5rem;
+    padding: 1.1rem 1.2rem;
+    background: var(--content-grey-3);
+    border: 1px solid #2B3A00;
+    border-left: 4px solid var(--abo-lime);
+    border-radius: var(--abo-radius);
+}
+
+.content__prose blockquote p:last-child { margin-bottom: 0; }
+
+.content__prose table {
+    width: 100%;
+    margin: 0 0 1.6rem;
+    border-collapse: collapse;
+    border: 1px solid var(--abo-border);
+    border-radius: var(--abo-radius);
+    background: var(--abo-panel);
+}
+
+.content__prose th,
+.content__prose td {
+    text-align: left;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--abo-border);
+    font-size: 0.95rem;
+    color: var(--abo-text);
+    vertical-align: top;
+}
+
+.content__prose th {
+    color: var(--abo-white);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 0.78rem;
+}
+
+.content__prose tr:last-child td { border-bottom: 0; }
+
+.content__prose img {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--abo-radius);
+}
+
+.content__prose hr {
+    margin: 2.4rem 0;
+    border: 0;
+    border-top: 1px solid var(--abo-border);
+}
+
+/* Narrow screens: let a wide admin-authored table scroll sideways. */
+@media (max-width: 700px) {
+    .content__prose table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* Arabic fallback: mirror the heading bar and the table alignment. */
+.content--rtl .content__prose h2,
+.content--rtl .content__prose h3,
+.content--rtl .content__prose h4 {
+    padding-left: 0;
+    padding-right: 1.15rem;
+}
+
+.content--rtl .content__prose h2::before,
+.content--rtl .content__prose h3::before {
+    left: auto;
+    right: 0;
+}
+
+.content--rtl .content__prose ul,
+.content--rtl .content__prose ol {
+    padding-left: 0;
+    padding-right: 1.4rem;
+}
+
+.content--rtl .content__prose li {
+    padding-left: 0;
+    padding-right: 0.25rem;
+}
+
+.content--rtl .content__prose th,
+.content--rtl .content__prose td {
+    text-align: right;
+}
+
+.content--rtl .content__prose blockquote {
+    border-left: 1px solid #2B3A00;
+    border-right: 4px solid var(--abo-lime);
+}
+
 /* ─── Table of contents ─────────────────────────────────────── */
 
 .content__toc {

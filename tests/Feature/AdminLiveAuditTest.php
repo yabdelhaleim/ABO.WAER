@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Admin;
+use App\Models\Product;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -40,7 +41,7 @@ class AdminLiveAuditTest extends TestCase
             'Coupons' => '/admin/coupons',
             'Campaigns' => '/admin/campaigns',
             'Reports' => '/admin/reports',
-            'Admins' => '/admin/admins-v2',
+            'Admins' => '/admin/admins',
             'Settings' => '/admin/settings',
         ];
 
@@ -57,13 +58,17 @@ class AdminLiveAuditTest extends TestCase
             $response->assertSee('admin/js/admin.js', false);
         }
 
-        // Test product create and edit (both mock p-008 and Eloquent)
+        // Test product create and edit
         $createResponse = $this->actingAs($this->admin, 'admin')->get('/admin/products/create');
         $createResponse->assertStatus(200);
 
-        $mockEditResponse = $this->actingAs($this->admin, 'admin')->get('/admin/products/p-008/edit');
-        $mockEditResponse->assertStatus(200);
-        $mockEditResponse->assertSee('EDIT PRODUCT', false);
-        $mockEditResponse->assertSee('p-008', false);
+        $product = Product::create([
+            'name' => 'Live Audit Tee',
+            'slug' => 'live-audit-tee',
+        ]);
+
+        $editResponse = $this->actingAs($this->admin, 'admin')->get("/admin/products/{$product->id}/edit");
+        $editResponse->assertStatus(200);
+        $editResponse->assertSee('Live Audit Tee', false);
     }
 }

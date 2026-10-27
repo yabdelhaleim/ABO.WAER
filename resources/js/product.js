@@ -1,4 +1,4 @@
-// ABO Product — color × size variant selector.
+// ABO Product — color × size variant selector and add to cart.
 //
 // Reads the JSON blob that product.blade.php emits (data-product-variants).
 // On color change:
@@ -10,6 +10,14 @@
 // On size click:
 //   - Highlights the chosen size; size is sticky on color change when still
 //     in stock; otherwise we auto-select the first remaining in-stock size.
+//
+// The ADD TO CART button posts the chosen variant to the cart API, which is
+// where the cart lives. The variant id travels with the payload, so the
+// server knows exactly which colour × size row the shopper picked.
+
+import { apiRequest, formatEGP, showToast } from './cart-client.js';
+
+const CART_ITEMS_URL = '/cart/items';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -23,10 +31,6 @@ function readVariants(root) {
     } catch (e) {
         return null;
     }
-}
-
-function formatEGP(value) {
-    return `${Number(value).toLocaleString('en-EG')} EGP`;
 }
 
 function findFirstInStockSize(color) {
@@ -99,15 +103,117 @@ function updateSizeEmptyState(root, colorBlock) {
 
 function updateAtc(root, colorBlock) {
     const label = $('[data-product-atc-label]', root);
-    if (!label) return;
+    const button = $('[data-product-atc]', root);
+    if (!label && !button) return;
 
-    const first = findFirstInStockSize(colorBlock);
-    if (!first) {
-        label.textContent = 'OUT OF STOCK';
+    // Prefer the size the shopper actually picked; fall back to the first
+    // one that is still in stock for this colour.
+    const active = $('[data-product-sizes] [data-color-id="' + colorBlock?.id + '"].is-active', root);
+    const activeSize = active
+        ? (colorBlock?.sizes || []).find((s) => Number(s.id) === Number(active.dataset.sizeId))
+        : null;
+
+    const chosen = activeSize && Number(activeSize.stock) > 0
+        ? activeSize
+        : findFirstInStockSize(colorBlock);
+
+    if (!chosen) {
+        if (label) label.textContent = 'OUT OF STOCK';
+        if (button) {
+            button.disabled = true;
+            button.setAttribute('aria-disabled', 'true');
+        }
+
         return;
     }
 
-    label.textContent = `ADD — ${colorBlock?.name?.toUpperCase() ?? ''} / ${first.name}`.trim();
+    if (label) label.textContent = `ADD — ${colorBlock?.name?.toUpperCase() ?? ''} / ${chosen.name}`.trim();
+
+    // The cart is live, so the button is live too — as soon as there is a
+    // colour and a size with stock behind them.
+    if (button) {
+        button.disabled = false;
+        button.removeAttribute('aria-disabled');
+    }
+}
+
+/**
+ * The variant the shopper has settled on: the active colour together with
+ * the active size. Null when the choice is incomplete.
+ */
+function selectedVariant(root, data) {
+    const activeColor = $('[data-product-colors] [data-color-id].is-active', root);
+    if (!activeColor) return null;
+
+    const colorId = Number(activeColor.dataset.colorId);
+    const colorBlock = (data.colors || []).find((c) => Number(c.id) === colorId);
+    if (!colorBlock) return null;
+
+    const activeSize = $('[data-product-sizes] [data-color-id="' + colorId + '"].is-active', root);
+    if (!activeSize) return null;
+
+    const sizeId = Number(activeSize.dataset.sizeId);
+    const variant = (colorBlock.sizes || []).find((s) => Number(s.id) === sizeId);
+    if (!variant) return null;
+
+    return { colorBlock, variant };
+}
+
+/**
+ * Add the chosen variant to the cart.
+ *
+ * The button reports what happened either way: a refusal from the server
+ * (out of stock, over the cap) is shown with its reason, and only a real
+ * success is announced as one.
+ */
+function bindAddToCart(root, data) {
+    const button = $('[data-product-atc]', root);
+    if (!button) return;
+
+    button.addEventListener('click', async () => {
+        const picked = selectedVariant(root, data);
+
+        if (!picked) {
+            showToast({ text: 'Choose a colour and a size first.', tone: 'error' });
+
+            return;
+        }
+
+        if (Number(picked.variant.stock) < 1) {
+            showToast({ text: 'That size is out of stock.', tone: 'error' });
+
+            return;
+        }
+
+        const label = $('[data-product-atc-label]', root);
+        const original = label ? label.textContent : '';
+
+        button.disabled = true;
+        if (label) label.textContent = 'ADDING…';
+
+        const result = await apiRequest('POST', CART_ITEMS_URL, {
+            variant_id: picked.variant.variant_id,
+            quantity: 1,
+        });
+
+        button.disabled = false;
+        if (label) label.textContent = original;
+
+        if (!result.ok) {
+            showToast({ text: result.message || 'We could not add that to your cart.', tone: 'error' });
+
+            return;
+        }
+
+        // The storefront's own arrival pulse.
+        button.classList.add('is-arrived');
+        setTimeout(() => button.classList.remove('is-arrived'), 1000);
+
+        showToast({ strong: picked.colorBlock?.name || 'Item', text: 'added to your cart.' });
+
+        // Let the cart refresh the header badge.
+        window.dispatchEvent(new CustomEvent('abo:cart-updated'));
+    });
 }
 
 function pickColor(root, data, colorId, preferredSizeId = null) {
@@ -156,6 +262,8 @@ function bindColorButtons(root, data) {
                 const out = $('[data-product-price]', root);
                 if (out) out.textContent = formatEGP(variant.price);
             }
+            // The label names the size that will be added.
+            updateAtc(root, colorBlock);
         });
     });
 }
@@ -168,6 +276,7 @@ function init() {
     if (!data || !Array.isArray(data.colors) || data.colors.length === 0) return;
 
     bindColorButtons(root, data);
+    bindAddToCart(root, data);
 
     // Auto-pick the first color that has a size in stock, falling back
     // to the first color block.

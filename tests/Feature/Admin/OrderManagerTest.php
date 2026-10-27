@@ -6,6 +6,7 @@ use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
 use App\Models\Admin;
 use App\Models\CancellationReason;
+use App\Models\Customer;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
@@ -319,6 +320,70 @@ class OrderManagerTest extends TestCase
     public function test_guest_cannot_access_admin_orders(): void
     {
         $this->get(route('admin.orders.index'))->assertRedirect();
+    }
+
+    // ─── Narrowing the screen to one customer ────────────────────────────
+
+    /**
+     * The customers screen sends you here with ?customer=<id> — and the
+     * screen answers with that customer's orders and no others.
+     */
+    public function test_the_screen_can_be_narrowed_to_one_customer(): void
+    {
+        $customer = Customer::factory()->create(['name' => 'Layla Hassan']);
+        $other = Customer::factory()->create(['name' => 'Omar Nabil']);
+
+        $mine = Order::factory()->create(['customer_id' => $customer->id]);
+        $theirs = Order::factory()->create(['customer_id' => $other->id]);
+
+        $response = $this->actingAsAdmin()
+            ->get(route('admin.orders.index', ['customer' => $customer->id]));
+
+        $response->assertOk();
+
+        $payload = json_decode($response->viewData('ordersJson'), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertCount(1, $payload);
+        $this->assertSame($mine->order_number, $payload[0]['id']);
+        $this->assertNotContains($theirs->order_number, array_column($payload, 'id'));
+
+        // The chip says whose orders these are.
+        $this->assertSame(
+            ['id' => (string) $customer->id, 'name' => 'Layla Hassan'],
+            $response->viewData('customerFilter'),
+        );
+    }
+
+    /**
+     * The payload carries the customer id, so the browser can narrow
+     * the list it already has.
+     */
+    public function test_the_payload_carries_the_customer_id(): void
+    {
+        $customer = Customer::factory()->create();
+        Order::factory()->create(['customer_id' => $customer->id]);
+
+        $this->assertSame(
+            (string) $customer->id,
+            $this->firstOrderFromIndex()['customer']['id'],
+        );
+    }
+
+    /**
+     * An id that belongs to no customer is ignored: a stale link shows
+     * the whole list rather than an error.
+     */
+    public function test_an_unknown_customer_filter_is_ignored(): void
+    {
+        Order::factory()->create();
+
+        $response = $this->actingAsAdmin()
+            ->get(route('admin.orders.index', ['customer' => 999999]));
+
+        $response->assertOk();
+
+        $this->assertNull($response->viewData('customerFilter'));
+        $this->assertCount(1, json_decode($response->viewData('ordersJson'), true));
     }
 
     public function test_guest_cannot_mutate_orders(): void

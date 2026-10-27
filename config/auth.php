@@ -104,6 +104,23 @@ return [
             'expire' => 60,
             'throttle' => 60,
         ],
+
+        // The admin back office resets passwords through a broker of its own,
+        // so the back-office token store never shares a table with the store
+        // front. A shared table would key every token by email alone, and an
+        // address that exists as both an admin and a customer would let one
+        // account's reset link be redeemed on the other. Separate providers
+        // over separate tables keep the two token stores apart.
+        //
+        // `expire` is the lifetime of the reset link in minutes — 30 here.
+        // `throttle` is the minimum gap in seconds between two requests for
+        // the same address — 60 here.
+        'admins' => [
+            'provider' => 'admins',
+            'table' => env('AUTH_ADMIN_PASSWORD_RESET_TOKEN_TABLE', 'admin_password_reset_tokens'),
+            'expire' => 30,
+            'throttle' => 60,
+        ],
     ],
 
     /*

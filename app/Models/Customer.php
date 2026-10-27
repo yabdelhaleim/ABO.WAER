@@ -24,6 +24,7 @@ class Customer extends Authenticatable
             'password' => 'hashed',
             'is_blocked' => 'boolean',
             'accepts_promotions' => 'boolean',
+            'tags' => 'array',
         ];
     }
 

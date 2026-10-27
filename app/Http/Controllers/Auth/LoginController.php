@@ -61,23 +61,36 @@ class LoginController extends Controller
     /**
      * Build the credentials array for the auth attempt.
      *
-     * @return array<string, string>
+     * The `is_blocked` column is folded into the lookup, so a blocked
+     * account cannot sign in at all: the attempt fails exactly the way
+     * a wrong password does — same code path, same message — and the
+     * answer reveals nothing about whether the account exists.
+     *
+     * @return array<string, mixed>
      */
     protected function credentialsFor(LoginRequest $request): array
     {
         $password = (string) $request->input('password');
 
         if (! empty($request->input('email'))) {
-            return ['email' => $request->input('email'), 'password' => $password];
+            return [
+                'email' => $request->input('email'),
+                'password' => $password,
+                'is_blocked' => false,
+            ];
         }
 
         if (! empty($request->input('phone'))) {
-            return ['phone' => $request->input('phone'), 'password' => $password];
+            return [
+                'phone' => $request->input('phone'),
+                'password' => $password,
+                'is_blocked' => false,
+            ];
         }
 
         $identifier = (string) $request->input('identifier');
         $key = filter_var($identifier, FILTER_VALIDATE_EMAIL) ? 'email' : 'phone';
 
-        return [$key => $identifier, 'password' => $password];
+        return [$key => $identifier, 'password' => $password, 'is_blocked' => false];
     }
 }

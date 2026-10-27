@@ -11,7 +11,7 @@
      productColors.images relation, so this costs no extra query. --}}
 @section('og_type', 'product')
 @section('og_title', $product->name)
-@section('og_image', asset($product->primaryImage?->path ?: 'images/streetwear-hero.jpg'))
+@section('og_image', $product->primaryImage?->url ?: asset('images/streetwear-hero.jpg'))
 @section('og_image_alt', $product->name)
 @section('og_extra')
     @php
@@ -50,7 +50,7 @@
         $legacyProduct['name'] = $product->name;
         $legacyProduct['price'] = (float) ($startingPrice ?? 0);
 
-        $primaryImage = $product->primaryImage?->path ?: 'images/streetwear-hero.jpg';
+        $primaryImage = $product->primaryImage?->url ?: asset('images/streetwear-hero.jpg');
     @endphp
 
     <section class="product-page" aria-label="{{ $product->name }}"
@@ -62,7 +62,7 @@
             <div class="product-page__media" data-product-gallery>
                 {{-- Always render the first image so the gallery is never empty. --}}
                 <img
-                    src="{{ asset($primaryImage) }}"
+                    src="{{ $primaryImage }}"
                     alt="{{ $product->name }}"
                     width="900"
                     height="1125"
@@ -88,7 +88,7 @@
                                             data-color-id="{{ $block['color']->id }}"
                                             data-color-hex="{{ $block['color']->hex_code }}"
                                             aria-label="Show {{ $block['color']->name }}">
-                                        <img src="{{ asset($block['images']->first()->path) }}" alt="{{ $product->name }} in {{ $block['color']->name }}" loading="lazy" decoding="async" width="120" height="150">
+                                        <img src="{{ $block['images']->first()->url }}" alt="{{ $product->name }} in {{ $block['color']->name }}" loading="lazy" decoding="async" width="120" height="150">
                                     </button>
                                 </li>
                             @endif
@@ -187,9 +187,14 @@
                             'id' => $block['color']->id,
                             'name' => $block['color']->name,
                             'hex' => $block['color']->hex_code,
-                            'image' => $block['images']->first()?->path,
+                            'image' => $block['images']->first()?->url,
                             'sizes' => $block['sizes']->map(fn ($v) => [
                                 'id' => $v->size_id,
+                                // The variant row itself — the colour × size
+                                // combination the cart API stores. The cart
+                                // is keyed by it, so the shopper's choice has
+                                // to travel as an id, not as a guess.
+                                'variant_id' => $v->id,
                                 'name' => $v->size?->name,
                                 'price' => (float) $v->final_price,
                                 'stock' => (int) $v->quantity,
@@ -208,14 +213,25 @@
                     </div>
                 @endif
 
-                {{-- Cart opens at launch — keep the button disabled but
-                     update its label with the chosen variant. --}}
+                {{-- The cart is live. The button stays disabled in the
+                     markup and product.js enables it once a colour and a
+                     size with stock behind it are selected — without JS
+                     there is nothing to add with. --}}
                 <div class="product-page__group">
                     <button type="button" class="store-btn store-btn--primary" disabled aria-disabled="true" data-product-atc>
-                        <span data-product-atc-label>ADD TO CART — SOON</span>
+                        <span data-product-atc-label>ADD TO CART</span>
                     </button>
-                    <p class="product-page__hint">Cart opens at launch. <a href="{{ route('shop') }}">Browse the collection →</a></p>
+                    <p class="product-page__hint">Shipping is calculated at checkout.</p>
                 </div>
+
+                {{-- The cart's toast host, so a successful add or a
+                     refused one is reported in the storefront's own style. --}}
+                <div
+                    class="cart__toasts"
+                    data-cart-toasts
+                    role="region"
+                    aria-label="Cart notifications"
+                ></div>
             </div>
         </div>
 
@@ -229,12 +245,12 @@
                 <ul class="related__grid">
                     @foreach ($relatedProducts as $related)
                         @php
-                            $relatedImage = $related->primaryImage?->path ?: 'images/streetwear-hero.jpg';
+                            $relatedImage = $related->primaryImage?->url ?: asset('images/streetwear-hero.jpg');
                             $relatedPrice = $related->min_price ?? $related->starting_price;
                         @endphp
                         <li class="related__item">
                             <a href="{{ route('shop.show', ['slug' => $related->slug]) }}" class="related__link" aria-label="{{ $related->name }}">
-                                <img src="{{ asset($relatedImage) }}" alt="{{ $related->name }}" loading="lazy" decoding="async" width="600" height="750">
+                                <img src="{{ $relatedImage }}" alt="{{ $related->name }}" loading="lazy" decoding="async" width="600" height="750">
                                 <div class="related__body">
                                     <h3 class="related__name">{{ $related->name }}</h3>
                                     <p class="related__price">{{ number_format((float) ($relatedPrice ?? 0), 0, '.', ',') }} EGP</p>

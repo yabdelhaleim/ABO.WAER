@@ -182,6 +182,25 @@
     gap: 0.15rem;
 }
 
+/*
+ * The sign-out entry is a POST form (the `logout` route is a POST), so
+ * the form itself must not become a flex item — `display: contents`
+ * hands the button straight to the nav and it lines up with the
+ * anchors beside it.
+ */
+.orders__nav-form {
+    display: contents;
+}
+
+button.orders__nav-link {
+    width: 100%;
+    background: none;
+    border: 0;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+}
+
 @media (max-width: 899px) {
     .orders__nav {
         flex-direction: row;

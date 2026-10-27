@@ -8,6 +8,8 @@ use App\Models\Color;
 use App\Models\Product;
 use App\Models\Size;
 use App\Models\Variant;
+use App\Services\ImageService;
+use App\Services\SizeGuideService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -15,6 +17,8 @@ use Illuminate\View\View;
 
 class ShopController extends Controller
 {
+    public function __construct(protected SizeGuideService $sizeGuides) {}
+
     /**
      * Shop catalog page with filter, sort, and pagination.
      */
@@ -106,34 +110,60 @@ class ShopController extends Controller
 
         // Filter options for the sidebar — driven by real data so we never
         // show a filter with no values behind it.
-        // Cached as stdClass objects to avoid Eloquent model serialization/unserialization issues.
-        $categories = collect(Cache::remember('shop.sidebar.categories', 600, fn () => Category::query()
-            ->where('is_active', true)
-            ->where('is_visible', true)
-            ->whereNull('parent_id')
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get(['id', 'name', 'slug', 'image'])
-            ->map(fn ($c) => (object) $c->toArray())
-            ->all()));
+        //
+        // The cache payload is a plain array of arrays, NOT an array of
+        // objects. config/cache.php sets `serializable_classes => false`
+        // (Laravel's default guard against PHP gadget-chain attacks), so
+        // the cache store unserializes with `allowed_classes => false` —
+        // every object comes back as `__PHP_Incomplete_Class` and the
+        // first property read on it is a fatal error. Arrays of scalars
+        // survive that unserialization untouched, so the payload is
+        // cached as arrays and re-cast to objects afterwards, at the view
+        // boundary, where the Blade template expects `$cat->slug`.
+        $categories = collect(
+            Cache::remember('shop.sidebar.categories', 600, fn () => Category::query()
+                ->where('is_active', true)
+                ->where('is_visible', true)
+                ->whereNull('parent_id')
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get(['id', 'name', 'slug', 'image'])
+                // The cached payload is a plain array of scalars — no
+                // objects, and no absolute URL (the host is not known
+                // until the request that reads it). The cover path is
+                // resolved at the view boundary below.
+                ->map(fn (Category $c): array => [
+                    'id' => $c->id,
+                    'name' => $c->name,
+                    'slug' => $c->slug,
+                    'image' => $c->image,
+                ])
+                ->all())
+        )->map(fn (array $c): object => (object) array_merge($c, [
+            'image_url' => ImageService::publicUrl($c['image']),
+        ]));
 
-        $colors = collect(Cache::remember('shop.sidebar.colors', 600, fn () => Color::query()
-            ->where('is_active', true)
-            ->whereHas('products', fn (Builder $q) => $q->where('is_archived', false))
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get(['id', 'name', 'hex_code'])
-            ->map(fn ($c) => (object) $c->toArray())
-            ->all()));
+        $colors = collect(
+            Cache::remember('shop.sidebar.colors', 600, fn () => Color::query()
+                ->where('is_active', true)
+                ->whereHas('products', fn (Builder $q) => $q->where('is_archived', false))
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get(['id', 'name', 'hex_code'])
+                ->map(fn ($c) => $c->toArray())
+                ->all())
+        )->map(fn (array $c): object => (object) $c);
 
-        $sizes = collect(Cache::remember('shop.sidebar.sizes', 600, fn () => Size::query()
-            ->where('is_active', true)
-            ->whereHas('variants.product', fn (Builder $q) => $q->where('is_archived', false)->where('quantity', '>', 0))
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get(['id', 'name'])
-            ->map(fn ($s) => (object) $s->toArray())
-            ->all()));
+        $sizes = collect(
+            Cache::remember('shop.sidebar.sizes', 600, fn () => Size::query()
+                ->where('is_active', true)
+                ->whereHas('variants.product', fn (Builder $q) => $q->where('is_archived', false)->where('quantity', '>', 0))
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->map(fn ($s) => $s->toArray())
+                ->all())
+        )->map(fn (array $s): object => (object) $s);
 
         // The cheapest in-stock variant price for the current filter set,
         // used to render price buckets that actually have products in them.
@@ -240,7 +270,12 @@ class ShopController extends Controller
             'product' => $product,
             'variantsByColor' => $variantsByColor,
             'relatedProducts' => $related,
-            'sizeChart' => null,
+            // The size chart for this product's category, read from the
+            // size_guides / size_guide_rows tables. Null when the admin
+            // has not published a chart for the category yet — the modal
+            // renders its empty state then, instead of a table of
+            // invented numbers.
+            'sizeChart' => $this->sizeGuides->chartForCategory($product->category),
         ]);
     }
 }

@@ -231,16 +231,23 @@ class ShopTest extends TestCase
         $response->assertSee('NEW', false);
     }
 
-    public function test_product_detail_page_has_no_add_to_cart_button(): void
+    public function test_product_detail_page_has_an_add_to_cart_button_that_waits_for_a_choice(): void
     {
-        // Spec: cart backend is not ready — the detail page must not
-        // fake an add-to-cart action.
+        // The cart backend is live, so the detail page offers a real
+        // add-to-cart action instead of a "coming soon" placeholder.
+        // It still ships disabled: the script enables it once a colour
+        // and a size with stock behind them are chosen, so a half-made
+        // choice can never be added.
         $response = $this->get('/shop/drop-02-hoodie');
 
         $response->assertOk();
-        $this->assertStringNotContainsString('>ADD TO CART</span>', $response->getContent());
+        $this->assertStringContainsString('>ADD TO CART</span>', $response->getContent());
+        $response->assertSee('data-product-atc', false);
         $response->assertSee('disabled', false);
-        $response->assertSee('SOON', false);
+
+        // The placeholder is gone — the "coming soon" wording belonged to
+        // the label of that button.
+        $response->assertDontSee('ADD TO CART — SOON', false);
     }
 
     public function test_product_detail_page_returns_404_for_unknown_slug(): void

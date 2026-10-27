@@ -1,23 +1,19 @@
 {{--
-    Order success — polished, brand-aligned. Front-end only.
+    Order success — polished, brand-aligned.
 
-    The JS module (resources/js/success.js) reads the order payload
-    that checkout.js wrote to sessionStorage.abo_last_order and
-    fills in the placeholders below. If the storage key is missing
-    (direct visit / refresh after the sessionStorage is cleared) the
-    JS redirects to /shop — we never show a success state without a
-    real order backing it.
+    Everything on this page is rendered from the Order the server
+    loaded for the order number in the URL
+    (Store\CheckoutController::success). The order is a real row in
+    the `orders` table — there is no client-side copy of it and no
+    sessionStorage payload to lose, so a refresh or a shared link
+    renders the same confirmation.
 
     Personal data (name / phone / address) is deliberately NOT
-    rendered here. The submit flow stores only the line items,
-    subtotal, payment method key, order number and placedAt
-    timestamp. The task spec ("Do not invent addresses…") plus the
-    existing privacy design both forbid displaying more than that.
+    rendered here. The order confirmation shows what was bought, how
+    it is paid for and what it costs — nothing about who it is for.
 
-    VIEW MY ORDERS is intentionally omitted — there is no orders
-    route in this codebase. The task spec says: "If the destination
-    is not implemented, do not create a fake destination… Omit the
-    button or leave it out until the relevant page exists."
+    The JS module (resources/js/success.js) is only responsible for
+    the animated checkmark; every value below is server-rendered.
 --}}
 
 @extends('layouts.store')
@@ -37,11 +33,10 @@
     <section class="checkout-success" aria-labelledby="checkout-success-title">
         <div class="checkout-success__inner">
             {{-- Animated checkmark. SVG path draws in via stroke-dasharray
-                 CSS animation; the whole hero is hidden by default and
-                 the JS removes the [hidden] flag once it has confirmed
-                 the order payload, so the animation only plays after a
-                 real submission. Respects prefers-reduced-motion. --}}
-            <div class="checkout-success__mark" aria-hidden="true" data-checkout-success-mark hidden>
+                 CSS animation. The page is rendered from a real order, so
+                 the animation always plays; it respects
+                 prefers-reduced-motion. --}}
+            <div class="checkout-success__mark" aria-hidden="true" data-checkout-success-mark>
                 <svg viewBox="0 0 80 80" class="checkout-success__mark-svg" focusable="false">
                     <circle
                         class="checkout-success__mark-circle"
@@ -75,53 +70,68 @@
                 Your order is in. We're getting it ready.
             </p>
 
-            {{-- Order info grid. Server-rendered shell with the
-                 data-checkout-success-* hooks the JS fills in. Any
-                 field that's not in the payload stays as a neutral
-                 placeholder (—), never fabricated. --}}
+            {{-- Order info grid. Every value comes from the Order row the
+                 server loaded for this order number — nothing here is a
+                 placeholder waiting for a client-side payload. --}}
             <dl class="checkout-success__info" aria-label="Order details">
                 <div class="checkout-success__info-item">
                     <dt>Order number</dt>
                     <dd class="checkout-success__info-value checkout-success__info-value--accent" data-checkout-success-order>
-                        {{ $order }}
+                        {{ $orderModel->order_number }}
                     </dd>
                 </div>
                 <div class="checkout-success__info-item">
                     <dt>Order date</dt>
                     <dd class="checkout-success__info-value" data-checkout-success-date>
-                        —
+                        {{ $orderModel->created_at->format('D, d M Y · H:i') }}
                     </dd>
                 </div>
                 <div class="checkout-success__info-item">
                     <dt>Payment method</dt>
                     <dd class="checkout-success__info-value" data-checkout-success-payment>
-                        —
+                        {{ $paymentMethods[$orderModel->payment_method]['label'] ?? 'Cash on delivery' }}
                     </dd>
                 </div>
                 <div class="checkout-success__info-item">
                     <dt>Order total</dt>
                     <dd class="checkout-success__info-value checkout-success__info-value--total" data-checkout-success-total>
-                        —
+                        {{ number_format((float) $orderModel->total, 0, '.', ',') }} EGP
                     </dd>
                 </div>
             </dl>
 
-            {{-- Ordered products. The list is filled in by
-                 resources/js/success.js from the order payload. The
-                 server renders only the empty list shell. --}}
+            {{-- Ordered products. The line items the order was created
+                 with, read straight off the order. --}}
             <section class="checkout-success__items" aria-label="Ordered items" data-checkout-success-items-section>
                 <h2 class="checkout-success__items-title">YOUR PIECES</h2>
                 <ul
                     class="checkout-success__items-list"
                     role="list"
                     data-checkout-success-items
-                ></ul>
+                >
+                    @foreach ($orderModel->items as $item)
+                        <li class="checkout-success__item">
+                            <div class="checkout-success__item-body">
+                                <p class="checkout-success__item-name">{{ $item->product_name }}</p>
+                                @if ($item->color_name || $item->size_name)
+                                    <p class="checkout-success__item-chips">
+                                        @if ($item->color_name) Color · {{ $item->color_name }} @endif
+                                        @if ($item->size_name) Size · {{ $item->size_name }} @endif
+                                    </p>
+                                @endif
+                                <p class="checkout-success__item-qty">Qty {{ $item->quantity }}</p>
+                            </div>
+                            <div class="checkout-success__item-total">
+                                {{ number_format((float) $item->total_price, 0, '.', ',') }} EGP
+                            </div>
+                        </li>
+                    @endforeach
+                </ul>
             </section>
 
             {{-- Action buttons. Only CONTINUE SHOPPING is rendered
-                 (primary). VIEW MY ORDERS / TRACK ORDER are omitted
-                 per the task spec: no orders route exists in this
-                 codebase, so no fake destination is created. --}}
+                 (primary) — the confirmation is a dead end the customer
+                 reads, not a place to navigate from. --}}
             <div class="checkout-success__actions">
                 <a class="checkout-success__cta checkout-success__cta--primary" href="{{ route('shop') }}">
                     CONTINUE SHOPPING
@@ -129,22 +139,4 @@
             </div>
         </div>
     </section>
-
-    {{-- Payment-method labels keyed by the same keys the checkout
-         form's <input type="radio" name="payment_method"> uses.
-         success.js looks up the label from this payload so the
-         rendered string ("Cash on delivery") matches the option
-         the customer picked at checkout. --}}
-    <script type="application/json" data-checkout-success-payment-methods>{!! json_encode($paymentMethods, JSON_UNESCAPED_UNICODE) !!}</script>
 @endsection
-
-@push('scripts')
-    <script>
-        // The order number from the URL is passed in as a fallback
-        // for the (rare) case where sessionStorage was cleared
-        // between submit and arrival here. If the storage payload is
-        // missing entirely the JS will redirect to /shop.
-        document.documentElement.dataset.checkoutSuccessPage = '1';
-        window.__checkoutSuccessOrderNumber = @json($order);
-    </script>
-@endpush

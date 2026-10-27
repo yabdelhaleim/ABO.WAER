@@ -27,7 +27,7 @@ class BannerController extends Controller
             'button_text' => $b->button_text,
             'button_text_ar' => $b->button_text_ar,
             'button_url' => $b->button_url,
-            'image_url' => asset('storage/'.$b->image_path),
+            'image_url' => $b->image_url,
             'is_active' => (bool) $b->is_active,
             'sort_order' => $b->sort_order,
         ])->toJson();
@@ -45,7 +45,7 @@ class BannerController extends Controller
         return response()->json([
             'success' => true,
             'banner' => $banner,
-            'image_url' => asset('storage/'.$banner->image_path),
+            'image_url' => $banner->image_url,
         ], 201);
     }
 
@@ -60,7 +60,7 @@ class BannerController extends Controller
         return response()->json([
             'success' => true,
             'banner' => $banner,
-            'image_url' => asset('storage/'.$banner->image_path),
+            'image_url' => $banner->image_url,
         ]);
     }
 

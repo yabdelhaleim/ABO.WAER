@@ -10,7 +10,7 @@
             ['num' => '01', 'label' => 'Overview',    'url' => route('admin.dashboard'),               'active' => request()->routeIs('admin.dashboard*')],
             ['num' => '02', 'label' => 'Orders',      'url' => route('admin.orders.index'),            'active' => request()->routeIs('admin.orders*')],
             ['num' => '03', 'label' => 'Products',    'url' => route('admin.products.index'),          'active' => request()->routeIs('admin.products*')],
-            ['num' => '04', 'label' => 'Customers',   'url' => route('admin.customers.v2'),            'active' => request()->routeIs('admin.customers*')],
+            ['num' => '04', 'label' => 'Customers',   'url' => route('admin.customers.index'),         'active' => request()->routeIs('admin.customers*')],
         ],
         'CATALOG' => [
             ['num' => '05', 'label' => 'Categories',  'url' => route('admin.categories.index'),        'active' => request()->routeIs('admin.categories*')],
@@ -28,7 +28,7 @@
             ['num' => '13', 'label' => 'Reports',     'url' => route('admin.reports.v2'),              'active' => request()->routeIs('admin.reports*')],
         ],
         'SYSTEM' => [
-            ['num' => '14', 'label' => 'Admins',      'url' => route('admin.admins.v2'),               'active' => request()->routeIs('admin.admins*')],
+            ['num' => '14', 'label' => 'Admins',      'url' => route('admin.admins.index'),            'active' => request()->routeIs('admin.admins*')],
             ['num' => '15', 'label' => 'Settings',    'url' => route('admin.settings.v2'),            'active' => request()->routeIs('admin.settings*')],
         ],
     ];

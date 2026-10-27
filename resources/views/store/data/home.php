@@ -39,56 +39,15 @@ return [
 
     'ticker' => 'NOT MADE TO BLEND IN ✦ BETTER THAN YESTERDAY ✦',
 
-    'categories' => [
-        ['name' => 'Hoodies', 'slug' => 'hoodies', 'href' => '/shop?category=hoodies', 'image' => 'images/streetwear-hero.jpg', 'alt' => 'ABO hoodies'],
-        ['name' => 'T-Shirts', 'slug' => 't-shirts', 'href' => '/shop?category=t-shirts', 'image' => 'images/streetwear-hero.jpg', 'alt' => 'ABO t-shirts'],
-        ['name' => 'Pants', 'slug' => 'pants', 'href' => '/shop?category=pants', 'image' => 'images/streetwear-hero.jpg', 'alt' => 'ABO pants'],
-        ['name' => 'Jackets', 'slug' => 'jackets', 'href' => '/shop?category=jackets', 'image' => 'images/streetwear-hero.jpg', 'alt' => 'ABO jackets'],
-    ],
-
-    // Placeholder products — easy to replace when the real catalog
-    // is ready. No fake prices/inventory are persisted in the DB.
-    // Per project policy, sizes and stock are intentionally absent
-    // because the data file does not include them — the Shop page
-    // hides any UI that depends on those fields.
-    'products' => [
-        [
-            'name' => 'Drop 02 Hoodie',
-            'slug' => 'drop-02-hoodie',
-            'price' => 1890,
-            'badge' => 'NEW',
-            'category' => 'hoodies',
-            'colors' => ['#0D0F11', '#F4F6F0', '#C6FF00'],
-            'image' => 'images/streetwear-hero.jpg',
-        ],
-        [
-            'name' => 'Urban Tee — Black',
-            'slug' => 'urban-tee-black',
-            'price' => 690,
-            'badge' => 'BEST SELLER',
-            'category' => 't-shirts',
-            'colors' => ['#0D0F11', '#8D928A'],
-            'image' => 'images/streetwear-hero.jpg',
-        ],
-        [
-            'name' => 'Cargo Pant — Olive',
-            'slug' => 'cargo-pant-olive',
-            'price' => 1450,
-            'badge' => null,
-            'category' => 'pants',
-            'colors' => ['#3E3D2B', '#0D0F11'],
-            'image' => 'images/streetwear-hero.jpg',
-        ],
-        [
-            'name' => 'Limo Bomber — Lime',
-            'slug' => 'limo-bomber-lime',
-            'price' => 2790,
-            'badge' => 'LIMITED',
-            'category' => 'jackets',
-            'colors' => ['#C6FF00', '#0D0F11'],
-            'image' => 'images/streetwear-hero.jpg',
-        ],
-    ],
+    // The catalog is NOT part of this file. The home page reads its
+    // categories and its featured products from the database (see
+    // Store\HomeController), and the storefront pages that used to carry
+    // a static product list now read the same live catalog. Keeping a
+    // second copy of the catalog here is how the storefront ended up
+    // showing products it could not sell.
+    //
+    // What remains below is the editorial chrome: the copy that has no
+    // database table behind it.
 
     'banner' => [
         'eyebrow' => 'STREET ROOTS · GLOBAL CUT',

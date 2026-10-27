@@ -1,167 +1,415 @@
-// ABO Cart — front-end only.
+// ABO Cart — the server owns the cart.
 //
-// State lives in localStorage under the key `abo_cart`. Schema:
-//   {
-//     items: [
-//       {
-//         line_id: string,         // generated client-side, used as the line key
-//         slug:    string,         // must exist in the products payload
-//         color:   string|null,    // must be one of the product's real colors, if set
-//         size:    string|null,    // null until real sizes exist in the data
-//         qty:     int             // clamped into [1, MAX_QTY_PER_LINE] on every write
-//       },
-//       // …
-//     ],
-//   }
+// Every line, every price, every stock figure and the cart total come from
+// the cart API. localStorage is only a cache: it lets the page paint a cart
+// immediately instead of waiting for the network round trip, and it keeps the
+// shape checkout.js reads. It is never the source of truth for a price, a
+// stock count or the total.
 //
-// Identity rule: (slug, color, size) is the cart line. The same
-// product in a different color is a separate line.
+// The endpoints (see routes/web.php):
+//   GET    /cart/summary            → the whole cart plus its totals
+//   POST   /cart/items              → add a variant
+//   PATCH  /cart/items/{id}         → set an exact quantity
+//   DELETE /cart/items/{id}         → drop a line
 //
-// Prices / names / images are NEVER taken from localStorage. They
-// are looked up from the products payload (a <script type="application/json">
-// tag in the page) on every render. Lines whose slug isn't in the
-// payload are dropped silently.
+// Identity rule: one variant is one line. The same product in a different
+// colour or a different size is a separate line, because that is the row the
+// server stores.
 //
-// The 10-cap is enforced in ONE place (`MAX_QTY_PER_LINE`). It is
-// a placeholder until real per-product stock exists in the data
-// file. Defined in JS only for now; if a server-side cap is later
-// added it must be the same value.
+// A guest and a signed-in customer use the same endpoints. The server keys a
+// visitor's cart by the session id and a customer's by their account, so the
+// client never has to know which one it is.
+//
+// The 10-unit cap is enforced in ONE place (MAX_QTY_PER_LINE). It mirrors
+// CartService::MAX_QUANTITY_PER_LINE on the server, which is the figure that
+// actually decides — this one only keeps the stepper honest.
 
-const STORAGE_KEY = 'abo_cart';
+import {
+    STORAGE_KEY,
+    apiRequest,
+    assetUrl,
+    findVariant,
+    findVariantById,
+    formatEGP,
+    readCatalog,
+    showToast,
+} from './cart-client.js';
+
 const MAX_QTY_PER_LINE = 10;
 const UNDO_WINDOW_MS = 5000;
-const TOAST_TIMEOUT_MS = 5000;
 
-// ─── Data ──────────────────────────────────────────────────────────
+const SUMMARY_URL = '/cart/summary';
+const ITEMS_URL = '/cart/items';
 
-function readProducts() {
-    const tag = document.querySelector('[data-cart-products]');
-    if (!tag) return [];
+// ─── State ──────────────────────────────────────────────────────────
+
+const state = {
+    // The cart as it should be drawn right now. Once the server has
+    // answered, this is exactly what the server said.
+    lines: [],
+    // The last subtotal the server reported. While a mutation is in flight
+    // it carries an optimistic figure that the response replaces.
+    subtotal: 0,
+    // Mutations still in flight — used to keep the checkout link honest.
+    pending: 0,
+    // Has the server answered yet? Until it has, the drawing comes from
+    // the cache and is treated as provisional.
+    ready: false,
+};
+
+// ─── Cache ──────────────────────────────────────────────────────────
+
+/**
+ * The browser's copy of the cart.
+ *
+ * It keeps the shape checkout.js reads — slug, colour, size, quantity — and
+ * adds the variant id, because that is the identity the server uses.
+ */
+function readCache() {
     try {
-        const parsed = JSON.parse(tag.textContent || '[]');
-        return Array.isArray(parsed) ? parsed : [];
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return [];
+
+        const parsed = JSON.parse(raw);
+        const items = Array.isArray(parsed?.items) ? parsed.items : [];
+
+        return items.filter((line) => line && typeof line === 'object');
     } catch (e) {
         return [];
     }
 }
 
-function readCart() {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return { items: [] };
-        const parsed = JSON.parse(raw);
-        const items = Array.isArray(parsed?.items) ? parsed.items : [];
-        return { items };
-    } catch (e) {
-        return { items: [] };
-    }
-}
+function writeCache(lines) {
+    const payload = JSON.stringify({
+        items: lines.map((line) => ({
+            line_id: line.line_id,
+            slug: line.slug,
+            color: line.color,
+            size: line.size,
+            qty: line.qty,
+            variant_id: line.variant_id,
+            id: line.id,
+        })),
+    });
 
-function writeCart(cart) {
     try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(cart));
+        // Writing an identical value would wake every other tab for
+        // nothing, and make them ask the server the same question again.
+        if (localStorage.getItem(STORAGE_KEY) === payload) return;
+
+        localStorage.setItem(STORAGE_KEY, payload);
     } catch (e) {
-        // localStorage may be disabled (private mode). Fail silently;
-        // the UI still works for the current session.
+        // localStorage may be disabled (private mode). The server still
+        // holds the cart, so the page keeps working.
     }
 }
 
 // ─── Hydration ─────────────────────────────────────────────────────
 
 /**
- * Returns the current cart, re-validated against the products
- * payload. Lines whose slug is missing or whose color is not a
- * real color of the product are dropped. Qty is clamped.
+ * A line drawn from the server's summary.
+ *
+ * The price and the total come from the server. The colour hex is taken
+ * from the server too, so the swatch is right even for a product that is no
+ * longer in the storefront catalog.
  */
-function hydratedCart() {
-    const products = readProducts();
-    const productsBySlug = new Map(products.map((p) => [p.slug, p]));
-    const raw = readCart();
-    const items = [];
-    let changed = false;
-
-    for (const line of raw.items) {
-        if (!line || typeof line !== 'object') { changed = true; continue; }
-        const product = productsBySlug.get(line.slug);
-        if (!product) { changed = true; continue; }
-
-        const color = (typeof line.color === 'string' && line.color !== '') ? line.color : null;
-        const productColors = Array.isArray(product.colors) ? product.colors : [];
-        if (color !== null && !productColors.includes(color)) { changed = true; continue; }
-
-        const size = (typeof line.size === 'string' && line.size !== '') ? line.size : null;
-
-        const rawQty = Number(line.qty);
-        const qty = Math.max(1, Math.min(MAX_QTY_PER_LINE, Number.isFinite(rawQty) ? Math.floor(rawQty) : 1));
-        if (qty !== line.qty) changed = true;
-
-        items.push({ line_id: String(line.line_id), slug: product.slug, color, size, qty });
-    }
-
-    if (changed) writeCart({ items });
-
-    // Decorate with display fields (name, price, image, line_total)
-    // without ever trusting the stored values.
+function lineFromServer(item) {
     return {
-        items: items.map((line) => {
-            const product = productsBySlug.get(line.slug);
-            return {
-                ...line,
-                name:       product.name,
-                price:      product.price,
-                image:      product.image,
-                category:   product.category,
-                line_total: product.price * line.qty,
-            };
-        }),
+        id: item.id ?? null,
+        variant_id: item.variant_id ?? null,
+        line_id: `v${item.variant_id}`,
+        slug: item.slug ?? null,
+        name: item.name ?? null,
+        image: item.image ?? null,
+        category: null,
+        color: item.color_hex ?? null,
+        color_name: item.color ?? null,
+        size: item.size ?? null,
+        price: Number(item.price) || 0,
+        qty: Number(item.quantity) || 0,
+        line_total: Number(item.line_total) || 0,
+        available_stock: Number(item.available_stock) || 0,
+        is_available: item.is_available !== false,
     };
 }
 
-// ─── Public mutation API (used by tests if needed) ────────────────
+/**
+ * The cart as the cache remembers it, resolved against the catalog.
+ *
+ * A line is only kept when it still names a variant that exists. The lookup
+ * runs against the product's variant list rather than product.colors,
+ * because a product can carry variants whose colour has no row in the
+ * product_colors pivot — dropping those would throw away a choice the
+ * shopper can actually buy.
+ */
+function linesFromCache() {
+    const catalog = readCatalog();
+    const lines = [];
 
-function addLine({ slug, color = null, size = null, qty = 1 }) {
-    const products = readProducts();
-    const product = products.find((p) => p.slug === slug);
-    if (!product) return null;
-    if (color !== null && !product.colors.includes(color)) return null;
-    const cart = readCart();
-    const safeQty = Math.max(1, Math.min(MAX_QTY_PER_LINE, qty));
-    const existing = cart.items.find((l) => l.slug === slug && l.color === color && l.size === size);
-    if (existing) {
-        existing.qty = Math.max(1, Math.min(MAX_QTY_PER_LINE, existing.qty + safeQty));
-    } else {
-        cart.items.push({
-            line_id: cryptoRandomId(),
-            slug, color, size,
-            qty: safeQty,
+    for (const entry of readCache()) {
+        const qty = Math.max(1, Math.min(MAX_QTY_PER_LINE, Math.floor(Number(entry.qty)) || 1));
+
+        let product = null;
+        let variant = null;
+
+        if (entry.variant_id) {
+            const found = findVariantById(catalog, entry.variant_id);
+            if (found) {
+                product = found.product;
+                variant = found.variant;
+            }
+        }
+
+        if (!variant) {
+            const hit = findVariant(catalog, {
+                slug: entry.slug,
+                color: entry.color,
+                size: entry.size,
+            });
+
+            if (hit) {
+                product = findVariantById(catalog, hit.id)?.product || null;
+                variant = hit;
+            }
+        }
+
+        if (!variant) continue;
+
+        const price = Number(variant.price) || 0;
+
+        lines.push({
+            id: entry.id ?? null,
+            variant_id: variant.id,
+            line_id: entry.line_id || `v${variant.id}`,
+            slug: product ? product.slug : entry.slug ?? null,
+            name: product ? product.name : null,
+            image: product ? product.image : null,
+            category: product ? product.category : null,
+            color: variant.color ?? null,
+            color_name: variant.color_name ?? null,
+            size: variant.size ?? null,
+            price,
+            qty,
+            line_total: price * qty,
+            available_stock: Number(variant.stock) || 0,
+            is_available: true,
         });
     }
-    writeCart(cart);
-    return hydratedCart();
+
+    return lines;
 }
 
-function setQty(lineId, qty) {
-    const cart = readCart();
-    const line = cart.items.find((l) => l.line_id === lineId);
-    if (!line) return null;
-    line.qty = Math.max(1, Math.min(MAX_QTY_PER_LINE, Math.floor(Number(qty) || 1)));
-    writeCart(cart);
-    return hydratedCart();
+/**
+ * The cart as it stands.
+ *
+ * The server's answer wins once it has arrived; until then the cache is
+ * painted so the page is never blank while the network catches up.
+ */
+function hydratedCart() {
+    return {
+        items: state.lines,
+        subtotal: state.subtotal,
+        ready: state.ready,
+    };
 }
 
-function removeLine(lineId) {
-    const cart = readCart();
-    const before = cart.items.length;
-    cart.items = cart.items.filter((l) => l.line_id !== lineId);
-    if (cart.items.length === before) return false;
-    writeCart(cart);
+/**
+ * Take the server's summary as the truth.
+ */
+function applySummary(summary) {
+    state.lines = (summary?.items || []).map(lineFromServer);
+    state.subtotal = Number(summary?.subtotal) || 0;
+    state.ready = true;
+
+    writeCache(state.lines);
+}
+
+/**
+ * Pull the cart from the server.
+ *
+ * A failure leaves whatever is on screen alone and says so — the page never
+ * pretends the cart is empty because a request did not land.
+ */
+async function loadSummary({ quiet = false } = {}) {
+    const result = await apiRequest('GET', SUMMARY_URL);
+
+    if (!result.ok) {
+        if (!quiet) {
+            showToast({ text: result.message || 'We could not load your cart.', tone: 'error' });
+        }
+
+        return false;
+    }
+
+    applySummary(result.data);
+    render();
+
     return true;
 }
 
-function cryptoRandomId() {
-    // Reasonable id without crypto.randomUUID dependency.
-    const r = () => Math.random().toString(36).slice(2, 10);
-    return `${Date.now().toString(36)}-${r()}-${r()}`;
+// ─── Public mutation API ───────────────────────────────────────────
+
+/**
+ * Add a variant to the cart.
+ *
+ * The line is drawn straight away and the server is told afterwards. A
+ * refusal rolls the line back and surfaces the reason — out of stock, over
+ * the per-line cap, a variant that is no longer for sale.
+ *
+ * @param {{variant_id?: number, slug?: string, color?: string, size?: string, qty?: number}} options
+ */
+async function addLine({ variant_id = null, slug = null, color = null, size = null, qty = 1 } = {}) {
+    const catalog = readCatalog();
+    let variantId = variant_id ? Number(variant_id) : null;
+
+    if (!variantId) {
+        const variant = findVariant(catalog, { slug, color, size });
+        if (!variant) {
+            showToast({ text: 'That option is no longer available.', tone: 'error' });
+
+            return null;
+        }
+        variantId = variant.id;
+    }
+
+    const quantity = Math.max(1, Math.min(MAX_QTY_PER_LINE, Math.floor(Number(qty)) || 1));
+
+    state.pending += 1;
+    render();
+
+    const result = await apiRequest('POST', ITEMS_URL, {
+        variant_id: variantId,
+        quantity,
+    });
+
+    state.pending -= 1;
+
+    if (!result.ok) {
+        showToast({ text: result.message || 'We could not add that to your cart.', tone: 'error' });
+        render();
+
+        return null;
+    }
+
+    applySummary(result.data?.summary);
+    render();
+
+    return result.data?.item_id ?? null;
+}
+
+/**
+ * Set an exact quantity on a line.
+ */
+async function setQty(lineId, qty) {
+    const line = state.lines.find((entry) => entry.line_id === lineId);
+    if (!line) return null;
+
+    const quantity = Math.max(1, Math.min(MAX_QTY_PER_LINE, Math.floor(Number(qty)) || 1));
+    const previous = line.qty;
+
+    if (quantity === previous) return line;
+
+    if (!line.id) {
+        // The line has no server row yet, so there is nothing to patch.
+        await loadSummary({ quiet: true });
+
+        return null;
+    }
+
+    // Draw the new quantity now; the server's answer replaces it.
+    line.qty = quantity;
+    line.line_total = line.price * quantity;
+    state.subtotal = state.lines.reduce((sum, entry) => sum + entry.line_total, 0);
+    writeCache(state.lines);
+    render();
+
+    state.pending += 1;
+
+    const result = await apiRequest('PATCH', `${ITEMS_URL}/${line.id}`, {
+        quantity,
+    });
+
+    state.pending -= 1;
+
+    if (!result.ok) {
+        showToast({ text: result.message || 'We could not change that quantity.', tone: 'error' });
+
+        // Put the line back the way the server still has it.
+        line.qty = previous;
+        line.line_total = line.price * previous;
+        state.subtotal = state.lines.reduce((sum, entry) => sum + entry.line_total, 0);
+        writeCache(state.lines);
+        render();
+
+        return null;
+    }
+
+    applySummary(result.data?.summary);
+    render();
+
+    return line;
+}
+
+/**
+ * Drop a line from the cart on the server.
+ *
+ * `knownLine` lets the caller hand over the line it already holds. The
+ * undo window needs it: by the time the window closes the line is no
+ * longer in `state.lines`, so looking it up there would find nothing
+ * and the delete would never be sent.
+ */
+async function removeLine(lineId, knownLine = null) {
+    const line = knownLine || state.lines.find((entry) => entry.line_id === lineId);
+    if (!line) return false;
+
+    if (!line.id) {
+        await loadSummary({ quiet: true });
+
+        return false;
+    }
+
+    const result = await apiRequest('DELETE', `${ITEMS_URL}/${line.id}`);
+
+    if (!result.ok) {
+        showToast({ text: result.message || 'We could not remove that item.', tone: 'error' });
+
+        // The server refused, so it still holds the line — put it back
+        // on screen before asking the server what is really there, so
+        // the page and the server never disagree.
+        restoreLine(line);
+        await loadSummary({ quiet: true });
+
+        return false;
+    }
+
+    // The delete endpoint answers 204 with no body, so there is no
+    // summary in the answer to apply. The server is asked again
+    // instead of guessing that the cart is now empty.
+    await loadSummary({ quiet: true });
+
+    return true;
+}
+
+/**
+ * Put a line back on screen.
+ *
+ * Used when a delete is refused: the server still holds the line, so
+ * the page has to show it again. A line that vanished from the screen
+ * while the server kept it would leave the two out of step.
+ */
+function restoreLine(line) {
+    if (!line) return false;
+
+    if (state.lines.some((entry) => entry.line_id === line.line_id)) {
+        return false;
+    }
+
+    state.lines.push(line);
+    state.subtotal = state.lines.reduce((sum, entry) => sum + entry.line_total, 0);
+    writeCache(state.lines);
+    render();
+
+    return true;
 }
 
 // ─── Rendering ─────────────────────────────────────────────────────
@@ -169,12 +417,8 @@ function cryptoRandomId() {
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
-function formatEGP(n) {
-    return `${Number(n).toLocaleString('en-EG')} EGP`;
-}
-
 function itemCount(cart) {
-    return cart.items.reduce((sum, l) => sum + l.qty, 0);
+    return cart.items.reduce((sum, line) => sum + line.qty, 0);
 }
 
 function itemCountLabel(n) {
@@ -185,8 +429,8 @@ function renderRow(line) {
     const li = document.createElement('li');
     li.className = 'cart__row';
     li.dataset.lineId = line.line_id;
-    li.dataset.productSlug = line.slug;
-    li.setAttribute('aria-label', `Cart line for ${line.name}`);
+    li.dataset.productSlug = line.slug || '';
+    li.setAttribute('aria-label', `Cart line for ${line.name || 'this item'}`);
 
     // Thumbnail (real <img> with fallback initial).
     const thumb = document.createElement('div');
@@ -216,28 +460,36 @@ function renderRow(line) {
     const nameLink = document.createElement('a');
     nameLink.className = 'cart__name';
     nameLink.href = productShowUrl(line.slug);
-    nameLink.textContent = line.name;
+    nameLink.textContent = line.name || 'This item';
     body.appendChild(nameLink);
 
-    if (line.color || line.size) {
+    if (line.color_name || line.color || line.size) {
         const chips = document.createElement('div');
         chips.className = 'cart__chips';
-        if (line.color) {
+
+        if (line.color || line.color_name) {
             const chip = document.createElement('span');
             chip.className = 'cart__chip';
-            const dot = document.createElement('span');
-            dot.className = 'cart__chip-dot';
-            dot.style.setProperty('--swatch', line.color);
-            chip.appendChild(dot);
-            chip.appendChild(document.createTextNode(`Color · ${line.color}`));
+
+            // The swatch needs a real colour value, so it takes the hex.
+            if (line.color) {
+                const dot = document.createElement('span');
+                dot.className = 'cart__chip-dot';
+                dot.style.setProperty('--swatch', line.color);
+                chip.appendChild(dot);
+            }
+
+            chip.appendChild(document.createTextNode(`Color · ${line.color_name || line.color}`));
             chips.appendChild(chip);
         }
+
         if (line.size) {
             const chip = document.createElement('span');
             chip.className = 'cart__chip';
             chip.appendChild(document.createTextNode(`Size · ${line.size}`));
             chips.appendChild(chip);
         }
+
         body.appendChild(chips);
     }
 
@@ -250,7 +502,7 @@ function renderRow(line) {
     const stepper = document.createElement('div');
     stepper.className = 'cart__stepper';
     stepper.setAttribute('role', 'group');
-    stepper.setAttribute('aria-label', `Quantity for ${line.name}`);
+    stepper.setAttribute('aria-label', `Quantity for ${line.name || 'this item'}`);
 
     const dec = document.createElement('button');
     dec.type = 'button';
@@ -284,7 +536,7 @@ function renderRow(line) {
     remove.type = 'button';
     remove.className = 'cart__remove';
     remove.dataset.removeLine = '';
-    remove.setAttribute('aria-label', `Remove ${line.name} from cart`);
+    remove.setAttribute('aria-label', `Remove ${line.name || 'this item'} from cart`);
     remove.textContent = 'REMOVE';
     body.appendChild(remove);
 
@@ -295,7 +547,17 @@ function renderRow(line) {
     total.className = 'cart__line-total';
     total.dataset.lineTotal = '';
     total.setAttribute('aria-live', 'polite');
-    total.innerHTML = `<span class="cart__line-total-label">Item total</span><span class="cart__line-total-value">${formatEGP(line.line_total)}</span>`;
+
+    const totalLabel = document.createElement('span');
+    totalLabel.className = 'cart__line-total-label';
+    totalLabel.textContent = 'Item total';
+
+    const totalValue = document.createElement('span');
+    totalValue.className = 'cart__line-total-value';
+    totalValue.textContent = formatEGP(line.line_total);
+
+    total.appendChild(totalLabel);
+    total.appendChild(totalValue);
     li.appendChild(total);
 
     return li;
@@ -305,25 +567,21 @@ function makeInitialPanel(name) {
     const panel = document.createElement('div');
     panel.className = 'cart__thumb-initial';
     panel.textContent = (name || '?').trim().charAt(0).toUpperCase();
+
     return panel;
 }
 
 function withCacheBust(url) {
     if (!url) return url;
+
     return url + (url.includes('?') ? '&' : '?') + 'v=' + Date.now();
 }
 
-function assetUrl(path) {
-    if (!path) return path;
-    if (path.startsWith('http') || path.startsWith('/') || path.startsWith('data:')) return path;
-    return '/' + path.replace(/^\/+/, '');
-}
-
 function productShowUrl(slug) {
+    if (!slug) return '/shop';
+
     return '/shop/' + encodeURIComponent(slug);
 }
-
-// ─── Page render ───────────────────────────────────────────────────
 
 function render() {
     const cart = hydratedCart();
@@ -342,13 +600,14 @@ function render() {
     if (empty) empty.hidden = !isEmpty;
     const grid = $('[data-cart-grid]');
     if (grid) grid.classList.toggle('cart__grid--empty', isEmpty);
-    // Hide the order summary when the cart is empty — the spec
-    // says the empty state is a full-width panel; the summary only
-    // appears once there is something to summarize.
+
+    // Hide the order summary when the cart is empty — the spec says the
+    // empty state is a full-width panel; the summary only appears once
+    // there is something to summarize.
     const summary = $('[data-cart-summary]');
     if (summary) summary.hidden = isEmpty;
 
-    // Counters and totals.
+    // Counters and totals. The subtotal is the server's figure.
     const countEl = $('[data-cart-count]');
     if (countEl) countEl.textContent = itemCountLabel(count);
 
@@ -358,18 +617,17 @@ function render() {
     const sumSubtotal = $('[data-cart-summary-subtotal]');
     const sumTotal = $('[data-cart-summary-total]');
     const sumMobileTotal = $('[data-cart-mobilebar-total]');
-    const subtotal = items.reduce((s, l) => s + l.line_total, 0);
-    const subtotalText = formatEGP(subtotal);
+    const subtotalText = formatEGP(cart.subtotal);
     if (sumSubtotal) sumSubtotal.textContent = subtotalText;
     if (sumTotal) sumTotal.textContent = subtotalText;
     if (sumMobileTotal) sumMobileTotal.textContent = subtotalText;
 
-    // CTA state. The checkout CTAs are <a> elements (real links
-    // that navigate to /checkout). Anchors have no native `disabled`,
-    // so we mirror the disabled state with aria-disabled +
-    // data-disabled + tabindex, and CSS uses [data-disabled="true"]
-    // to dim the button and [aria-disabled="true"] to set
-    // pointer-events: none so the link can't be followed.
+    // CTA state. The checkout CTAs are <a> elements (real links that
+    // navigate to /checkout). Anchors have no native `disabled`, so we
+    // mirror the disabled state with aria-disabled + data-disabled +
+    // tabindex, and CSS uses [data-disabled="true"] to dim the button and
+    // [aria-disabled="true"] to set pointer-events: none so the link can't
+    // be followed.
     const cta = $('[data-cart-checkout]');
     if (cta) {
         if (isEmpty) {
@@ -400,7 +658,7 @@ function render() {
     const mobileBar = $('[data-cart-mobilebar]');
     if (mobileBar) mobileBar.hidden = isEmpty;
 
-    // Nav count badge (live, computed client-side from localStorage).
+    // Nav count badge (live, computed from the cart as it stands).
     syncNavCount(count);
 }
 
@@ -414,6 +672,7 @@ function syncNavCount(n) {
             el.hidden = true;
         }
     }
+
     // Also update the aria-label of the cart link.
     const link = $('[data-nav-cart]');
     if (link) {
@@ -421,89 +680,70 @@ function syncNavCount(n) {
     }
 }
 
-// ─── UNDO toast ────────────────────────────────────────────────────
-
-function showRemovedToast(name) {
-    const host = $('[data-cart-toasts]');
-    if (!host) return null;
-    const toast = document.createElement('div');
-    toast.className = 'cart__toast';
-    toast.setAttribute('role', 'status');
-    toast.innerHTML = `
-        <span class="cart__toast-text"><strong>${escapeHtml(name)}</strong> removed</span>
-        <button type="button" class="cart__toast-undo">UNDO</button>
-    `;
-    host.appendChild(toast);
-    // Animate in next frame.
-    requestAnimationFrame(() => toast.classList.add('is-shown'));
-    return toast;
-}
-
-function removeToast(toast) {
-    if (!toast) return;
-    toast.classList.remove('is-shown');
-    setTimeout(() => toast.remove(), 200);
-}
-
-function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-
 // ─── Pending-removal (UNDO) bookkeeping ────────────────────────────
 
-const pendingRemovals = new Map(); // line_id → { line, timer, toast, rowEl }
+const pendingRemovals = new Map(); // line_id → { line, timer, toast }
 
-// Soft-remove: pulls a line out of the cart immediately and lets
-// the user restore it within 5s. The user said "do not delete on
-// the server until the 5-second undo window ends". Since there is
-// no server, we keep the removed line in a buffer and either
-// restore it (UNDO) or drop it (timer / pagehide).
+// Pull a line out of the cart and let the shopper undo it.
+//
+// The server is not told until the undo window closes, so a line that is
+// restored never had to be re-created. Until the window ends the line is
+// gone from the screen and from the cache.
 function softRemove(lineId) {
-    const cart = hydratedCart();
-    const line = cart.items.find((l) => l.line_id === lineId);
+    const line = state.lines.find((entry) => entry.line_id === lineId);
     if (!line) return;
+
     const row = document.querySelector(`.cart__row[data-line-id="${cssEscape(lineId)}"]`);
     if (row) row.classList.add('is-pending-removal');
-    const toast = showRemovedToast(line.name);
 
-    const undoBtn = toast?.querySelector('.cart__toast-undo');
-    const onUndo = () => {
-        const p = pendingRemovals.get(lineId);
-        if (!p) return;
-        clearTimeout(p.timer);
-        pendingRemovals.delete(lineId);
-        // Restore the line by re-adding (qty preserved).
-        const cartNow = readCart();
-        cartNow.items.push({
-            line_id: line.line_id,
-            slug:    line.slug,
-            color:   line.color,
-            size:    line.size,
-            qty:     line.qty,
-        });
-        writeCart(cartNow);
-        removeToast(toast);
-        render();
-    };
-    if (undoBtn) undoBtn.addEventListener('click', onUndo, { once: true });
+    state.lines = state.lines.filter((entry) => entry.line_id !== lineId);
+    state.subtotal = state.lines.reduce((sum, entry) => sum + entry.line_total, 0);
+    writeCache(state.lines);
+    render();
 
-    // Now actually remove from storage so the totals update.
-    removeLine(lineId);
+    const toast = showToast({
+        strong: line.name || 'This item',
+        text: 'removed',
+        actionLabel: 'UNDO',
+        onAction: () => restorePendingRemoval(lineId),
+    });
 
     const timer = setTimeout(() => {
-        // Window expired — drop the buffer entry permanently.
         pendingRemovals.delete(lineId);
-        removeToast(toast);
-        // Line was already removed from storage; just re-render.
-        render();
+        toast?.dismiss();
+
+        // The undo window closed — the server is told for good. The
+        // line has been off `state.lines` since the click, so it is
+        // handed over here: looking it up by id would find nothing and
+        // the delete would never reach the server.
+        removeLine(lineId, line);
     }, UNDO_WINDOW_MS);
 
-    pendingRemovals.set(lineId, { line, timer, toast, rowEl: row });
+    pendingRemovals.set(lineId, { line, timer, toast });
+}
+
+/**
+ * Put a line back after the shopper hit UNDO.
+ *
+ * The server never heard about the removal, so nothing has to be sent.
+ */
+function restorePendingRemoval(lineId) {
+    const pending = pendingRemovals.get(lineId);
+    if (!pending) return;
+
+    clearTimeout(pending.timer);
+    pendingRemovals.delete(lineId);
+
+    // The server never heard about the removal, so nothing has to be
+    // sent — the line simply goes back where it was.
+    restoreLine(pending.line);
+
     render();
 }
 
 function cssEscape(s) {
     if (window.CSS && window.CSS.escape) return window.CSS.escape(s);
+
     return String(s).replace(/[^a-zA-Z0-9_-]/g, (c) => '\\' + c);
 }
 
@@ -514,74 +754,75 @@ function onListClick(ev) {
     if (stepper) {
         const row = stepper.closest('.cart__row');
         if (!row) return;
+
         const lineId = row.dataset.lineId;
         const action = stepper.dataset.stepperAction;
-        const cart = hydratedCart();
-        const line = cart.items.find((l) => l.line_id === lineId);
+        const line = state.lines.find((entry) => entry.line_id === lineId);
         if (!line) return;
+
         const delta = action === 'inc' ? 1 : -1;
         setQty(lineId, line.qty + delta);
-        render();
+
         // Return focus to the same control (a11y).
         const refreshed = document.querySelector(`.cart__row[data-line-id="${cssEscape(lineId)}"] [data-stepper-action="${action}"]`);
         if (refreshed) refreshed.focus({ preventScroll: true });
+
         return;
     }
+
     const removeBtn = ev.target.closest('[data-remove-line]');
     if (removeBtn) {
         const row = removeBtn.closest('.cart__row');
         if (!row) return;
+
         softRemove(row.dataset.lineId);
+
         return;
     }
-    // Block the checkout link when the cart is empty. The link
-    // already has aria-disabled + data-disabled + tabindex="-1",
-    // and CSS uses those to disable pointer events, but we still
-    // preventDefault here as a belt-and-braces guard for keyboard
-    // activation (Enter on a focused link).
+
+    // Block the checkout link when the cart is empty. The link already has
+    // aria-disabled + data-disabled + tabindex="-1", and CSS uses those to
+    // disable pointer events, but we still preventDefault here as a
+    // belt-and-braces guard for keyboard activation.
     const cta = ev.target.closest('[data-cart-checkout], [data-cart-mobilebar-checkout]');
     if (cta && cta.getAttribute('aria-disabled') === 'true') {
         ev.preventDefault();
-        return;
     }
 }
 
 function onKeydown(ev) {
     if (ev.key === 'Escape') {
-        // Cancel all pending removals (no global "cancel" UI; keeps
-        // semantics close to the toast UNDO button).
-        for (const [lineId, p] of pendingRemovals) {
-            clearTimeout(p.timer);
-            removeToast(p.toast);
-            const cartNow = readCart();
-            cartNow.items.push({
-                line_id: p.line.line_id,
-                slug:    p.line.slug,
-                color:   p.line.color,
-                size:    p.line.size,
-                qty:     p.line.qty,
-            });
-            writeCart(cartNow);
+        // Cancel every pending removal — the lines were never deleted on
+        // the server, so restoring them is enough.
+        for (const lineId of Array.from(pendingRemovals.keys())) {
+            restorePendingRemoval(lineId);
         }
-        pendingRemovals.clear();
-        render();
     }
 }
 
-// If the user leaves the page while removals are pending, drop
-// the buffers permanently (the line was already removed from
-// storage; this is just to free memory).
+/**
+ * The shopper left the page while a removal was still inside its undo
+ * window. The line is gone from the screen, so the server has to hear about
+ * it — `keepalive` lets the request outlive the page.
+ */
 function flushOnLeave() {
-    for (const [, p] of pendingRemovals) {
-        clearTimeout(p.timer);
-        removeToast(p.toast);
+    for (const [lineId, pending] of pendingRemovals) {
+        clearTimeout(pending.timer);
+        pending.toast?.dismiss();
+
+        if (pending.line.id) {
+            apiRequest('DELETE', `${ITEMS_URL}/${pending.line.id}`, null, { keepalive: true });
+        }
+
+        pendingRemovals.delete(lineId);
     }
-    pendingRemovals.clear();
 }
 
-// Listen for cart state changes from other tabs / windows.
+/**
+ * Another tab changed the cart. The server is the truth, so ask it.
+ */
 function onStorage(ev) {
-    if (ev.key === STORAGE_KEY) render();
+    if (ev.key === STORAGE_KEY) loadSummary({ quiet: true });
 }
 
 // ─── Init ──────────────────────────────────────────────────────────
@@ -589,20 +830,30 @@ function onStorage(ev) {
 function init() {
     const list = $('[data-cart-items]');
     if (list) list.addEventListener('click', onListClick);
-    // Checkout CTAs are outside the items list, so listen at the
-    // section level instead. This handles both the desktop
-    // [data-cart-checkout] and the mobile [data-cart-mobilebar-checkout]
-    // anchors, and we already guard against following the link when
-    // the cart is empty.
+
+    // Checkout CTAs are outside the items list, so listen at the section
+    // level instead. This handles both the desktop [data-cart-checkout] and
+    // the mobile [data-cart-mobilebar-checkout] anchors.
     const section = $('.cart');
     if (section) section.addEventListener('click', onListClick);
+
     document.addEventListener('keydown', onKeydown);
     window.addEventListener('pagehide', flushOnLeave);
     window.addEventListener('storage', onStorage);
 
-    // Always run render() on every page (it powers the nav badge
-    // even when we're not on /cart). It's cheap.
+    // The product page tells the cart it changed something.
+    window.addEventListener('abo:cart-updated', () => loadSummary({ quiet: true }));
+
+    // Paint what the cache remembers straight away, then let the server
+    // have the last word.
+    state.lines = linesFromCache();
+    state.subtotal = state.lines.reduce((sum, line) => sum + line.line_total, 0);
+    writeCache(state.lines);
     render();
+
+    // On the cart page a failed load is worth saying out loud — the lines
+    // on screen are only the cache. Elsewhere the badge can stay as it is.
+    loadSummary({ quiet: !list });
 }
 
 // Public surface (handy for tests / external triggers).
@@ -612,6 +863,7 @@ window.ABOCart = {
     setQty,
     removeLine,
     render,
+    loadSummary,
 };
 
 if (document.readyState === 'loading') {

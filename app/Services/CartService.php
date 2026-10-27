@@ -41,7 +41,15 @@ class CartService
      * out-of-stock product still renders, priced at its cheapest variant, and
      * is rejected later by the stock check when it is added.
      *
-     * @return array<int, array{slug: string, name: string, price: float, image: ?string, category: ?string, colors: array<int, string>}>
+     * Every product also carries its own `variants` list, so the browser can
+     * address the exact colour × size row a shopper picked instead of
+     * guessing from the product level. Each entry names the variant id, the
+     * colour hex and its name, the size, that variant's own effective price
+     * and the stock behind it. The variant price is that variant's own
+     * final_price — never the product's cheapest — so the figure quoted for
+     * a combination is the one that combination is sold at.
+     *
+     * @return array<int, array{slug: string, name: string, price: float, image: ?string, category: ?string, colors: array<int, string>, variants: array<int, array{id: int, color: ?string, color_name: ?string, size: ?string, price: float, stock: int}>}>
      */
     public function getStorefrontCatalog(): array
     {
@@ -51,7 +59,8 @@ class CartService
             ->with([
                 'category',
                 'colors',
-                'variants',
+                'variants.color',
+                'variants.size',
                 'productColors.images',
             ])
             ->orderBy('id')
@@ -60,9 +69,14 @@ class CartService
                 'slug' => $product->slug,
                 'name' => $product->name,
                 'price' => $this->catalogPrice($product),
-                'image' => $product->primary_image?->path,
+                'image' => $product->primary_image?->url,
                 'category' => $product->category?->slug,
                 'colors' => $product->colors->pluck('hex_code')->values()->all(),
+                'variants' => $product->variants
+                    ->sortBy('id')
+                    ->values()
+                    ->map(fn (Variant $variant): array => $this->presentVariant($variant))
+                    ->all(),
             ])
             ->all();
     }
@@ -444,14 +458,42 @@ class CartService
             'variant_id' => $item->variant_id,
             'slug' => $item->product?->slug,
             'name' => $item->product?->name,
-            'image' => $item->product?->primary_image?->path,
+            'image' => $item->product?->primary_image?->url,
             'price' => (float) ($variant?->final_price ?? 0),
             'quantity' => $item->quantity,
             'line_total' => $item->line_total,
             'color' => $variant?->color?->name,
+            // The hex of the same colour, so a client can paint the swatch
+            // without holding a catalog of its own. The name above is for
+            // the label; a CSS custom property needs the hex.
+            'color_hex' => $variant?->color?->hex_code,
             'size' => $variant?->size?->name,
             'available_stock' => $variant?->quantity ?? 0,
             'is_available' => $item->is_available,
+        ];
+    }
+
+    /**
+     * Shape one variant for the storefront catalog.
+     *
+     * The price is the variant's own effective price — the discount price
+     * when the variant carries one, its list price otherwise — so a shopper
+     * is quoted for the combination they picked and not for the cheapest
+     * variant of the product. The stock figure is what is actually on the
+     * shelf right now, which is the number the server will check the cart
+     * against.
+     *
+     * @return array{id: int, color: ?string, color_name: ?string, size: ?string, price: float, stock: int}
+     */
+    private function presentVariant(Variant $variant): array
+    {
+        return [
+            'id' => $variant->id,
+            'color' => $variant->color?->hex_code,
+            'color_name' => $variant->color?->name,
+            'size' => $variant->size?->name,
+            'price' => (float) $variant->final_price,
+            'stock' => (int) $variant->quantity,
         ];
     }
 }

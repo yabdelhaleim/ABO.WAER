@@ -14,6 +14,16 @@
 /.zed
 /auth.json
 /node_modules
+# SQLite working copies and the backups taken before a schema change.
+# `abo_store` itself is tracked (pre-existing), but a backup or a stale
+# test database must never reach the repository.
+/abo_store.bak-*
+/abo_store_test.sqlite
+# The agent's own working folder — session plans and scratch scripts.
+# It belongs to the machine, not to the project.
+/.zcode
+# Screenshots written by the browser test runs.
+/gui-test-screenshots
 /public/fonts-manifest.dev.json
 /public/hot
 /public/storage

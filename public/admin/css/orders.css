@@ -98,6 +98,51 @@
     gap: 0.6rem;
 }
 
+/* The chip that says the screen was narrowed to one customer. It
+   takes the whole row, above the filters. */
+.abo-admin-orders__customer-filter {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin: 0 0 0.15rem;
+    padding: 0.45rem 0.7rem;
+    background: var(--abo-admin-bg);
+    border: 1px solid var(--abo-admin-border);
+    border-left: 2px solid var(--abo-lime);
+    border-radius: var(--abo-admin-radius);
+    width: fit-content;
+}
+
+.abo-admin-orders__customer-filter-label {
+    color: var(--abo-admin-gray);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.abo-admin-orders__customer-filter-name {
+    color: var(--abo-admin-text, #fff);
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.abo-admin-orders__customer-filter-clear {
+    color: var(--abo-admin-gray);
+    font-size: 1rem;
+    line-height: 1;
+    text-decoration: none;
+    padding: 0 0.15rem;
+    transition: color 180ms var(--abo-admin-ease, ease);
+}
+
+.abo-admin-orders__customer-filter-clear:hover,
+.abo-admin-orders__customer-filter-clear:focus-visible {
+    color: var(--abo-lime);
+    outline: none;
+}
+
 @media (max-width: 1100px) {
     .abo-admin-orders__toolbar {
         grid-template-columns: 1fr 1fr;

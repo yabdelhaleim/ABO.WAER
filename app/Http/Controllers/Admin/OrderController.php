@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
+use App\Models\Customer;
 use App\Models\Governorate;
 use App\Models\Order;
 use App\Services\Admin\OrderService;
@@ -29,16 +30,27 @@ class OrderController extends Controller
     /**
      * Show the orders screen with the order list and the governorate
      * filter options serialised for the browser.
+     *
+     * The screen can be narrowed to one customer with ?customer=<id> —
+     * that is where the customers screen sends you when you ask to see
+     * the orders of one account. The narrowing happens in the query,
+     * so the page carries the orders of that customer and not the
+     * whole book.
      */
-    public function index(): View
+    public function index(Request $request): View
     {
-        $orders = $this->service->getOrdersPayload();
+        $customerFilter = $this->customerFilter($request);
+
+        $orders = $this->service->getOrdersPayload(
+            $customerFilter === null ? null : (int) $customerFilter['id'],
+        );
 
         return view('admin.orders.index', [
             'ordersJson' => json_encode($orders, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'governorates' => Governorate::query()
                 ->orderBy('name')
                 ->pluck('name'),
+            'customerFilter' => $customerFilter,
             'routes' => [
                 'status' => [
                     'url' => route('admin.orders.status', ['order' => '__ORDER__']),
@@ -54,6 +66,34 @@ class OrderController extends Controller
                 ],
             ],
         ]);
+    }
+
+    /**
+     * The customer the screen is narrowed to, if any.
+     *
+     * An id that belongs to no customer is ignored rather than
+     * refused: a stale link should show the whole list, not an error.
+     *
+     * @return array<string, string>|null
+     */
+    protected function customerFilter(Request $request): ?array
+    {
+        $id = $request->query('customer');
+
+        if (! is_numeric($id) || (int) $id <= 0) {
+            return null;
+        }
+
+        $customer = Customer::query()->find((int) $id);
+
+        if ($customer === null) {
+            return null;
+        }
+
+        return [
+            'id' => (string) $customer->id,
+            'name' => (string) $customer->name,
+        ];
     }
 
     /**

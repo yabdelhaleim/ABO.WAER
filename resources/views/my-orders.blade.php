@@ -1,22 +1,22 @@
 {{--
-    My Orders — front-end only.
+    My Orders.
 
-    Renders the authenticated customer's order history. The page is
-    fully client-rendered from a static mock file
-    (resources/js/orders.mock.js) that lives behind a single
-    `getOrders()` wrapper. No API calls, no storage, no network.
+    Renders the authenticated customer's order history. The orders come
+    from the live API — `GET /orders/data`, which answers with the
+    rows App\Services\OrderService::presentOrder() shapes for the
+    storefront. The customer only ever sees their own orders;
+    ownership is re-checked per order on the server.
 
     The three dev-only states (loading / empty / error) are reachable
     via `?state=loading|empty|error` so designers can review each
     layout without writing any code. The dev switch has no effect
     when the query param is missing — the page falls back to the
-    real (mock) flow.
+    real (API) flow.
 
-    The view only paints the static shell (sidebar, stats, toolbar,
-    list container, toast slot). The JS hydrates the order cards,
-    status badges, totals and toasts. No prices, names or counts
-    are baked into this template — they are all computed in JS from
-    the mock array.
+    The view only paints the shell (sidebar, stats, toolbar, list
+    container, toast slot). The JS hydrates the order cards, status
+    badges, totals and toasts. No prices, names or counts are baked
+    into this template.
 --}}
 
 @extends('layouts.store')
@@ -65,15 +65,17 @@
                 </div>
 
                 <nav class="orders__nav" aria-label="Account sections">
-                    <a href="#" class="orders__nav-link">Profile</a>
+                    <a href="{{ route('account') }}" class="orders__nav-link">Profile</a>
                     <a
-                        href="#"
+                        href="{{ route('orders') }}"
                         class="orders__nav-link is-active"
                         aria-current="page"
                     >My Orders</a>
-                    <a href="#" class="orders__nav-link">Wishlist</a>
-                    <a href="#" class="orders__nav-link">Addresses</a>
-                    <a href="#" class="orders__nav-link">Log out</a>
+                    <a href="{{ route('addresses.index') }}" class="orders__nav-link">Addresses</a>
+                    <form method="POST" action="{{ route('logout') }}" class="orders__nav-form">
+                        @csrf
+                        <button type="submit" class="orders__nav-link">Log out</button>
+                    </form>
                 </nav>
             </aside>
 

@@ -34,7 +34,7 @@ class CategoryController extends Controller
                 'active' => (bool) $cat->is_active,
                 'visibleInStore' => (bool) $cat->is_visible,
                 'showInHomepage' => (bool) $cat->show_in_homepage,
-                'cover' => $cat->image ? asset('storage/'.$cat->image) : null,
+                'cover' => $cat->image_url,
             ];
         });
 

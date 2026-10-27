@@ -198,12 +198,13 @@ class AuthTest extends TestCase
         $response = $this->actingAs($admin, 'admin')->post('/admin/admins', [
             'name' => 'New Admin',
             'email' => 'new@store.com',
+            'role' => 'viewer',
             'password' => 'password123',
             'password_confirmation' => 'password123',
         ]);
 
         $response->assertRedirect(route('admin.admins.index'));
-        $this->assertDatabaseHas('admins', ['email' => 'new@store.com']);
+        $this->assertDatabaseHas('admins', ['email' => 'new@store.com', 'role' => 'viewer']);
     }
 
     public function test_cannot_delete_last_active_admin(): void

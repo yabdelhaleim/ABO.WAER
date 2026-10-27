@@ -2677,6 +2677,20 @@ html:not(.js) .hero__sweep {
     grid-template-columns: repeat(4, 1fr);
     gap: 1rem;
 }
+/* The homepage sections show the database's rows and nothing else, so an
+   empty catalog needs a line of its own instead of an empty grid. */
+.categories__empty,
+.newdrop__empty {
+    grid-column: 1 / -1;
+    margin: 0;
+    padding: clamp(1.5rem, 3vw, 2.5rem) 0;
+    color: var(--abo-gray);
+    font-family: var(--font-sans);
+    font-size: 0.82rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    text-align: center;
+}
 .product {
     position: relative;
     background: var(--abo-panel);
@@ -3513,6 +3527,127 @@ html:not(.js) .hero__sweep {
     text-align: center;
 }
 .shop-loadmore .store-btn { min-width: 220px; }
+
+/* ─── Search page ──────────────────────────────────────────── */
+.search {
+    background: var(--abo-black);
+    padding-top: clamp(2.5rem, 6vw, 5rem);
+}
+.search__head {
+    max-width: var(--container-max);
+    margin: 0 auto 1.6rem;
+    padding: 0 clamp(1.25rem, 4vw, 3rem);
+    text-align: center;
+}
+.search__eyebrow {
+    margin: 0 0 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.7rem;
+    color: var(--abo-gray);
+    font-family: var(--font-sans);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+}
+.search__eyebrow-line {
+    width: 42px;
+    height: 1px;
+    background: var(--abo-lime);
+}
+.search__title {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15em;
+    color: var(--abo-white);
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 5.5vw, 4rem);
+    line-height: 0.95;
+    text-transform: uppercase;
+}
+.search__title-accent { color: var(--abo-lime); }
+.search__form {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 0 clamp(1.25rem, 4vw, 3rem);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+}
+.search__input {
+    flex: 1 1 260px;
+    height: 52px;
+    padding: 0 1rem;
+    background: #000;
+    color: var(--abo-white);
+    border: 1px solid var(--abo-border);
+    border-radius: 6px;
+    font-family: var(--font-sans);
+    font-size: 0.95rem;
+    transition: border-color 200ms var(--abo-ease);
+}
+.search__input::placeholder { color: var(--abo-gray); }
+.search__input:focus {
+    outline: 0;
+    border-color: var(--abo-lime);
+    box-shadow: 0 0 0 3px var(--abo-lime-soft);
+}
+.search__categories {
+    max-width: var(--container-max);
+    margin: clamp(2rem, 4vw, 3rem) auto 0;
+    padding: 0 clamp(1.25rem, 4vw, 3rem);
+}
+.search__section-title {
+    margin: 0;
+    color: var(--abo-gray);
+    font-family: var(--font-sans);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+}
+.search__category-list {
+    list-style: none;
+    padding: 0;
+    margin: 0.8rem 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+.search__category {
+    display: inline-block;
+    padding: 0.5rem 0.9rem;
+    border: 1px solid var(--abo-border);
+    border-radius: 999px;
+    color: var(--abo-white);
+    font-family: var(--font-sans);
+    font-size: 0.76rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    text-decoration: none;
+    transition: border-color 200ms var(--abo-ease), color 200ms var(--abo-ease);
+}
+.search__category:hover {
+    border-color: var(--abo-lime);
+    color: var(--abo-lime);
+}
+.search__count {
+    max-width: var(--container-max);
+    margin: 0 auto 1rem;
+    padding: 0 clamp(1.25rem, 4vw, 3rem);
+    color: var(--abo-gray);
+    font-family: var(--font-sans);
+    font-size: 0.78rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+@media (max-width: 599px) {
+    .search__form { flex-direction: column; }
+    .search__form .store-btn { width: 100%; }
+}
 
 /* ─── Loading skeletons (hidden by default — opt-in via JS) ── */
 .shop-skeletons {

@@ -133,20 +133,34 @@ class CartCatalogTest extends TestCase
         $this->assertSame('Drop 02 Hoodie', $payload[0]['name']);
         $this->assertSame(1890, $payload[0]['price']);
         $this->assertSame('hoodies', $payload[0]['category']);
-        $this->assertSame('images/streetwear-hero.jpg', $payload[0]['image']);
+
+        // The image travels as a full URL the browser can load, not as
+        // a raw disk path — the JS hands it straight to `img.src`.
+        $this->assertSame(asset('images/streetwear-hero.jpg'), $payload[0]['image']);
     }
 
     public function test_cart_payload_ignores_the_static_data_file(): void
     {
-        // The legacy data file still declares four editorial products. Once
-        // the catalog is DB-driven none of them may leak through.
+        // The static data file declares no catalog at all any more — the
+        // payload is built from the products table.
         $static = require resource_path('views/store/data/home.php');
+
+        $this->assertArrayNotHasKey('products', $static);
+        $this->assertArrayNotHasKey('categories', $static);
 
         $payload = $this->cartPayload();
         $slugs = array_column($payload, 'slug');
 
-        foreach ($static['products'] as $product) {
-            $this->assertNotContains($product['slug'], $slugs, "{$product['slug']} came from the static file");
+        // The editorial slugs that used to live in that file reach the
+        // payload only when the database holds them.
+        foreach (['drop-02-hoodie', 'urban-tee-black', 'cargo-pant-olive', 'limo-bomber-lime'] as $slug) {
+            $inDatabase = Product::query()->where('slug', $slug)->exists();
+
+            $this->assertSame(
+                $inDatabase,
+                in_array($slug, $slugs, true),
+                "{$slug} must follow the database, not the static file"
+            );
         }
     }
 
@@ -157,10 +171,11 @@ class CartCatalogTest extends TestCase
 
         $payload = $this->cartPayload();
 
-        // cart.js reads slug / name / price / image / category / colors and
-        // nothing else. A missing key is a silent runtime break, so pin it.
+        // cart.js reads slug / name / price / image / category / colors, plus
+        // the variants list it needs to address an exact colour × size row.
+        // A missing key is a silent runtime break, so pin the whole set.
         $this->assertSame(
-            ['slug', 'name', 'price', 'image', 'category', 'colors'],
+            ['slug', 'name', 'price', 'image', 'category', 'colors', 'variants'],
             array_keys($payload[0]),
         );
     }
@@ -175,6 +190,130 @@ class CartCatalogTest extends TestCase
         // cart.js feeds these straight into a CSS custom property, so they
         // must stay hex strings and not colour names or ids.
         $this->assertEqualsCanonicalizing(['#0D0F11', '#C6FF00'], $payload[0]['colors']);
+    }
+
+    // ─── Variants ────────────────────────────────────────────────
+
+    public function test_payload_exposes_each_variant_with_its_id_colour_size_price_and_stock(): void
+    {
+        $product = Product::factory()->create(['slug' => 'hoodie-01', 'category_id' => $this->hoodies->id]);
+        $variant = $this->attachVariants($product, 1490.0, 8);
+
+        $variants = $this->cartPayload()[0]['variants'];
+
+        // One row per colour the product is offered in.
+        $this->assertCount(2, $variants);
+
+        // The shape is a contract with the browser: it needs the variant id
+        // to address the row and the fields it draws the line with.
+        $this->assertSame(
+            ['id', 'color', 'color_name', 'size', 'price', 'stock'],
+            array_keys($variants[0]),
+        );
+
+        $entry = collect($variants)->firstWhere('id', $variant->id);
+
+        $this->assertSame('#C6FF00', $entry['color']);
+        $this->assertSame('Lime', $entry['color_name']);
+        $this->assertSame('M', $entry['size']);
+        $this->assertSame(1490.0, (float) $entry['price']);
+        $this->assertSame(8, $entry['stock']);
+    }
+
+    public function test_a_variant_is_only_listed_under_its_own_product(): void
+    {
+        $first = Product::factory()->create(['slug' => 'aaa-first', 'category_id' => $this->hoodies->id]);
+        $second = Product::factory()->create(['slug' => 'bbb-second', 'category_id' => $this->hoodies->id]);
+
+        $firstVariant = $this->attachVariants($first, 100.0, 5);
+        $secondVariant = $this->attachVariants($second, 200.0, 5);
+
+        $payload = $this->cartPayload();
+
+        $firstIds = array_column($payload[0]['variants'], 'id');
+        $secondIds = array_column($payload[1]['variants'], 'id');
+
+        $this->assertContains($firstVariant->id, $firstIds);
+        $this->assertNotContains($secondVariant->id, $firstIds);
+
+        $this->assertContains($secondVariant->id, $secondIds);
+        $this->assertNotContains($firstVariant->id, $secondIds);
+    }
+
+    public function test_each_variant_carries_its_own_price_not_the_products_cheapest(): void
+    {
+        $product = Product::factory()->create(['slug' => 'hoodie-01', 'category_id' => $this->hoodies->id]);
+        $cheap = $this->attachVariants($product, 900.0, 5);
+
+        // A second row on the same product, priced higher. The shopper who
+        // picks it must be quoted its own price, not the product's cheapest.
+        $pricey = Variant::create([
+            'product_id' => $product->id,
+            'color_id' => $this->lime->id,
+            'size_id' => $this->sizeL->id,
+            'sku' => 'PRICEY-01',
+            'price' => 2400.0,
+            'cost' => 1200.0,
+            'discount_price' => null,
+            'quantity' => 4,
+        ]);
+
+        $payload = $this->cartPayload();
+        $byId = collect($payload[0]['variants'])->keyBy('id');
+
+        $this->assertSame(900.0, (float) $byId[$cheap->id]['price']);
+        $this->assertSame(2400.0, (float) $byId[$pricey->id]['price']);
+
+        // The product level price is still the cheapest in-stock variant —
+        // that figure belongs to the product card, not to a line.
+        $this->assertSame(900, $payload[0]['price']);
+    }
+
+    public function test_variant_price_keeps_its_fractional_cents(): void
+    {
+        $product = Product::factory()->create(['slug' => 'hoodie-01', 'category_id' => $this->hoodies->id]);
+        $variant = $this->attachVariants($product, 499.75, 5);
+
+        $entry = collect($this->cartPayload()[0]['variants'])->firstWhere('id', $variant->id);
+
+        // 499.75, not the 499 an integer cast would have truncated it to.
+        $this->assertSame(499.75, $entry['price']);
+    }
+
+    public function test_variant_price_uses_the_discounted_price_when_one_is_set(): void
+    {
+        $product = Product::factory()->create(['slug' => 'hoodie-01', 'category_id' => $this->hoodies->id]);
+        $variant = $this->attachVariants($product, 1900.0, 5);
+
+        $variant->update(['discount_price' => 1400.5]);
+
+        $entry = collect($this->cartPayload()[0]['variants'])->firstWhere('id', $variant->id);
+
+        $this->assertSame(1400.5, $entry['price']);
+    }
+
+    public function test_a_sold_out_variant_reports_no_stock_but_keeps_its_price(): void
+    {
+        $product = Product::factory()->create(['slug' => 'hoodie-01', 'category_id' => $this->hoodies->id]);
+        $variant = $this->attachVariants($product, 750.0, 0);
+
+        $entry = collect($this->cartPayload()[0]['variants'])->firstWhere('id', $variant->id);
+
+        $this->assertSame(0, $entry['stock']);
+        $this->assertSame(750.0, (float) $entry['price']);
+    }
+
+    public function test_variants_are_listed_in_a_stable_order(): void
+    {
+        $product = Product::factory()->create(['slug' => 'hoodie-01', 'category_id' => $this->hoodies->id]);
+        $this->attachVariants($product);
+
+        $ids = array_column($this->cartPayload()[0]['variants'], 'id');
+
+        $sorted = $ids;
+        sort($sorted);
+
+        $this->assertSame($sorted, $ids);
     }
 
     // ─── Eligibility ─────────────────────────────────────────────

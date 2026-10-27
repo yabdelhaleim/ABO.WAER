@@ -51,6 +51,18 @@
         ROUTES = {};
     }
 
+    // The customer the screen was narrowed to, when it was opened with
+    // ?customer=<id> — the link from the customers screen. Null when
+    // the whole list is shown.
+    const customerFilterEl = document.getElementById('abo-admin-orders-customer-filter');
+    let CUSTOMER_FILTER = null;
+    try {
+        CUSTOMER_FILTER = JSON.parse(customerFilterEl ? customerFilterEl.textContent : 'null');
+    } catch (err) {
+        console.error('[orders] failed to parse the customer filter', err);
+        CUSTOMER_FILTER = null;
+    }
+
     const csrfToken = () => {
         const meta = document.querySelector('meta[name="csrf-token"]');
         return meta ? meta.getAttribute('content') : '';
@@ -129,6 +141,10 @@
             governorate: '',
             dateFrom:    '',
             dateTo:      '',
+            // The customer the screen was opened for, if any. It is
+            // not one of the toolbar filters: it comes from the URL,
+            // and the toolbar's "Clear filters" leaves it alone.
+            customer:    CUSTOMER_FILTER ? String(CUSTOMER_FILTER.id) : '',
             sort:        { key: 'date', dir: 'desc' },
         },
         page:          1,
@@ -209,6 +225,7 @@
             }
             if (f.payment     && o.payment.method !== f.payment) return false;
             if (f.governorate && o.customer.address.governorate !== f.governorate) return false;
+            if (f.customer    && String(o.customer.id) !== f.customer) return false;
             if (from && o.createdAt < from) return false;
             if (to   && o.createdAt > to)   return false;
             return true;
@@ -249,8 +266,14 @@
     // ─── Render: status tab counts ────────────────────────────
 
     function renderTabCounts() {
-        const counts = { all: state.orders.length };
-        state.orders.forEach((o) => { counts[o.status] = (counts[o.status] || 0) + 1; });
+        // The counts follow the customer filter, so they describe the
+        // orders actually on screen and not the whole book.
+        const scoped = state.filter.customer
+            ? state.orders.filter((o) => String(o.customer.id) === state.filter.customer)
+            : state.orders;
+
+        const counts = { all: scoped.length };
+        scoped.forEach((o) => { counts[o.status] = (counts[o.status] || 0) + 1; });
         $$('[data-abo-admin-orders-tab-count]').forEach((el) => {
             const k = el.getAttribute('data-abo-admin-orders-tab-count');
             el.textContent = '(' + (counts[k] || 0) + ')';
@@ -497,7 +520,10 @@
     }
     $$('[data-abo-admin-orders-clear]').forEach((b) => {
         b.addEventListener('click', () => {
-            state.filter = { tab: 'all', search: '', payment: '', governorate: '', dateFrom: '', dateTo: '', sort: { key: 'date', dir: 'desc' } };
+            // The customer filter comes from the URL, so "Clear
+            // filters" leaves it alone — the chip beside the toolbar
+            // is what takes it off.
+            state.filter = { tab: 'all', search: '', payment: '', governorate: '', dateFrom: '', dateTo: '', customer: state.filter.customer, sort: { key: 'date', dir: 'desc' } };
             if (searchInput)  searchInput.value  = '';
             if (paymentSel)   paymentSel.value   = '';
             if (govSel)       govSel.value       = '';

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Product;
 use Database\Seeders\CatalogSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -249,18 +250,32 @@ class CartTest extends TestCase
         $this->assertContains('#C6FF00', $first['colors']);
     }
 
-    public function test_products_payload_uses_only_real_prices_from_data_file(): void
+    public function test_products_payload_uses_the_live_catalog_prices(): void
     {
-        $data = require resource_path('views/store/data/home.php');
-        $expected = collect($data['products'])->keyBy('slug')->all();
+        // The catalog lives in the database: the payload is priced from
+        // the variant rows, not from a static file.
+        $expected = Product::query()
+            ->with(['variants', 'category'])
+            ->get()
+            ->keyBy('slug');
 
         $products = $this->getProductsPayload();
 
+        $this->assertNotEmpty($products);
+
         foreach ($products as $p) {
-            $this->assertArrayHasKey($p['slug'], $expected, "{$p['slug']} is a real product");
-            $this->assertSame($expected[$p['slug']]['name'], $p['name']);
-            $this->assertSame((int) $expected[$p['slug']]['price'], $p['price']);
-            $this->assertSame($expected[$p['slug']]['image'], $p['image']);
+            $this->assertTrue($expected->has($p['slug']), "{$p['slug']} is a real product");
+
+            $product = $expected->get($p['slug']);
+
+            $this->assertSame($product->name, $p['name']);
+            $this->assertSame((int) $product->min_price, $p['price']);
+            $this->assertSame($product->category?->slug, $p['category']);
+
+            // The image is published as a full URL the browser can load
+            // straight from `img.src`.
+            $this->assertStringStartsWith('http', $p['image']);
+            $this->assertStringEndsWith('streetwear-hero.jpg', $p['image']);
         }
     }
 
@@ -272,7 +287,7 @@ class CartTest extends TestCase
         // The cart page itself must not embed sample prices anywhere
         // outside the products JSON payload.
         $stripped = preg_replace(
-            '/<script type="application\/json" data-cart-products">.*?<\/script>/s',
+            '/<script type="application\/json" data-cart-products>.*?<\/script>/s',
             '',
             $html
         );
@@ -282,11 +297,10 @@ class CartTest extends TestCase
             'cart page must not hard-code sample prices outside the products JSON'
         );
 
-        // The data file prices must match what the page exposes.
-        foreach ($data['products'] as $p) {
-            $this->assertIsInt($p['price']);
-            $this->assertGreaterThan(0, $p['price']);
-        }
+        // The static data file carries no catalog, so no sample price
+        // is left in it that could reach the page.
+        $this->assertArrayNotHasKey('products', $data);
+        $this->assertArrayNotHasKey('categories', $data);
     }
 
     // ─── JS surface ──────────────────────────────────────────────
@@ -295,9 +309,10 @@ class CartTest extends TestCase
     {
         $html = $this->getCartPage();
 
-        // Vite hashes the entry; we just check the entry shape.
+        // Vite hashes the entry; we just check the entry shape. The hash
+        // alphabet is base64url, so it carries "-" and "_" as well.
         $this->assertMatchesRegularExpression(
-            '/<script[^>]+src="[^"]*app-[A-Za-z0-9]+\.js"/',
+            '/<script[^>]+src="[^"]*app-[A-Za-z0-9_-]+\.js"/',
             $html
         );
     }
@@ -316,8 +331,15 @@ class CartTest extends TestCase
         $this->assertStringContainsString('removeLine', $source);
         $this->assertStringContainsString('hydratedCart', $source);
         $this->assertStringContainsString('undo', $source); // UNDO is wired (toast or restored line)
-        $this->assertStringContainsString('crypto.randomUUID', $source) === false
-            || $this->assertStringContainsString('Date.now', $source);
+
+        // The client no longer mints cart ids at all — the server assigns
+        // cart_items.id — so there is no id helper left to depend on. What
+        // must stay true is that nothing reaches for crypto.randomUUID:
+        // it needs a secure context and is simply absent on a plain-http
+        // storefront, where the cart would then break. Date.now() is still
+        // used, for the image cache-bust.
+        $this->assertStringNotContainsString('crypto.randomUUID', $source);
+        $this->assertStringContainsString('Date.now', $source);
     }
 
     public function test_cart_js_does_not_invent_prices_and_only_reads_from_payload(): void
@@ -339,6 +361,139 @@ class CartTest extends TestCase
 
         $this->assertNotFalse($source);
         $this->assertStringContainsString('const MAX_QTY_PER_LINE = 10;', $source);
+    }
+
+    // ─── The client talks to the server ──────────────────────────
+
+    public function test_the_cart_client_calls_the_endpoints_the_server_exposes(): void
+    {
+        $cart = file_get_contents(resource_path('js/cart.js'));
+        $client = file_get_contents(resource_path('js/cart-client.js'));
+
+        $this->assertNotFalse($cart);
+        $this->assertNotFalse($client);
+
+        // The URLs the client hard-codes must be the ones routes/web.php
+        // registers. A renamed route would otherwise break the cart in
+        // the browser only — the server tests would still be green.
+        // route(..., false) gives the path, which is what the client
+        // puts in fetch().
+        $this->assertStringContainsString("'".route('cart.summary', [], false)."'", $cart);
+        $this->assertStringContainsString("'".route('cart.items.store', [], false)."'", $cart);
+
+        // The per-line URLs are built from the collection URL, so they
+        // stay in step with it.
+        $this->assertStringContainsString('${ITEMS_URL}/${line.id}', $cart);
+    }
+
+    public function test_the_cart_client_sends_the_csrf_token_the_layout_publishes(): void
+    {
+        $client = file_get_contents(resource_path('js/cart-client.js'));
+        $layout = file_get_contents(resource_path('views/layouts/store.blade.php'));
+
+        $this->assertNotFalse($client);
+        $this->assertNotFalse($layout);
+
+        // The layout publishes the token...
+        $this->assertStringContainsString('name="csrf-token"', $layout);
+
+        // ...and the client sends it back the way the rest of the project
+        // does.
+        $this->assertStringContainsString('meta[name="csrf-token"]', $client);
+        $this->assertStringContainsString('X-CSRF-TOKEN', $client);
+    }
+
+    public function test_the_cart_client_reports_a_failed_request_instead_of_throwing(): void
+    {
+        $client = file_get_contents(resource_path('js/cart-client.js'));
+
+        $this->assertNotFalse($client);
+
+        preg_match('/export async function apiRequest\(.*?\n}/s', $client, $m);
+        $this->assertNotEmpty($m, 'cart-client.js must export an apiRequest function');
+
+        // A failed request resolves with a reportable result. If it
+        // threw instead, the caller would have to guess what happened and
+        // the page could show a false success.
+        $this->assertStringNotContainsString('throw', $m[0]);
+        $this->assertStringContainsString('ok: false', $m[0]);
+        $this->assertStringContainsString('status: 0', $m[0]);
+    }
+
+    public function test_the_cart_client_prefers_the_field_error_a_422_carries(): void
+    {
+        $client = file_get_contents(resource_path('js/cart-client.js'));
+
+        $this->assertNotFalse($client);
+
+        preg_match('/export function extractErrorMessage\(.*?\n}/s', $client, $m);
+        $this->assertNotEmpty($m, 'cart-client.js must export an extractErrorMessage function');
+
+        $body = $m[0];
+        $errorsAt = strpos($body, 'data.errors');
+        $messageAt = strpos($body, 'data.message');
+
+        $this->assertNotFalse($errorsAt, 'the extractor must look at the field errors');
+        $this->assertNotFalse($messageAt, 'the extractor must fall back to the generic message');
+        $this->assertLessThan(
+            $messageAt,
+            $errorsAt,
+            'the field error (e.g. "Only 3 units left in stock.") must win over the generic 422 message'
+        );
+    }
+
+    public function test_the_cart_draws_what_the_server_said_and_keeps_localstorage_as_a_cache(): void
+    {
+        $cart = file_get_contents(resource_path('js/cart.js'));
+
+        $this->assertNotFalse($cart);
+
+        // The server's answer is what the page draws...
+        $this->assertMatchesRegularExpression(
+            '/state\.lines\s*=\s*\(summary\?\.items \|\| \[\]\)\.map\(lineFromServer\)/',
+            $cart,
+            'the cart lines must come from the server summary'
+        );
+        $this->assertMatchesRegularExpression(
+            '/state\.subtotal\s*=\s*Number\(summary\?\.subtotal\)/',
+            $cart,
+            'the total must be the server figure, never one the client adds up'
+        );
+
+        // ...and the cache is written from it, so the two never drift.
+        $this->assertStringContainsString('writeCache(state.lines);', $cart);
+    }
+
+    public function test_the_cart_adds_by_variant_id_and_not_by_a_guess(): void
+    {
+        $cart = file_get_contents(resource_path('js/cart.js'));
+
+        $this->assertNotFalse($cart);
+
+        // The cart is keyed by variant id, so that is what travels to the
+        // server — a slug or a colour name would be a guess.
+        $this->assertStringContainsString('variant_id: variantId', $cart);
+    }
+
+    public function test_the_undo_window_never_has_to_re_create_the_line(): void
+    {
+        $cart = file_get_contents(resource_path('js/cart.js'));
+
+        $this->assertNotFalse($cart);
+
+        // The server is only told once the undo window closes, so a line
+        // the shopper puts back was never deleted in the first place.
+        preg_match('/function restorePendingRemoval\(.*?\n}/s', $cart, $m);
+        $this->assertNotEmpty($m, 'cart.js must keep a restorePendingRemoval helper');
+        $this->assertStringNotContainsString('apiRequest', $m[0]);
+        $this->assertStringNotContainsString('removeLine', $m[0]);
+
+        // And the deferred delete is what actually happens.
+        preg_match('/function softRemove\(.*?\n}/s', $cart, $m);
+        $this->assertNotEmpty($m, 'cart.js must keep a softRemove helper');
+        $this->assertStringContainsString('setTimeout', $m[0]);
+        $this->assertStringContainsString('removeLine', $m[0]);
+        $this->assertStringContainsString('UNDO', $cart);
     }
 
     // ─── CSS namespace + tokens ──────────────────────────────────

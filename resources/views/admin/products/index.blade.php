@@ -1,15 +1,17 @@
 {{--
-    Admin · Products list (front-end only, static data).
+    Admin · Products list.
 
-    Extends the existing admin layout. No controller, no model.
-    Every row and every filter is hydrated by public/admin/js/products.js
-    from the PRODUCTS array in that same file. Each section that
-    would need real data is marked TODO(backend).
+    The rows come from the products table: Admin\ProductController
+    serialises the catalog into window.__PRODUCTS__ and
+    public/admin/js/products.js draws it. The list used to answer
+    from a hard-coded array of fourteen sample products, so it showed
+    products the store could not sell and every action on them was a
+    no-op.
 
     Page sections (top to bottom):
       1. Page header  — CATALOG eyebrow, "PRO" + "DUCTS" title,
-                        Import / Export / + ADD PRODUCT buttons
-      2. Stat cards   — All / Active / Draft / Low (clickable filter)
+                        Export / + ADD PRODUCT buttons
+      2. Stat cards   — All / Active / Archived / Low (clickable filter)
       3. Filter bar   — search, category, status, stock, sort
       4. Bulk bar     — visible when 1+ row selected
       5. Products table
@@ -28,17 +30,13 @@
 @section('description', 'ABO — admin product catalog: list, filter, bulk actions and stock overview.')
 
 @php
-    // Real Eloquent data is passed by Admin\ProductController::index().
-    // The static option lists below are kept verbatim because the
-    // front-end filter bar expects this exact shape; only the
-    // categories list is now sourced from the database.
+    // The catalog, the categories and the option lists come from
+    // Admin\ProductController::index().
 
     // Categories for the filter (and any future table column).
-    $allCategories = \App\Models\Category::orderBy('sort_order')
-        ->orderBy('name')
-        ->get();
+    $allCategories = $categories ?? collect();
 
-    $categories = collect([['value' => '', 'label' => 'All categories']])
+    $categoryOptions = collect([['value' => '', 'label' => 'All categories']])
         ->merge($allCategories->map(fn ($cat) => [
             'value' => (string) $cat->id,
             'label' => $cat->name,
@@ -46,10 +44,16 @@
         ->values()
         ->all();
 
+    // The same categories for the bulk "change category" picker.
+    $categoriesJson = $allCategories->map(fn ($cat) => [
+        'id' => (string) $cat->id,
+        'name' => $cat->name,
+    ])->values()->all();
+
     $statusOptions = [
         ['value' => '',         'label' => 'All statuses'],
         ['value' => 'active',   'label' => 'Active'],
-        ['value' => 'draft',    'label' => 'Draft'],
+        ['value' => 'archived', 'label' => 'Archived'],
     ];
 
     $stockOptions = [
@@ -72,7 +76,10 @@
 @section('content')
     {{-- Server-rendered payload. The front-end JS hydrates from this
          single JSON blob (replacing the previous static PRODUCTS array). --}}
-    <script type="application/json" data-abo-admin-products-payload>{!! $payloadJson ?? '[]' !!}</script>
+    <script>
+        window.__PRODUCTS__ = @json($payload ?? []);
+        window.__PRODUCT_CATEGORIES__ = @json($categoriesJson ?? []);
+    </script>
 
     {{-- ─── Page header ────────────────────────────────────────── --}}
     <header class="abo-admin-page__head">
@@ -88,24 +95,16 @@
         </div>
 
         <div class="abo-admin-page__head-actions">
-            <button type="button" class="abo-admin-btn abo-admin-btn--ghost"
-                    data-abo-admin-products-action="import">
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                    <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"
-                          stroke="currentColor" stroke-width="1.6" fill="none"
-                          stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                IMPORT
-            </button>
-            <button type="button" class="abo-admin-btn abo-admin-btn--ghost"
-                    data-abo-admin-products-action="export">
+            <a href="{{ route('admin.products.export') }}"
+               class="abo-admin-btn abo-admin-btn--ghost"
+               data-abo-admin-products-action="export">
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path d="M12 21V9m0 0-4 4m4-4 4 4M5 3h14"
                           stroke="currentColor" stroke-width="1.6" fill="none"
                           stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
                 EXPORT
-            </button>
+            </a>
             <a href="{{ route('admin.products.create') }}"
                class="abo-admin-btn abo-admin-btn--primary">
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -134,9 +133,9 @@
             <span class="abo-admin-attention__arrow" aria-hidden="true">→</span>
         </button>
         <button type="button" class="abo-admin-attention__card"
-                data-abo-admin-products-stat="draft">
-            <span class="abo-admin-attention__count" data-abo-admin-products-stat-count="draft">0</span>
-            <span class="abo-admin-attention__label">Draft</span>
+                data-abo-admin-products-stat="archived">
+            <span class="abo-admin-attention__count" data-abo-admin-products-stat-count="archived">0</span>
+            <span class="abo-admin-attention__label">Archived</span>
             <span class="abo-admin-attention__arrow" aria-hidden="true">→</span>
         </button>
         <button type="button" class="abo-admin-attention__card abo-admin-attention__card--coral"
@@ -165,7 +164,7 @@
         <label class="sr-only" for="abo-admin-products-category">Category</label>
         <select id="abo-admin-products-category" class="abo-admin-products__select"
                 data-abo-admin-products-filter="category">
-            @foreach ($categories as $opt)
+            @foreach ($categoryOptions as $opt)
                 <option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>
             @endforeach
         </select>
@@ -211,8 +210,8 @@
                 ACTIVATE
             </button>
             <button type="button" class="abo-admin-btn abo-admin-btn--ghost"
-                    data-abo-admin-products-bulk-action="draft">
-                SET AS DRAFT
+                    data-abo-admin-products-bulk-action="archive">
+                ARCHIVE
             </button>
             <button type="button" class="abo-admin-btn abo-admin-btn--ghost"
                     data-abo-admin-products-bulk-action="category">
@@ -317,7 +316,7 @@
     <div class="abo-admin-products__toast" role="status" aria-live="polite" hidden
          data-abo-admin-products-toast>
         <span class="abo-admin-products__toast-dot" aria-hidden="true"></span>
-        <span class="abo-admin-products__toast-text" data-abo-admin-products-toast-text>Saved (demo)</span>
+        <span class="abo-admin-products__toast-text" data-abo-admin-products-toast-text>Saved</span>
     </div>
 @endsection
 
