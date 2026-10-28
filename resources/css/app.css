@@ -2486,11 +2486,12 @@ html.abo-intro-lock body {
 
 /* Mobile hero: photo behind text at ~50% opacity. */
 @media (max-width: 899px) {
+    /* Reduce hero height on mobile → less zoom on the landscape photo. */
     .hero {
-        min-height: 92dvh;
+        min-height: 86dvh;
     }
     .hero__container {
-        min-height: 92dvh;
+        min-height: 86dvh;
         align-items: flex-end;
         padding-bottom: 2.5rem;
     }
@@ -2499,27 +2500,29 @@ html.abo-intro-lock body {
         padding-top: 0;
         padding-bottom: 0;
         min-height: auto;
-        gap: 1.2rem;
+        gap: 1rem;
     }
     .hero__photo {
         width: 100%;
-        /* Shift right to frame the model's face, not the back of the head */
-        object-position: 68% 22%;
+        /* The model's face sits at ~58-62% from the left of the source image.
+           Values below 50% show back of head; values above 68% crop into the
+           jacket logo. 60% centres the face in the portrait crop. */
+        object-position: 60% top;
         opacity: 1;
     }
     .hero__photo-wrap::after {
-        /* Soft neon glow where the ABO wall logo lives (top-left),
-           strong dark scrim at the bottom 40% so text is readable. */
+        /* Neon lime glow on left (ABO wall logo side) + strong dark-to-bottom
+           scrim so the text block at the bottom is always readable. */
         background:
-            radial-gradient(ellipse 55% 40% at 20% 15%, rgba(198, 255, 0, 0.09) 0%, transparent 65%),
+            radial-gradient(ellipse 55% 40% at 18% 18%, rgba(198, 255, 0, 0.10) 0%, transparent 65%),
             linear-gradient(180deg,
-                rgba(5, 6, 7, 0.10) 0%,
-                rgba(5, 6, 7, 0.08) 30%,
-                rgba(5, 6, 7, 0.60) 58%,
-                var(--abo-black) 85%);
+                rgba(5, 6, 7, 0.08) 0%,
+                rgba(5, 6, 7, 0.06) 28%,
+                rgba(5, 6, 7, 0.55) 54%,
+                var(--abo-black) 82%);
     }
     .hero__headline {
-        font-size: clamp(36px, 11vw, 60px);
+        font-size: clamp(34px, 10vw, 56px);
     }
     .hero__stats {
         gap: 1.2rem;

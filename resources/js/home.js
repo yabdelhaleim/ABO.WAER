@@ -88,11 +88,16 @@ function initHero() {
 
     function start() {
         const startTime = performance.now();
+        // On touch devices the 2.6s entrance is imperceptibly long and the
+        // user may not wait. Scale the whole timeline to 600ms instead so
+        // the text is visible within half a second of the reveal event.
+        const mobileDuration = 600;
+        const timeScale = isTouch() ? (HOME_TOTAL_MS / mobileDuration) : 1;
         const raf = { id: 0, done: false };
 
         function tick(now) {
             if (raf.done) return;
-            const elapsed = now - startTime;
+            const elapsed = (now - startTime) * timeScale;
             if (elapsed >= HOME_TOTAL_MS) {
                 applyFrame(HOME_TOTAL_MS, els, finalStats, /* countUp */ true);
                 finalize(els);
