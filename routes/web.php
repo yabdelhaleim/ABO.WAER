@@ -19,6 +19,7 @@ use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\ShippingController;
 use App\Http\Controllers\Admin\SizeGuideController;
+use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\CampaignTrackingController;
@@ -138,6 +139,10 @@ Route::middleware(['web', 'guest'])->group(function () {
     Route::get('/login', [LoginController::class, 'create'])->name('login');
     Route::post('/login', [LoginController::class, 'store'])
         ->middleware('throttle:login');
+
+    // Google OAuth routes
+    Route::get('/auth/google', [GoogleAuthController::class, 'redirect'])->name('auth.google');
+    Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->name('auth.google.callback');
 });
 
 // ─── Store: Auth ─────────────────────────────────────────────────────────────
@@ -318,6 +323,12 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         // DashboardController::rangeData against DashboardService::RANGES —
         // the same list the buttons render from.
         Route::get('/dashboard/range/{range}', [DashboardController::class, 'rangeData'])->name('dashboard.range');
+
+        // The EXPORT REPORT button on the dashboard header. It streams
+        // the same blocks the screen draws — summary, sales vs profit,
+        // status split, attention strip, low stock — for the range the
+        // admin is looking at.
+        Route::get('/dashboard/export', [DashboardController::class, 'export'])->name('dashboard.export');
     });
 
     // Admins — the back office itself. Only the owner reaches the

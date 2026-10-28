@@ -72,10 +72,17 @@
                             @class(['is-active' => $range === $value])>{{ $label }}</button>
                 @endforeach
             </div>
-            <button type="button" class="abo-admin-btn abo-admin-btn--ghost">
+            {{-- EXPORT REPORT downloads the dashboard as a CSV for the
+                 range that is selected. The URL carries the same
+                 `{range}` placeholder as the segmented control, so
+                 admin.js keeps it pointing at the range on screen. --}}
+            <a class="abo-admin-btn abo-admin-btn--ghost"
+               data-abo-admin-export
+               data-abo-admin-export-url="{{ route('admin.dashboard.export', ['range' => '__range__']) }}"
+               href="{{ route('admin.dashboard.export', ['range' => $range]) }}">
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 EXPORT REPORT
-            </button>
+            </a>
         </div>
     </header>
 

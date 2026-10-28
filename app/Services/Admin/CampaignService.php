@@ -26,10 +26,12 @@ class CampaignService
     /**
      * Build the four KPI numbers shown on the campaigns index header.
      *
-     * - active_campaigns_count: campaigns currently in the 'active' status.
-     * - total_sent_count:       cumulative messages sent across every campaign.
-     * - avg_open_rate:          mean open rate % over campaigns with sent_count > 0.
-     * - avg_click_rate:         mean click-through rate % over campaigns with sent_count > 0.
+     * - active_campaigns_count:   campaigns currently in the 'active' status.
+     * - scheduled_campaigns_count: campaigns waiting for their scheduled_for
+     *   to elapse — the scheduler promotes them a minute later.
+     * - total_sent_count:         cumulative messages sent across every campaign.
+     * - avg_open_rate:            mean open rate % over campaigns with sent_count > 0.
+     * - avg_click_rate:           mean click-through rate % over campaigns with sent_count > 0.
      *
      * The averages are computed in PHP so a division-by-zero on a single
      * campaign can never tank the stat; the query filters that case out
@@ -37,6 +39,7 @@ class CampaignService
      *
      * @return array{
      *     active_campaigns_count: int,
+     *     scheduled_campaigns_count: int,
      *     total_sent_count: int,
      *     avg_open_rate: float,
      *     avg_click_rate: float

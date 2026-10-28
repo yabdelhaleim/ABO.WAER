@@ -290,10 +290,26 @@ class CampaignAdminTest extends TestCase
         $response->assertOk()
             ->assertViewHas('stats', function (array $stats): bool {
                 return $stats['active_campaigns_count'] === 2
+                    && $stats['scheduled_campaigns_count'] === 1
                     && $stats['total_sent_count'] === 3000
                     && abs($stats['avg_open_rate'] - 35.0) < 0.01
                     && abs($stats['avg_click_rate'] - 10.0) < 0.01;
             });
+    }
+
+    public function test_the_scheduled_kpi_card_shows_the_real_count(): void
+    {
+        Campaign::factory()->scheduled()->count(3)->create();
+        Campaign::factory()->active()->create();
+
+        $response = $this->actingAsAdmin()
+            ->get(route('admin.campaigns.index'));
+
+        // The card used to be hardcoded to '0' — a number that could
+        // never be right no matter what the database held.
+        $response->assertOk()
+            ->assertSee('Scheduled')
+            ->assertSee('>3<', false);
     }
 
     // ─── Send now ─────────────────────────────────────────────────────

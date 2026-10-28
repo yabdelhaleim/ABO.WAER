@@ -48,13 +48,14 @@
     // the static fixture that used to live at the top of the file.
 
     $activeCampaignsCount = number_format((int) ($stats['active_campaigns_count'] ?? 0));
+    $scheduledCampaignsCount = number_format((int) ($stats['scheduled_campaigns_count'] ?? 0));
     $totalSentCount = number_format((int) ($stats['total_sent_count'] ?? 0));
     $avgOpenRate = number_format((float) ($stats['avg_open_rate'] ?? 0), 1);
     $avgClickRate = number_format((float) ($stats['avg_click_rate'] ?? 0), 1);
 
     $statCards = [
         ['key' => 'active',    'label' => 'Active',           'value' => $activeCampaignsCount,      'tone' => 'lime'],
-        ['key' => 'scheduled', 'label' => 'Scheduled',        'value' => '0',                       'tone' => 'amber'],
+        ['key' => 'scheduled', 'label' => 'Scheduled',        'value' => $scheduledCampaignsCount,    'tone' => 'amber'],
         ['key' => 'sent',      'label' => 'Total messages sent','value' => $totalSentCount,          'tone' => 'olive'],
         ['key' => 'open',      'label' => 'Avg open rate',    'value' => $avgOpenRate.'%',          'tone' => 'lime'],
     ];

@@ -1,8 +1,8 @@
 /*
  * ABO Admin · Categories — page-local script (front-end only).
  *
- * Pure DOM behaviour for the static categories demo:
- *   - renders the tree from a static CATEGORIES array below
+ * DOM behaviour for the categories screen:
+ *   - renders the tree from the categories the server sent
  *   - keeps the "selected" row in sync with the edit panel
  *   - search filter that keeps parents of matches visible
  *   - expand / collapse parent nodes (or all at once)
@@ -12,9 +12,14 @@
  *   - cover-image local preview (URL.createObjectURL, no upload)
  *   - one shared delete-confirm modal + toast
  *
- * No fetch / XHR / storage. The only persistence is the optional
- * `state` object that holds transient UI (selected ID, expanded set,
- * dirty flag) — it is reset on every page load.
+ * The tree comes from Admin\CategoryController (the `categories`
+ * table) and every change — reorder, rename, toggle, delete — goes
+ * back to the server. A refused change puts the tree back the way
+ * the database still sees it.
+ *
+ * The only local state is the `state` object that holds transient UI
+ * (selected ID, expanded set, dirty flag) — it is reset on every
+ * page load.
  *
  * Markup anchor points (every selector uses data-* attributes):
  *   [data-abo-admin-categories]                — page root
@@ -35,12 +40,14 @@
 (function () {
     'use strict';
 
-    /* ─── Static sample data ─────────────────────────────────────
+    /* ─── The categories the server sent ────────────────────────
      *
-     * TODO(backend): replace this array with real data fetched
-     * server-side from the categories table (parent / child relations,
-     * product counts, cover URLs, etc.). The view shape is final;
-     * only the data source changes.
+     * Admin\CategoryController reads the tree out of the `categories`
+     * table and publishes it as `window.__CATEGORIES__` in the page.
+     * There is no fallback array: when the payload is missing the
+     * screen shows its empty state, because a tree of invented
+     * categories is worse than no tree at all — the operator would
+     * be editing rows the database does not hold.
      *
      * Shape per node:
      *   { id, parentId | null, name, nameAr, slug, products, active,
@@ -48,20 +55,7 @@
      */
     const CATEGORIES = (typeof window !== 'undefined' && Array.isArray(window.__CATEGORIES__))
         ? window.__CATEGORIES__
-        : [
-        { id: 'c-hoodies',   parentId: null,       name: 'Hoodies',     nameAr: 'هوديز',       slug: 'hoodies',     products: 24, active: true,  cover: null },
-        { id: 'c-hoodies-o', parentId: 'c-hoodies', name: 'Oversize',    nameAr: 'أوفرسايز',    slug: 'oversize',    products: 12, active: true,  cover: null },
-        { id: 'c-hoodies-z', parentId: 'c-hoodies', name: 'Zip hoodies', nameAr: 'هوديز بسوست', slug: 'zip-hoodies', products:  6, active: true,  cover: null },
-        { id: 'c-pants',     parentId: null,       name: 'Pants',       nameAr: 'بناطيل',      slug: 'pants',       products: 18, active: true,  cover: null },
-        { id: 'c-tshirts',   parentId: null,       name: 'T-Shirts',    nameAr: 'تيشيرتات',    slug: 't-shirts',    products: 32, active: true,  cover: null },
-        { id: 'c-jackets',   parentId: null,       name: 'Jackets',     nameAr: 'جاكتات',      slug: 'jackets',     products:  9, active: true,  cover: null },
-        { id: 'c-acc',       parentId: null,       name: 'Accessories', nameAr: 'إكسسوارات',   slug: 'accessories', products:  0, active: false, cover: null },
-        { id: 'c-acc-b',     parentId: 'c-acc',    name: 'Bags',        nameAr: 'حقائب',       slug: 'bags',        products:  4, active: true,  cover: null },
-        { id: 'c-acc-c',     parentId: 'c-acc',    name: 'Caps',        nameAr: 'كابات',       slug: 'caps',        products:  3, active: true,  cover: null },
-        { id: 'c-sets',      parentId: null,       name: 'Sets',        nameAr: 'طقم',         slug: 'sets',        products:  7, active: true,  cover: null },
-        { id: 'c-sets-w',    parentId: 'c-sets',   name: 'Winter sets', nameAr: 'طقم شتوي',   slug: 'winter-sets', products:  5, active: true,  cover: null },
-        { id: 'c-sets-s',    parentId: 'c-sets',   name: 'Summer sets', nameAr: 'طقم صيفي',   slug: 'summer-sets', products:  2, active: true,  cover: null },
-    ];
+        : [];
 
     /* ─── Local UI state (never persisted) ────────────────────── */
 
@@ -1310,33 +1304,21 @@
 
     /* ─── Initial render ─────────────────────────────────────────
      *
-     * Show the skeleton for ~600ms so the loading state is visible
-     * even on a static page; then reveal the tree. This is a
-     * demo affordance — in the real backend version, the skeleton
-     * is shown until the fetch resolves. */
+     * The categories arrive with the page — Admin\CategoryController
+     * publishes them as `window.__CATEGORIES__` before this script
+     * runs — so the tree is drawn straight away. The skeleton used to
+     * sit on screen for 600 ms to simulate a fetch that does not
+     * exist; there is nothing to wait for any more. */
 
-    const skeletonDelayMs = 600;
+    renderTree();
+    wireTreeGlobal();
+    wireToolbar();
+    wirePanel();
+    wireModal();
 
-    setTimeout(() => {
-        renderTree();
-        wireTreeGlobal();
-        wireToolbar();
-        wirePanel();
-        wireModal();
-        // The panel starts in "no selection" mode — show it on mobile
-        // only after the user clicks a row.
-        if (isMobile() && panelEl) panelEl.classList.remove('is-open');
-    }, skeletonDelayMs);
-
-    // Also render immediately so the empty state shows if no categories.
-    if (CATEGORIES.length === 0) {
-        if (skeletonEl) skeletonEl.hidden = true;
-        renderTree();
-        wireTreeGlobal();
-        wireToolbar();
-        wirePanel();
-        wireModal();
-    }
+    // The panel starts in "no selection" mode — show it on mobile
+    // only after the user clicks a row.
+    if (isMobile() && panelEl) panelEl.classList.remove('is-open');
 
     // Re-render when the viewport crosses the mobile breakpoint so the
     // panel state stays in sync.

@@ -186,6 +186,15 @@
     /* ─── Color rendering ──────────────────────────────────────── */
 
     const colorById = (id) => COLORS.find((c) => c.id === id);
+
+    /**
+     * How many products use the colour being edited — the count the
+     * server measured with `withCount('products')`.
+     */
+    const previewProductCount = () => {
+        const existing = state.editingColor ? colorById(state.editingColor.id) : null;
+        return existing ? Number(existing.products) || 0 : 0;
+    };
     const orderIndex = (id) => COLORS.findIndex((c) => c.id === id);
 
     /* ─── Talking to the server ────────────────────────────────── */
@@ -627,6 +636,8 @@
     const previewEl     = $('[data-abo-admin-cs-preview]');
     const previewImgEl  = $('[data-abo-admin-cs-preview-img]');
     const previewDotEl  = $('[data-abo-admin-cs-preview-dot]');
+    const previewNameEl = $('[data-abo-admin-cs-preview-name]');
+    const previewUsageEl = $('[data-abo-admin-cs-preview-usage]');
     const activeInput   = $('[data-abo-admin-cs-active]');
     const saveBtn       = $('[data-abo-admin-cs-save]');
     const deleteBtn     = $('[data-abo-admin-cs-delete]');
@@ -656,7 +667,7 @@
         if (hexPicker) {
             hexPicker.value = isHex(e.hex) ? expandHex(e.hex) : '#000000';
         }
-        renderPreview(e.hex);
+        renderPreview(e.hex, e.name, existing ? existing.products : 0);
 
         // Toggle "Active (visible in store)"
         if (activeInput) {
@@ -681,7 +692,17 @@
         applyHexValidation(hexInput ? hexInput.value : e.hex);
     };
 
-    const renderPreview = (hex) => {
+    /**
+     * The preview card: the swatch, the colour's name and how many
+     * products in the catalogue use it.
+     *
+     * The card used to show a made-up "Sample product" priced at
+     * $0.00 — a product that does not exist. Now the two numbers under
+     * the swatch are the colour's own: the name the operator typed (or
+     * the one the server sent) and the product count the server
+     * measured with `withCount('products')`.
+     */
+    const renderPreview = (hex, name, products) => {
         const safe = isHex(hex) ? expandHex(hex) : '#808080';
         if (previewEl) {
             previewEl.style.setProperty('--swatch', safe);
@@ -691,6 +712,15 @@
         }
         if (previewDotEl) {
             previewDotEl.style.setProperty('--swatch', safe);
+        }
+        if (previewNameEl) {
+            previewNameEl.textContent = name || '—';
+        }
+        if (previewUsageEl) {
+            const count = Number(products) || 0;
+            previewUsageEl.textContent = count === 1
+                ? 'Used by 1 product'
+                : `Used by ${count} products`;
         }
     };
 
@@ -743,6 +773,7 @@
             nameInput.addEventListener('input', () => {
                 if (!state.editingColor) return;
                 state.editingColor.name = nameInput.value;
+                renderPreview(state.editingColor.hex, nameInput.value, previewProductCount());
                 markColorDirty();
             });
         }
@@ -761,8 +792,8 @@
                 applyHexValidation(raw);
                 if (isHex(raw) && hexPicker) {
                     hexPicker.value = expandHex(raw);
-                    renderPreview(raw);
                 }
+                renderPreview(raw, state.editingColor.name, previewProductCount());
                 markColorDirty();
             });
         }
@@ -773,7 +804,7 @@
                 state.editingColor.hex = v;
                 if (hexInput) hexInput.value = v;
                 applyHexValidation(v);
-                renderPreview(v);
+                renderPreview(v, state.editingColor.name, previewProductCount());
                 markColorDirty();
             });
         }

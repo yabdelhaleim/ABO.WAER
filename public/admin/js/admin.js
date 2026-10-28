@@ -509,6 +509,14 @@ function initRange() {
     const buttons = $$('button[data-range]', wrap);
     const urlTemplate = wrap.dataset.aboAdminRangeUrl || '/admin/dashboard/range/__range__';
 
+    // The EXPORT REPORT link downloads the dashboard for the range that
+    // is on screen, so its URL follows the segmented control. The
+    // template comes from the view (the route lives with the view that
+    // serves it), and the placeholder is the same one the range
+    // endpoint uses.
+    const exportLink = $('[data-abo-admin-export]');
+    const exportTemplate = exportLink?.dataset.aboAdminExportUrl || '';
+
     // Ignore responses for a range the admin has already moved on
     // from, so a slow reply cannot repaint the page with stale numbers.
     let requested = null;
@@ -520,6 +528,13 @@ function initRange() {
             b.setAttribute('aria-selected', isActive ? 'true' : 'false');
         }
         wrap.dataset.aboAdminRangeActive = range;
+
+        if (exportLink && exportTemplate) {
+            exportLink.setAttribute(
+                'href',
+                exportTemplate.replace('__range__', encodeURIComponent(range))
+            );
+        }
     }
 
     function apply(data) {

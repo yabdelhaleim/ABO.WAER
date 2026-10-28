@@ -439,6 +439,88 @@ class DashboardService
     }
 
     /**
+     * The dashboard as a spreadsheet — one section per block the screen
+     * draws, in the same order.
+     *
+     * The numbers come from the same private helpers the page render
+     * uses (`totalsBetween()`, `seriesFor()`, `getOrdersByStatus()`),
+     * so the file can never disagree with the screen it was exported
+     * from. Unlike the on-screen chart — which plots thousands of EGP
+     * so the bars fit — the cells here carry the exact amounts, which
+     * is what a spreadsheet is for.
+     *
+     * @return array<int, array{title: string, headers: array<int, string>, rows: array<int, array<int, mixed>>}>
+     */
+    public function exportSections(string $range = self::DEFAULT_RANGE): array
+    {
+        $range = $this->normalizeRange($range);
+
+        [$from, $to] = $this->rangeBounds($range);
+        $totals = $this->totalsBetween($from, $to);
+
+        $sales = (float) $totals['sales'];
+        $profit = $sales - (float) $totals['cogs'];
+        $orders = (int) $totals['orders_count'];
+        $avgOrder = $orders > 0 ? $sales / $orders : 0.0;
+
+        return [
+            [
+                'title' => 'SUMMARY — '.self::RANGE_LABELS[$range],
+                'headers' => ['Metric', 'Value'],
+                'rows' => [
+                    ['Range', $from->toDateString().' → '.$to->toDateString()],
+                    ['Sales (EGP)', $sales],
+                    ['Cost of goods (EGP)', (float) $totals['cogs']],
+                    ['Net profit (EGP)', $profit],
+                    ['Orders', $orders],
+                    ['Average order (EGP)', $avgOrder],
+                    ['Cancelled orders', (int) $totals['returns_count']],
+                    ['Cancelled value (EGP)', (float) $totals['returns_total']],
+                ],
+            ],
+            [
+                'title' => 'SALES VS PROFIT',
+                'headers' => ['Period', 'Sales (EGP)', 'Profit (EGP)', 'Orders', 'Cancelled'],
+                'rows' => array_map(fn (array $bucket): array => [
+                    $bucket['label'],
+                    $bucket['sales'],
+                    $bucket['profit'],
+                    $bucket['orders'],
+                    $bucket['returns'],
+                ], $this->seriesFor($range)),
+            ],
+            [
+                'title' => 'ORDERS BY STATUS',
+                'headers' => ['Status', 'Orders', 'Share %'],
+                'rows' => array_map(fn (array $bucket): array => [
+                    $bucket['label'],
+                    $bucket['count'],
+                    $bucket['percent'],
+                ], $this->getOrdersByStatus()),
+            ],
+            [
+                'title' => 'NEEDS ATTENTION',
+                'headers' => ['Item', 'Count'],
+                'rows' => array_map(fn (array $card): array => [
+                    $card['label'],
+                    $card['count'],
+                ], $this->getAttentionMetrics()),
+            ],
+            [
+                'title' => 'LOW STOCK',
+                'headers' => ['Product', 'Variant', 'Stock'],
+                'rows' => $this->getLowStockItems(50)
+                    ->map(fn (array $item): array => [
+                        $item['product'],
+                        $item['variant'],
+                        $item['stock'],
+                    ])
+                    ->all(),
+            ],
+        ];
+    }
+
+    /**
      * Coerce a caller-supplied range onto one of `RANGES`.
      *
      * The controller rejects unknown values with a 422 before calling

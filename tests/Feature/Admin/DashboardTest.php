@@ -382,6 +382,46 @@ class DashboardTest extends TestCase
             ->assertSee('Stock levels look good.');
     }
 
+    // ─── Export ──────────────────────────────────────────────────────────
+
+    public function test_the_export_button_points_at_the_dashboard_export(): void
+    {
+        // The button used to be a <button> with no handler — clicking
+        // it did nothing at all. It is a link now, and the link carries
+        // the range the screen is showing.
+        $response = $this->actingAsAdmin()->get(route('admin.dashboard', ['range' => '7d']));
+
+        $response->assertOk()
+            ->assertSee('data-abo-admin-export', false)
+            ->assertSee(route('admin.dashboard.export', ['range' => '7d']), false);
+    }
+
+    public function test_the_dashboard_exports_the_numbers_it_shows(): void
+    {
+        $this->makeOrderToday(OrderStatus::Delivered, 1500);
+
+        $response = $this->actingAsAdmin()
+            ->get(route('admin.dashboard.export', ['range' => 'today']));
+
+        $response->assertOk()
+            ->assertHeader('Content-Type', 'text/csv; charset=UTF-8');
+
+        $csv = $response->streamedContent();
+
+        $this->assertStringContainsString('SUMMARY — Today', $csv);
+        $this->assertStringContainsString('Sales (EGP)', $csv);
+        $this->assertStringContainsString('1500', $csv);
+        $this->assertStringContainsString('SALES VS PROFIT', $csv);
+        $this->assertStringContainsString('ORDERS BY STATUS', $csv);
+    }
+
+    public function test_the_dashboard_export_rejects_an_unknown_range(): void
+    {
+        $this->actingAsAdmin()
+            ->get(route('admin.dashboard.export', ['range' => 'last-year']))
+            ->assertInvalid();
+    }
+
     // ─── Helpers ─────────────────────────────────────────────────────────
 
     /**

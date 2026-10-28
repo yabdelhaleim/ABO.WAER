@@ -309,4 +309,20 @@ class ColorSizeTest extends TestCase
         $response->assertOk();
         $response->assertSee('"products":1', false);
     }
+
+    public function test_the_preview_card_does_not_invent_a_product(): void
+    {
+        $color = Color::create(['name' => 'Olive', 'hex_code' => '#5C6A48']);
+
+        $response = $this->actingAs($this->admin, 'admin')->get('/admin/colors-sizes');
+
+        // The preview used to read "Sample product" and "$0.00" — a
+        // product the database does not hold. It now shows the colour
+        // and how many products use it.
+        $response->assertOk()
+            ->assertDontSee('Sample product')
+            ->assertDontSee('$0.00')
+            ->assertSee('data-abo-admin-cs-preview-name', false)
+            ->assertSee('data-abo-admin-cs-preview-usage', false);
+    }
 }

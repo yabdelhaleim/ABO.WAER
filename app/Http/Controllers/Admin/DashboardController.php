@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Services\Admin\DashboardService;
+use App\Services\CsvExportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Admin dashboard — overview KPIs, attention tiles, latest orders and
@@ -92,5 +94,51 @@ class DashboardController extends Controller
         $range = (string) $validated['range'];
 
         return response()->json($this->dashboard->getRangePayload($range));
+    }
+
+    /**
+     * The dashboard as a CSV file — the numbers behind the EXPORT
+     * REPORT button on the page header.
+     *
+     * The button used to sit there with nothing behind it: it was a
+     * `<button>` with no handler, so clicking it did nothing at all.
+     * It now downloads the same blocks the screen draws — the summary,
+     * the sales-vs-profit series, the status split, the attention
+     * strip and the low-stock list — for the range that is selected.
+     *
+     * @query string range today|7d|30d
+     */
+    public function export(Request $request): StreamedResponse
+    {
+        $validated = $request->validate(
+            ['range' => ['nullable', Rule::in(DashboardService::RANGES)]],
+            ['range.in' => 'The selected range is invalid.'],
+        );
+
+        $range = $this->dashboard->normalizeRange($validated['range'] ?? null);
+        $sections = $this->dashboard->exportSections($range);
+
+        $filename = 'abo-dashboard-'.now()->format('Y-m-d').'-'.$range.'.csv';
+
+        return response()->streamDownload(function () use ($sections): void {
+            $handle = fopen('php://output', 'wb');
+
+            foreach ($sections as $index => $section) {
+                if ($index > 0) {
+                    fputcsv($handle, []);
+                }
+
+                fputcsv($handle, [$section['title']]);
+                fputcsv($handle, $section['headers']);
+
+                foreach ($section['rows'] as $row) {
+                    fputcsv($handle, CsvExportService::row($row));
+                }
+            }
+
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 }

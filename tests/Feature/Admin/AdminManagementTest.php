@@ -214,4 +214,16 @@ class AdminManagementTest extends TestCase
             'Exactly one active admin must remain.'
         );
     }
+
+    public function test_the_topbar_shows_the_signed_in_admin(): void
+    {
+        // The topbar used to say "Admin" to everybody, so an operator
+        // could not tell whose session they were looking at. It now
+        // carries the name of the account that is actually signed in.
+        $this->actingAs($this->admin, 'admin')
+            ->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertSee('Signed In Admin')
+            ->assertSee('abo-admin-topbar__admin-name', false);
+    }
 }

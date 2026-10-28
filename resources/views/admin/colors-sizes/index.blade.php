@@ -203,7 +203,11 @@
 
                     <div class="abo-admin-colors-sizes__panel-body">
 
-                        {{-- Live product preview (square + name + price) --}}
+                        {{-- Live preview of the colour being edited: the
+                             swatch, its name, and how many products in the
+                             catalogue use it. The card used to show a
+                             made-up "Sample product · $0.00" — a product
+                             that does not exist. --}}
                         <div class="abo-admin-colors-sizes__preview"
                              data-abo-admin-cs-preview>
                             <div class="abo-admin-colors-sizes__preview-img"
@@ -211,12 +215,13 @@
                                  data-abo-admin-cs-preview-img>
                                 <span>COLOR</span>
                             </div>
-                            <p class="abo-admin-colors-sizes__preview-name">Sample product</p>
+                            <p class="abo-admin-colors-sizes__preview-name"
+                               data-abo-admin-cs-preview-name>—</p>
                             <p class="abo-admin-colors-sizes__preview-price">
                                 <span class="abo-admin-colors-sizes__preview-dot"
                                       aria-hidden="true"
                                       data-abo-admin-cs-preview-dot></span>
-                                $0.00
+                                <span data-abo-admin-cs-preview-usage>—</span>
                             </p>
                         </div>
 
