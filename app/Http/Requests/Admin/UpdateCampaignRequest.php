@@ -30,6 +30,8 @@ class UpdateCampaignRequest extends FormRequest
             'audience' => ['sometimes', 'required', Rule::enum(CampaignAudience::class)],
             'status' => ['sometimes', Rule::enum(CampaignStatus::class)],
             'scheduled_for' => ['sometimes', 'nullable', 'date', 'after:now'],
+            'coupon' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'deeplink' => ['sometimes', 'nullable', 'string', 'max:255'],
         ];
     }
 }

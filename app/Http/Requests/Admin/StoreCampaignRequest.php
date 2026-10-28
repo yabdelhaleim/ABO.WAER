@@ -30,6 +30,8 @@ class StoreCampaignRequest extends FormRequest
             'audience' => ['required', Rule::enum(CampaignAudience::class)],
             'status' => ['sometimes', Rule::enum(CampaignStatus::class)],
             'scheduled_for' => ['nullable', 'date', 'after:now'],
+            'coupon' => ['nullable', 'string', 'max:255'],
+            'deeplink' => ['nullable', 'string', 'max:255'],
         ];
     }
 }

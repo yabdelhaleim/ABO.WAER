@@ -49,6 +49,7 @@ class CampaignAdminTest extends TestCase
         $response->assertOk()
             ->assertViewIs('admin.campaigns.index')
             ->assertViewHas('campaignsJson')
+            ->assertViewHas('coupons')
             ->assertViewHas('stats');
 
         $payload = json_decode($response->viewData('campaignsJson'), true);
@@ -60,6 +61,8 @@ class CampaignAdminTest extends TestCase
         $this->assertArrayHasKey('type', $payload[0]);
         $this->assertArrayHasKey('audience', $payload[0]);
         $this->assertArrayHasKey('status', $payload[0]);
+        $this->assertArrayHasKey('coupon', $payload[0]);
+        $this->assertArrayHasKey('deeplink', $payload[0]);
     }
 
     public function test_admin_can_create_draft_campaign_when_scheduled_for_is_in_past(): void
@@ -118,6 +121,31 @@ class CampaignAdminTest extends TestCase
         $this->assertDatabaseHas('campaigns', [
             'title' => 'Future Campaign',
             'status' => CampaignStatus::Scheduled->value,
+        ]);
+    }
+
+    public function test_admin_can_create_campaign_with_coupon_and_deeplink(): void
+    {
+        $this->actingAsAdmin()
+            ->postJson(route('admin.campaigns.store'), [
+                'title' => 'Coupon Campaign',
+                'subject' => 'Special Promo',
+                'preview' => 'Save big today',
+                'message' => 'Use code PROMO20 for 20% off',
+                'type' => CampaignType::Email->value,
+                'audience' => CampaignAudience::All->value,
+                'coupon' => 'PROMO20',
+                'deeplink' => 'category:hoodies',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('campaign.coupon', 'PROMO20')
+            ->assertJsonPath('campaign.deeplink', 'category:hoodies');
+
+        $this->assertDatabaseHas('campaigns', [
+            'title' => 'Coupon Campaign',
+            'coupon' => 'PROMO20',
+            'deeplink' => 'category:hoodies',
         ]);
     }
 

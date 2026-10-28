@@ -211,6 +211,7 @@ class CampaignNotificationTest extends TestCase
         $html = view('emails.campaign', [
             'campaign' => $campaign,
             'customer' => $this->customer,
+            'coupon' => null,
         ])->render();
 
         $this->assertStringContainsString(
@@ -225,6 +226,45 @@ class CampaignNotificationTest extends TestCase
             $html,
             'The mail view must rewrite CTA links through the click tracker.',
         );
+        $this->assertStringNotContainsString('Your exclusive coupon code', $html);
+    }
+
+    public function test_email_template_displays_prominent_coupon_block_when_coupon_is_present(): void
+    {
+        $campaign = Campaign::factory()->create([
+            'type' => CampaignType::Email,
+            'subject' => 'Discount Drop',
+            'message' => 'Get 20% off your next purchase.',
+            'coupon' => 'SAVE20',
+            'status' => CampaignStatus::Scheduled,
+        ]);
+
+        $notification = new CampaignNotification($campaign);
+        $mail = $notification->toMail($this->customer);
+
+        $this->assertSame('SAVE20', $mail->viewData['coupon']);
+
+        $html = view('emails.campaign', $mail->viewData)->render();
+
+        $this->assertStringContainsString('Your exclusive coupon code', $html);
+        $this->assertStringContainsString('SAVE20', $html);
+    }
+
+    public function test_push_notification_includes_coupon_code_in_body_when_present(): void
+    {
+        $campaign = Campaign::factory()->create([
+            'type' => CampaignType::Push,
+            'title' => 'Flash Sale',
+            'message' => 'Limited time only',
+            'coupon' => 'FLASH10',
+            'status' => CampaignStatus::Scheduled,
+        ]);
+
+        $notification = new CampaignNotification($campaign);
+        $webPush = $notification->toWebPush($this->customer, $notification);
+
+        $this->assertStringContainsString('FLASH10', $webPush->toArray()['body']);
+        $this->assertSame('Limited time only | Use code: FLASH10', $webPush->toArray()['body']);
     }
 
     public function test_dispatch_due_schedules_only_picks_up_campaigns_past_their_schedule(): void

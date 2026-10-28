@@ -15,6 +15,7 @@
 @php
     /** @var \App\Models\Campaign $campaign */
     /** @var \App\Models\Customer $customer */
+    /** @var string|null $coupon */
     $customerName = $customer?->name ?? 'there';
     $subjectLine = $campaign->subject;
     $previewLine = $campaign->preview;
@@ -90,6 +91,29 @@
                         </table>
                     </td>
                 </tr>
+                {{-- Coupon block: only rendered when the campaign has an attached coupon. --}}
+                @if (!empty($coupon))
+                <tr>
+                    <td align="center" style="padding:0 32px 32px 32px;">
+                        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                            <tr>
+                                <td align="center"
+                                    style="border:2px dashed #d4af37;border-radius:8px;padding:20px 32px;background-color:#fffdf5;">
+                                    <p style="margin:0 0 6px 0;font-size:11px;color:#999999;letter-spacing:3px;text-transform:uppercase;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+                                        Your exclusive coupon code
+                                    </p>
+                                    <p style="margin:0;font-size:28px;font-weight:700;color:#1a1a1a;letter-spacing:6px;font-family:Georgia,'Times New Roman',serif;">
+                                        {{ $coupon }}
+                                    </p>
+                                    <p style="margin:8px 0 0 0;font-size:12px;color:#888888;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+                                        Enter this code at checkout to redeem your discount.
+                                    </p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                @endif
                 {{-- Secondary preview block. --}}
                 <tr>
                     <td style="padding:0 32px 24px 32px;font-size:14px;line-height:1.6;color:#666666;text-align:center;">

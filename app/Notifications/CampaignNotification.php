@@ -60,11 +60,16 @@ class CampaignNotification extends Notification implements ShouldQueue
     {
         $url = $this->campaignCtaUrl();
 
+        $body = $this->campaign->message;
+        if ($this->campaign->coupon) {
+            $body .= ' | Use code: '.$this->campaign->coupon;
+        }
+
         return (new WebPushMessage)
             ->title($this->campaign->title)
             ->icon(asset('images/abo-logo.svg'))
             ->badge(asset('images/abo-logo.svg'))
-            ->body($this->campaign->message)
+            ->body($body)
             ->action('Shop Now', 'shop_now')
             ->data(['url' => $url])
             ->tag('campaign-'.$this->campaign->id)
@@ -84,6 +89,7 @@ class CampaignNotification extends Notification implements ShouldQueue
             ->view('emails.campaign', [
                 'campaign' => $this->campaign,
                 'customer' => $notifiable,
+                'coupon' => $this->campaign->coupon,
             ]);
     }
 

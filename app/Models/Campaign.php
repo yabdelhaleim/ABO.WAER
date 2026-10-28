@@ -99,6 +99,8 @@ class Campaign extends Model
             'sent' => $metrics['sent'],
             'opened' => $metrics['opened'],
             'clicked' => $metrics['clicked'],
+            'coupon' => $this->coupon,
+            'deeplink' => $this->deeplink,
         ];
     }
 

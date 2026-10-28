@@ -281,6 +281,8 @@ class CampaignService
             'message',
             'type',
             'audience',
+            'coupon',
+            'deeplink',
             'scheduled_for',
         ]));
     }

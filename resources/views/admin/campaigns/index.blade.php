@@ -366,9 +366,12 @@
                     <select id="abo-admin-campaigns-coupon" class="abo-admin-campaigns__select"
                             data-abo-admin-campaigns-field="coupon">
                         <option value="">No coupon</option>
-                        <option value="winter20">WINTER20 — 20% off</option>
-                        <option value="summer15">SUMMER15 — 15% off</option>
-                        <option value="vip30">VIP30 — 30% off (VIP only)</option>
+                        @foreach($coupons as $c)
+                            @php
+                                $label = $c->code.' — '.($c->type === 'percentage' ? $c->value.'% off' : ($c->type === 'shipping' ? 'Free shipping' : number_format($c->value, 0).' off'));
+                            @endphp
+                            <option value="{{ $c->code }}">{{ $label }}</option>
+                        @endforeach
                     </select>
                 </div>
 

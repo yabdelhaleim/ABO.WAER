@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreCampaignRequest;
 use App\Http\Requests\Admin\UpdateCampaignRequest;
 use App\Models\Campaign;
+use App\Models\Coupon;
 use App\Services\Admin\CampaignService;
 use App\Services\CustomerSegmentationService;
 use Illuminate\Http\JsonResponse;
@@ -33,8 +34,9 @@ class CampaignController extends Controller
         $campaigns = $this->campaignService->getAllCampaignsForAdmin();
         $campaignsJson = json_encode($campaigns, JSON_UNESCAPED_UNICODE);
         $audienceCounts = $this->getAudienceCounts();
+        $coupons = Coupon::where('is_active', true)->orderBy('code')->get(['id', 'code', 'type', 'value']);
 
-        return view('admin.campaigns.index', compact('stats', 'campaignsJson', 'audienceCounts'));
+        return view('admin.campaigns.index', compact('stats', 'campaignsJson', 'audienceCounts', 'coupons'));
     }
 
     /**
