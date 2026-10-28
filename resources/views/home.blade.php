@@ -36,22 +36,24 @@
                         <span class="hero__sweep" data-home-sweep aria-hidden="true"></span>
                     </div>
 
-                    <div class="hero__inner">
-                        <p class="hero__eyebrow" data-home-eyebrow>
-                            <span class="hero__eyebrow-line" data-home-eyebrow-line aria-hidden="true"></span>
-                            <span class="hero__eyebrow-text">{{ $banner->subtitle_ar ?? $banner->subtitle }}</span>
-                        </p>
+                    <div class="hero__container">
+                        <div class="hero__inner">
+                            <p class="hero__eyebrow" data-home-eyebrow>
+                                <span class="hero__eyebrow-line" data-home-eyebrow-line aria-hidden="true"></span>
+                                <span class="hero__eyebrow-text">{{ $banner->subtitle_ar ?? $banner->subtitle }}</span>
+                            </p>
 
-                        <h1 class="hero__headline">
-                            <span class="hero__h1-wrap" data-home-h1-line>
-                                <span class="hero__h1-inner">{{ $banner->title_ar ?? $banner->title }}</span>
-                            </span>
-                        </h1>
+                            <h1 class="hero__headline">
+                                <span class="hero__h1-wrap" data-home-h1-line>
+                                    <span class="hero__h1-inner">{{ $banner->title_ar ?? $banner->title }}</span>
+                                </span>
+                            </h1>
 
-                        <div class="hero__ctas">
-                            <a href="{{ $banner->button_url ?: route('shop') }}" class="store-btn store-btn--primary" data-home-cta>
-                                <span>{{ strtoupper($banner->button_text_ar ?? $banner->button_text ?? 'تسوق الآن') }} →</span>
-                            </a>
+                            <div class="hero__ctas">
+                                <a href="{{ $banner->button_url ?: route('shop') }}" class="store-btn store-btn--primary" data-home-cta>
+                                    <span>{{ strtoupper($banner->button_text_ar ?? $banner->button_text ?? 'تسوق الآن') }} →</span>
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -75,40 +77,42 @@
                 <span class="hero__sweep" data-home-sweep aria-hidden="true"></span>
             </div>
 
-            <div class="hero__inner">
-                <p class="hero__eyebrow" data-home-eyebrow>
-                    <span class="hero__eyebrow-line" data-home-eyebrow-line aria-hidden="true"></span>
-                    <span class="hero__eyebrow-text">{{ $hero['eyebrow'] }}</span>
-                </p>
+            <div class="hero__container">
+                <div class="hero__inner">
+                    <p class="hero__eyebrow" data-home-eyebrow>
+                        <span class="hero__eyebrow-line" data-home-eyebrow-line aria-hidden="true"></span>
+                        <span class="hero__eyebrow-text">{{ $hero['eyebrow'] }}</span>
+                    </p>
 
-                <h1 class="hero__headline">
-                    <span class="hero__h1-wrap" data-home-h1-line>
-                        <span class="hero__h1-inner">{{ $hero['line_1'] }}</span>
-                    </span>
-                    <span class="hero__h1-wrap hero__h1-wrap--accent" data-home-h1-line>
-                        <span class="hero__h1-inner">{{ $hero['line_2'] }}</span>
-                    </span>
-                </h1>
+                    <h1 class="hero__headline">
+                        <span class="hero__h1-wrap" data-home-h1-line>
+                            <span class="hero__h1-inner">{{ $hero['line_1'] }}</span>
+                        </span>
+                        <span class="hero__h1-wrap hero__h1-wrap--accent" data-home-h1-line>
+                            <span class="hero__h1-inner">{{ $hero['line_2'] }}</span>
+                        </span>
+                    </h1>
 
-                <p class="hero__paragraph" data-home-paragraph>{{ $hero['lede'] }}</p>
+                    <p class="hero__paragraph" data-home-paragraph>{{ $hero['lede'] }}</p>
 
-                <div class="hero__ctas">
-                    <a href="{{ $hero['primary_cta']['href'] }}" class="store-btn store-btn--primary" data-home-cta>
-                        <span>{{ strtoupper($hero['primary_cta']['label']) }} →</span>
-                    </a>
-                    <a href="{{ $hero['secondary_cta']['href'] }}" class="store-btn store-btn--ghost" data-home-cta>
-                        <span>{{ strtoupper($hero['secondary_cta']['label']) }}</span>
-                    </a>
+                    <div class="hero__ctas">
+                        <a href="{{ $hero['primary_cta']['href'] }}" class="store-btn store-btn--primary" data-home-cta>
+                            <span>{{ strtoupper($hero['primary_cta']['label']) }} →</span>
+                        </a>
+                        <a href="{{ $hero['secondary_cta']['href'] }}" class="store-btn store-btn--ghost" data-home-cta>
+                            <span>{{ strtoupper($hero['secondary_cta']['label']) }}</span>
+                        </a>
+                    </div>
+
+                    <ul class="hero__stats">
+                        @foreach ($hero['stats'] as $i => $stat)
+                            <li class="hero__stat" data-home-stat>
+                                <span class="hero__stat-value" data-home-stat-value>{{ $stat['value'] }}{{ $stat['suffix'] }}</span>
+                                <span class="hero__stat-label">{{ strtoupper($stat['label']) }}</span>
+                            </li>
+                        @endforeach
+                    </ul>
                 </div>
-
-                <ul class="hero__stats">
-                    @foreach ($hero['stats'] as $i => $stat)
-                        <li class="hero__stat" data-home-stat>
-                            <span class="hero__stat-value" data-home-stat-value>{{ $stat['value'] }}{{ $stat['suffix'] }}</span>
-                            <span class="hero__stat-label">{{ strtoupper($stat['label']) }}</span>
-                        </li>
-                    @endforeach
-                </ul>
             </div>
         </section>
     @endif

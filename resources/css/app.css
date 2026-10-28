@@ -2320,18 +2320,28 @@ html.abo-intro-lock body {
     transform-origin: center;
 }
 
-.hero__inner {
+.hero__container {
     position: relative;
     z-index: 2;
     max-width: var(--container-max);
     margin: 0 auto;
-    padding: clamp(4rem, 8vw, 7rem) clamp(1.25rem, 4vw, 3rem) clamp(3rem, 6vw, 5rem);
+    padding: 0 clamp(1rem, 3vw, 2.5rem);
+    min-height: 88vh;
+    min-height: 88dvh;
+    display: flex;
+    align-items: center;
+}
+
+.hero__inner {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    max-width: 620px;
+    margin: 0;
+    padding: clamp(4rem, 8vw, 7rem) 0 clamp(3rem, 6vw, 5rem);
     display: flex;
     flex-direction: column;
     gap: 1.3rem;
-    max-width: 720px;
-    min-height: 88vh;
-    min-height: 88dvh;
     justify-content: center;
 }
 
@@ -2478,8 +2488,12 @@ html.abo-intro-lock body {
     .hero {
         min-height: 92dvh;
     }
+    .hero__container {
+        min-height: 92dvh;
+    }
     .hero__inner {
         min-height: 92dvh;
+        max-width: 100%;
         padding-top: 5rem;
     }
     .hero__photo {
