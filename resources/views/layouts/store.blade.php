@@ -267,15 +267,22 @@
                     testBtnEl.addEventListener('click', function () {
                         testBtnEl.disabled = true;
                         const originalText = testBtnEl.textContent;
-                        testBtnEl.textContent = 'Sending…';
+                        testBtnEl.textContent = 'Syncing…';
 
-                        fetch(testUrl, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                                'Accept': 'application/json'
-                            }
+                        navigator.serviceWorker.ready.then(function (reg) {
+                            return subscribeUser(reg);
+                        }).catch(function (e) {
+                            console.warn('SW ready catch:', e);
+                        }).then(function () {
+                            testBtnEl.textContent = 'Sending…';
+                            return fetch(testUrl, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                                    'Accept': 'application/json'
+                                }
+                            });
                         }).then(function (res) {
                             return res.json();
                         }).then(function (data) {
