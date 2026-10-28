@@ -103,24 +103,35 @@
                     return outputArray;
                 }
 
+                function subscribeUser(reg) {
+                    reg.pushManager.getSubscription().then(function (sub) {
+                        if (!sub) {
+                            reg.pushManager.subscribe({
+                                userVisibleOnly: true,
+                                applicationServerKey: urlBase64ToUint8Array(vapidKey)
+                            }).then(function (newSub) {
+                                fetch(subscribeUrl, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                                        'Accept': 'application/json'
+                                    },
+                                    body: JSON.stringify(newSub)
+                                });
+                            });
+                        }
+                    });
+                }
+
                 navigator.serviceWorker.register('/sw.js').then(function (reg) {
                     if (Notification.permission === 'granted') {
-                        reg.pushManager.getSubscription().then(function (sub) {
-                            if (!sub) {
-                                reg.pushManager.subscribe({
-                                    userVisibleOnly: true,
-                                    applicationServerKey: urlBase64ToUint8Array(vapidKey)
-                                }).then(function (newSub) {
-                                    fetch(subscribeUrl, {
-                                        method: 'POST',
-                                        headers: {
-                                            'Content-Type': 'application/json',
-                                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                                            'Accept': 'application/json'
-                                        },
-                                        body: JSON.stringify(newSub)
-                                    });
-                                });
+                        subscribeUser(reg);
+                    } else if (Notification.permission === 'default') {
+                        // Request push notification permission for logged in customer
+                        Notification.requestPermission().then(function (perm) {
+                            if (perm === 'granted') {
+                                subscribeUser(reg);
                             }
                         });
                     }
