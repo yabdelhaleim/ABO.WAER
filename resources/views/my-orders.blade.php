@@ -24,14 +24,6 @@
 @section('title', 'My Orders — ABO')
 @section('description', 'Track every ABO order — in progress, delivered, cancelled — in a single dashboard.')
 
-@section('announcement')
-    <aside class="announcement" aria-label="Store announcement">
-        <div class="announcement__inner">
-            <span>{{ $announcement }}</span>
-        </div>
-    </aside>
-@endsection
-
 @section('content')
     <section
         class="orders"

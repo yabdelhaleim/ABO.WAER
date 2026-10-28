@@ -32,6 +32,17 @@ class StoreSetting extends Model
     protected static ?array $cache = null;
 
     /**
+     * Clear the in-memory memo cache.
+     *
+     * The same thing flush() does, under the name the query-count
+     * measurements use.
+     */
+    public static function clearCache(): void
+    {
+        static::flush();
+    }
+
+    /**
      * Read a single setting, falling back to $default when the key is absent.
      */
     public static function get(string $key, mixed $default = null): mixed

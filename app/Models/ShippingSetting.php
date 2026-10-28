@@ -17,6 +17,17 @@ class ShippingSetting extends Model
     protected static ?array $cache = null;
 
     /**
+     * Clear the in-memory memo cache.
+     *
+     * The same thing flush() does, under the name the query-count
+     * measurements use.
+     */
+    public static function clearCache(): void
+    {
+        static::flush();
+    }
+
+    /**
      * Read a single setting, falling back to $default when the key is absent.
      */
     public static function get(string $key, mixed $default = null): mixed
@@ -44,5 +55,17 @@ class ShippingSetting extends Model
     public static function allSettings(): array
     {
         return static::$cache ??= static::query()->pluck('value', 'key')->all();
+    }
+
+    /**
+     * Forget the memo — for a write that did not go through set().
+     *
+     * The mirror of StoreSetting::flush(), so a test (or any caller
+     * that edits the table directly) can force the next read to go
+     * back to the database.
+     */
+    public static function flush(): void
+    {
+        static::$cache = null;
     }
 }

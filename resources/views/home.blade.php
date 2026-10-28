@@ -3,15 +3,6 @@
 @section('title', 'ABO — Modern fit, urban vibe.')
 @section('description', 'ABO — Premium men\'s streetwear. Modern fit, urban vibe, built for the next generation. Style, comfort, attitude.')
 
-@section('announcement')
-    {{-- ─── 1. Announcement bar (lime, black uppercase) ──────────── --}}
-    <aside class="announcement" aria-label="Store announcement">
-        <div class="announcement__inner">
-            <span>{{ $announcement }}</span>
-        </div>
-    </aside>
-@endsection
-
 @section('content')
     <x-intro.overlay />
 

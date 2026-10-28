@@ -2064,6 +2064,34 @@ html.abo-intro-lock body {
     line-height: 1.55;
 }
 
+/* The store's own contact details. A shopper has to be able to reach
+   the shop, and the details it shows are the ones it typed. */
+.store-footer__contact {
+    list-style: none;
+    margin: 1rem 0 0;
+    padding: 0;
+    display: grid;
+    gap: 0.35rem;
+}
+
+.store-footer__contact li {
+    color: var(--abo-gray, #A3A3A3);
+    font-size: 0.82rem;
+    line-height: 1.4;
+}
+
+.store-footer__contact a {
+    color: var(--abo-white, #ffffff);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.28);
+    transition: border-color 0.2s var(--abo-ease);
+}
+
+.store-footer__contact a:hover,
+.store-footer__contact a:focus-visible {
+    border-bottom-color: var(--abo-lime);
+}
+
 .store-footer__meta {
     margin: 0;
     color: var(--abo-gray, #A3A3A3);
@@ -4924,6 +4952,18 @@ html.size-guide-open body {
     color: var(--abo-gray);
     font-size: 0.78rem;
     margin: 0;
+}
+
+/* The minimum-order notice. The shop refuses an order below it, so the
+   cart says so in the one colour that means "this needs your attention". */
+.cart__summary-note--minimum {
+    margin-top: 0.6rem;
+    padding: 0.6rem 0.7rem;
+    border-left: 2px solid var(--abo-lime);
+    background: rgba(198, 255, 0, 0.08);
+    color: var(--abo-white);
+    font-size: 0.8rem;
+    line-height: 1.45;
 }
 
 .cart__checkout {

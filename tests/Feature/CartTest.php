@@ -59,11 +59,16 @@ class CartTest extends TestCase
     {
         $html = $this->getCartPage();
 
-        // Announcement bar, header brand and footer are inherited
-        // from the store layout — they must not be modified.
-        $this->assertStringContainsString('Free shipping over 1,500 EGP', $html);
+        // Header brand and footer are inherited from the store layout
+        // — they must not be modified.
         $this->assertStringContainsString('store-header', $html);
         $this->assertStringContainsString('store-footer', $html);
+
+        // The announcement bar is measured, not written: a store that
+        // has published nothing to announce gets no bar at all, and the
+        // copy the page used to carry is gone for good.
+        $this->assertStringNotContainsString('aria-label="Store announcement"', $html);
+        $this->assertStringNotContainsString('Free shipping over 1,500 EGP', $html);
     }
 
     public function test_cart_page_keeps_global_chrome_intact(): void

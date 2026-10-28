@@ -55,8 +55,13 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="abo-store-body">
+    {{-- The storefront chrome is measured, not written: the service
+         behind it reads the announcement, the footer columns and the
+         store's contact details out of the database. --}}
+    @inject('storefront', \App\Services\Store\StorefrontService::class)
+
     <a class="skip-to-content" href="#content">Skip to content</a>
-    @yield('announcement')
+    @include('store.partials.announcement')
     @include('store.partials.nav')
 
     <main class="abo-store-main" id="content">

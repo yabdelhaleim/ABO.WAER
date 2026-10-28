@@ -6,10 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\Banner;
 use App\Models\Category;
 use App\Models\Product;
+use App\Services\Store\StorefrontService;
 use Illuminate\View\View;
 
 class HomeController extends Controller
 {
+    public function __construct(protected StorefrontService $storefront) {}
+
     /**
      * Home page — combines the static editorial copy (hero, ticker,
      * brand statement, why, newsletter, footer) with the live catalog
@@ -22,9 +25,10 @@ class HomeController extends Controller
      */
     public function index(): View
     {
-        // 1. Static editorial copy (announcement, hero, ticker, banner,
-        // why, newsletter, footer) — kept in resources/views/store/data/home.php
-        // because those sections are pure presentation with no DB backing.
+        // 1. Static editorial copy (hero, ticker, banner, why,
+        // newsletter, footer) — kept in
+        // resources/views/store/data/home.php because those sections are
+        // pure presentation with no DB backing.
         $data = require resource_path('views/store/data/home.php');
 
         // 2. Banners the admin put in the hero slot, switched on and
@@ -63,6 +67,14 @@ class HomeController extends Controller
             ->latest('id')
             ->take(8)
             ->get();
+
+        // 5. The hero's three figures. They used to be a hand-written
+        //    "120+ Designs / 48h Delivery / 14d Easy returns" — numbers
+        //    the store had never been told. They are measured now: how
+        //    many designs the catalogue holds, how many categories they
+        //    are filed under, and what the shopper pays to have one
+        //    delivered.
+        $data['hero']['stats'] = $this->storefront->heroStats();
 
         return view('home', $data);
     }

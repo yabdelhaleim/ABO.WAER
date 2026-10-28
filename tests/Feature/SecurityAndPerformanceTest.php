@@ -12,8 +12,10 @@ use App\Models\Governorate;
 use App\Models\Product;
 use App\Models\ProductColor;
 use App\Models\ProductImage;
+use App\Models\ShippingSetting;
 use App\Models\ShippingZone;
 use App\Models\Size;
+use App\Models\StoreSetting;
 use App\Models\Variant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -337,6 +339,8 @@ class SecurityAndPerformanceTest extends TestCase
         // this flush the second call would read cache and appear cheaper,
         // making the two counts incomparable and causing a false failure.
         Cache::flush();
+        ShippingSetting::clearCache();
+        StoreSetting::clearCache();
 
         // Keep the connection logged so we can read every SELECT after
         // the request returns.

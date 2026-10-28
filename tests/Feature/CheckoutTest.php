@@ -2,18 +2,22 @@
 
 namespace Tests\Feature;
 
+use App\Models\Banner;
+use App\Models\Governorate;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\Variant;
 use Database\Seeders\CatalogSeeder;
+use Database\Seeders\ShippingSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class CheckoutTest extends TestCase
 {
     // The checkout page now publishes the live catalog (the same payload
-    // the cart page publishes) and the success page reads a real Order
-    // row, so this file needs the database and a seeded catalog.
+    // the cart page publishes), takes its governorate list from the
+    // governorates table and the success page reads a real Order row, so
+    // this file needs the database and a seeded catalog + shipping map.
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -21,9 +25,31 @@ class CheckoutTest extends TestCase
         parent::setUp();
 
         $this->seed(CatalogSeeder::class);
+
+        // The governorates the store delivers to. The page used to
+        // carry a hard-wired list of 27 names; it now reads the table,
+        // so the table is what these tests seed.
+        $this->seed(ShippingSeeder::class);
     }
 
     // ─── Helpers ──────────────────────────────────────────────────
+
+    /**
+     * Publish the announcement the storefront's bar carries.
+     *
+     * The bar is measured: the admin publishes an announcement banner
+     * and the storefront shows its title.
+     */
+    private function publishAnnouncement(string $message): void
+    {
+        Banner::create([
+            'title' => $message,
+            'image_path' => 'banners/announcement.jpg',
+            'placement' => 'announcement',
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+    }
 
     private function getCheckoutPage(): string
     {
@@ -114,16 +140,23 @@ class CheckoutTest extends TestCase
 
     public function test_checkout_page_uses_the_store_layout(): void
     {
+        $this->publishAnnouncement('Winter drop — free shipping over 1,200 EGP');
+
         $html = $this->getCheckoutPage();
 
         // Inherits the global chrome (announcement, header, footer).
-        $this->assertStringContainsString('Free shipping over 1,500 EGP', $html);
+        // The announcement is the admin's own message, not a line the
+        // page made up.
+        $this->assertStringContainsString('aria-label="Store announcement"', $html);
+        $this->assertStringContainsString('Winter drop — free shipping over 1,200 EGP', $html);
         $this->assertStringContainsString('store-header', $html);
         $this->assertStringContainsString('store-footer', $html);
     }
 
     public function test_checkout_page_keeps_global_chrome_intact(): void
     {
+        $this->publishAnnouncement('The shop is open again');
+
         $html = $this->getCheckoutPage();
 
         // The global chrome (header, primary nav, footer) is shared
@@ -231,7 +264,7 @@ class CheckoutTest extends TestCase
         );
     }
 
-    public function test_governorate_select_contains_all_27_real_options(): void
+    public function test_governorate_select_contains_every_published_governorate(): void
     {
         $html = $this->getCheckoutPage();
 
@@ -242,9 +275,13 @@ class CheckoutTest extends TestCase
         );
 
         // The select is populated from the same source as the
-        // governorates JSON payload. We check via the `value="…"`
-        // attribute so Blade's whitespace between <option> and the
-        // label text doesn't break the assertion.
+        // governorates JSON payload — the governorates table. We check
+        // via the `value="…"` attribute so Blade's whitespace between
+        // <option> and the label text doesn't break the assertion.
+        foreach (Governorate::query()->where('is_active', true)->pluck('name') as $name) {
+            $this->assertStringContainsString('value="'.$name.'"', $html);
+        }
+
         $this->assertStringContainsString('value="Cairo"', $html);
         $this->assertStringContainsString('value="Alexandria"', $html);
         $this->assertStringContainsString('value="Giza"', $html);
@@ -392,7 +429,7 @@ class CheckoutTest extends TestCase
         $this->assertStringStartsWith('http', $published['drop-02-hoodie']['image']);
     }
 
-    public function test_governorates_payload_has_27_real_egyptian_governorates(): void
+    public function test_governorates_payload_is_the_published_governorates_table(): void
     {
         $governorates = $this->getGovernoratesPayload();
 
@@ -400,6 +437,17 @@ class CheckoutTest extends TestCase
         $this->assertContains('Cairo', $governorates);
         $this->assertContains('Alexandria', $governorates);
         $this->assertContains('Giza', $governorates);
+
+        // The payload IS the table — nothing added, nothing invented.
+        $this->assertSame(
+            Governorate::query()
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->pluck('name')
+                ->all(),
+            $governorates
+        );
     }
 
     public function test_checkout_page_does_not_invent_fees_or_progress_bars(): void

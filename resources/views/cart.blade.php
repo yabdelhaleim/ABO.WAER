@@ -20,14 +20,6 @@
 @section('title', 'Your cart — ABO')
 @section('description', 'Review the pieces in your cart before checkout.')
 
-@section('announcement')
-    <aside class="announcement" aria-label="Store announcement">
-        <div class="announcement__inner">
-            <span>{{ $announcement }}</span>
-        </div>
-    </aside>
-@endsection
-
 @section('content')
     @php
         // Slim payload for the JS — what cart.js needs to validate and
@@ -52,6 +44,12 @@
             ],
             $products ?? []
         );
+
+        // The minimum order the shop enforces. The checkout refuses an
+        // order below it, so the cart says so while the shopper can
+        // still do something about it. Zero means the shop has no
+        // minimum, and no notice is shown at all.
+        $minimumOrder = (float) ($minimumOrder ?? 0);
     @endphp
 
     <section class="cart" aria-labelledby="cart-title">
@@ -125,11 +123,21 @@
                     Shipping is added at checkout.
                 </p>
 
+                {{-- The minimum order. The shop refuses an order below
+                     it, so the cart says how far the shopper is from it
+                     rather than letting them find out at the checkout. --}}
+                <p class="cart__summary-note cart__summary-note--minimum"
+                   data-cart-minimum-note
+                   role="status"
+                   aria-live="polite"
+                   hidden></p>
+
                 {{-- The checkout CTA is a real <a>: when the cart is
-                     empty the JS swaps it into a disabled-looking
-                     state (aria-disabled + data-disabled + tabindex)
-                     instead of using the native `disabled` attribute,
-                     which doesn't exist on anchors. --}}
+                     empty — or below the shop's minimum order — the JS
+                     swaps it into a disabled-looking state
+                     (aria-disabled + data-disabled + tabindex) instead
+                     of using the native `disabled` attribute, which
+                     doesn't exist on anchors. --}}
                 <a
                     class="cart__checkout"
                     data-cart-checkout
@@ -183,6 +191,12 @@
          This is the only place the page references prices/names —
          every line on screen and every total is computed from it. --}}
     <script type="application/json" data-cart-products>{!! json_encode($productsPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+
+    {{-- The shop's rules the cart has to honour before the checkout
+         does. The summary endpoint carries the same figures and is the
+         authority; this copy is what the page can paint before the
+         first round trip lands. --}}
+    <script type="application/json" data-cart-rules>{!! json_encode(['minimum_order' => $minimumOrder], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
 @endsection
 
 @push('scripts')

@@ -7,6 +7,7 @@ use App\Models\Color;
 use App\Models\Product;
 use App\Models\ProductColor;
 use App\Models\ProductImage;
+use App\Models\ShippingSetting;
 use App\Models\Size;
 use App\Models\Variant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -402,8 +403,10 @@ class CartCatalogTest extends TestCase
 
     public function test_switching_to_the_database_keeps_the_page_chrome(): void
     {
-        // The static data file is still what supplies the announcement bar
-        // and the footer; only the product list comes from the database now.
+        ShippingSetting::set('free_shipping_enabled', true);
+        ShippingSetting::set('free_shipping_threshold', 1500);
+
+        // The announcement bar and the footer are measured from the database.
         $this->get(route('cart'))
             ->assertOk()
             ->assertSee('Free shipping over 1,500 EGP', false)

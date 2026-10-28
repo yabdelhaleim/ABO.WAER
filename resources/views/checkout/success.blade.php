@@ -21,14 +21,6 @@
 @section('title', 'Order confirmed — ABO')
 @section('description', 'Thank you. Your order is in and being prepared.')
 
-@section('announcement')
-    <aside class="announcement" aria-label="Store announcement">
-        <div class="announcement__inner">
-            <span>{{ $announcement }}</span>
-        </div>
-    </aside>
-@endsection
-
 @section('content')
     <section class="checkout-success" aria-labelledby="checkout-success-title">
         <div class="checkout-success__inner">

@@ -25,14 +25,6 @@
     <meta property="product:availability" content="{{ $product->is_in_stock ? 'in stock' : 'out of stock' }}">
 @endsection
 
-@section('announcement')
-    <aside class="announcement" aria-label="Store announcement">
-        <div class="announcement__inner">
-            <span>{{ $announcement ?? 'Free shipping over 1,500 EGP · Drop 02 is live' }}</span>
-        </div>
-    </aside>
-@endsection
-
 @section('content')
     <x-intro.overlay />
 

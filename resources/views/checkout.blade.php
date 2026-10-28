@@ -19,14 +19,6 @@
 @section('title', 'Checkout — ABO')
 @section('description', 'Complete your order.')
 
-@section('announcement')
-    <aside class="announcement" aria-label="Store announcement">
-        <div class="announcement__inner">
-            <span>{{ $announcement }}</span>
-        </div>
-    </aside>
-@endsection
-
 @section('content')
     @php
         // The catalog the page publishes. It comes from the live
@@ -153,6 +145,23 @@
                         placeholder="01XXXXXXXXX"
                         required
                     />
+
+                    {{-- The governorate dropdown carries only the
+                         governorates the admin published. When there are
+                         none the store is not taking orders yet, and the
+                         page says so instead of offering a list the
+                         shop does not deliver to. --}}
+                    @if (empty($governorates))
+                        <div class="checkout__alert" role="alert">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" class="checkout__alert-icon">
+                                <path d="M12 2 1 21h22L12 2zm0 6 7.5 13h-15L12 8zm-1 4v4h2v-4h-2zm0 5v2h2v-2h-2z" fill="currentColor"/>
+                            </svg>
+                            <div>
+                                <p class="checkout__alert-title">We are not taking orders yet.</p>
+                                <p>The store has not published the governorates it delivers to. Please check back shortly.</p>
+                            </div>
+                        </div>
+                    @endif
 
                     <x-checkout.field
                         name="governorate"

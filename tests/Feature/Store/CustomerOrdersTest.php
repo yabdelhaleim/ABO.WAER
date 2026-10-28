@@ -49,7 +49,8 @@ class CustomerOrdersTest extends TestCase
             ->get(route('orders'))
             ->assertOk()
             ->assertViewIs('my-orders')
-            ->assertViewHas('announcement');
+            ->assertSee('class="store-header"', false)
+            ->assertSee('<footer class="store-footer"', false);
     }
 
     public function test_blocked_customer_is_logged_out_and_redirected(): void

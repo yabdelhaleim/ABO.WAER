@@ -17,16 +17,6 @@
 @section('title', 'My Account — ABO')
 @section('description', 'Manage your ABO account. Review your details and keep everything in one place.')
 
-@section('announcement')
-    {{-- Reuse the lime announcement bar — same component, same copy
-         as the rest of the storefront. --}}
-    <aside class="announcement" aria-label="Store announcement">
-        <div class="announcement__inner">
-            <span>{{ $announcement }}</span>
-        </div>
-    </aside>
-@endsection
-
 @section('content')
     @php
         // Single source for the data the page can actually show.

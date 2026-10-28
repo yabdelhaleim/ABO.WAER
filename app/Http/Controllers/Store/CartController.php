@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CartItem;
 use App\Models\Customer;
 use App\Services\CartService;
+use App\Services\Store\StorefrontService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -13,16 +14,19 @@ use Illuminate\View\View;
 
 class CartController extends Controller
 {
-    public function __construct(protected CartService $cart) {}
+    public function __construct(
+        protected CartService $cart,
+        protected StorefrontService $storefront,
+    ) {}
 
     /**
      * The cart page.
      *
-     * The page shell and its static editorial copy (announcement bar, footer)
-     * still come from the shared home.php data file, so the surrounding
-     * chrome renders exactly as before. Only the product list is swapped for
-     * the live catalog: cart.js prices every line off the JSON payload this
-     * view publishes, and that payload is now built from products, variants
+     * The page shell and its editorial copy come from the shared
+     * home.php data file, so the surrounding chrome renders exactly as
+     * before. Only the product list is swapped for the live catalog:
+     * cart.js prices every line off the JSON payload this view
+     * publishes, and that payload is now built from products, variants
      * and colors in the database instead of a static array.
      */
     public function index(): View
@@ -30,6 +34,11 @@ class CartController extends Controller
         $data = require resource_path('views/store/data/home.php');
 
         $data['products'] = $this->cart->getStorefrontCatalog();
+
+        // The shop's minimum order. The checkout refuses an order below
+        // it, so the cart says so while the shopper can still act on
+        // it.
+        $data['minimumOrder'] = $this->storefront->minimumOrder();
 
         return view('cart', $data);
     }

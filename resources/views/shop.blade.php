@@ -3,14 +3,6 @@
 @section('title', 'Shop — '.$shop['title_line_1'].' '.$shop['title_line_2'])
 @section('description', 'Browse the full ABO collection. Hoodies, tees, pants, jackets — built for the streets.')
 
-@section('announcement')
-    <aside class="announcement" aria-label="Store announcement">
-        <div class="announcement__inner">
-            <span>{{ $announcement ?? 'Free shipping over 1,500 EGP · Drop 02 is live' }}</span>
-        </div>
-    </aside>
-@endsection
-
 @section('content')
     <x-intro.overlay />
 

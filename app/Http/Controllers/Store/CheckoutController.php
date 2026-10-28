@@ -18,8 +18,9 @@ use Illuminate\Http\Request;
  *
  * `show` renders the same Blade view the closure route used to render
  * — the cart chrome, the form, the JS hooks — but the governorate
- * dropdown is now fed from the database (with the static list as a
- * fallback so the page still renders with zero DB rows).
+ * dropdown is fed from the database (and only from the database: the
+ * page used to fall back to a shipped list of names when the table was
+ * empty).
  *
  * `process` is the new POST target. It accepts either a regular form
  * submission (redirects to the success page) or an AJAX JSON request
@@ -39,27 +40,29 @@ class CheckoutController extends Controller
      * Render the checkout shell.
      *
      * The view still extends the shared home.php data file for its
-     * editorial chrome (announcement, hero, footer) — everything the
-     * form actually operates on comes from the database: the governorate
+     * editorial chrome (hero, ticker, footer) — everything the form
+     * actually operates on comes from the database: the governorate
      * <select> options and the product catalog the page prices against.
      */
     public function show(Request $request): View
     {
         $data = require resource_path('views/store/data/home.php');
 
-        $governorates = Governorate::query()
+        // The governorates the admin published — and only those. The
+        // page used to fall back to a shipped list of 27 names when the
+        // table was empty, which meant a shopper could pick a
+        // governorate the store does not deliver to: the dropdown and
+        // the shipping zones disagreed, and the fee that came back was
+        // the global default rather than the zone's own.
+        //
+        // An empty table now means an empty dropdown and a page that
+        // says the store is not taking orders yet — which is the truth.
+        $data['governorates'] = Governorate::query()
             ->where('is_active', true)
             ->orderBy('sort_order')
             ->orderBy('name')
             ->pluck('name')
             ->all();
-
-        // Fall back to the shipped 27-name list only while the admin
-        // has not populated the governorates table, so the page still
-        // renders instead of shipping an empty dropdown.
-        $data['governorates'] = ! empty($governorates)
-            ? $governorates
-            : (require resource_path('views/store/data/governorates.php'));
 
         // The catalog the checkout prices and validates against is the
         // live one, exactly like the cart page — NOT the editorial

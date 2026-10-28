@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Banner;
 use Database\Seeders\CatalogSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -36,11 +37,22 @@ class ShopTest extends TestCase
 
     public function test_shop_page_keeps_global_chrome_intact(): void
     {
+        // The announcement bar is measured: the admin publishes it, the
+        // storefront shows it.
+        Banner::create([
+            'title' => 'The shop is open again',
+            'image_path' => 'banners/open.jpg',
+            'placement' => 'announcement',
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+
         $response = $this->get('/shop');
 
         $response->assertOk();
         // Header + announcement + footer (per spec: do not modify global chrome).
         $response->assertSee('class="announcement"', false);
+        $response->assertSee('The shop is open again', false);
         $response->assertSee('class="store-header"', false);
         $response->assertSee('<footer class="store-footer"', false);
     }

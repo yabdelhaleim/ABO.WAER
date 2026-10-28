@@ -30,8 +30,10 @@ class OrderController extends Controller
      *
      * The view paints no order data itself — resources/js/orders.js fetches
      * `orders.data` on load and renders every card in the browser — so this
-     * action only resolves the announcement bar, which stays on the static
-     * editorial copy in views/store/data/home.php like the other store pages.
+     * action only hands over the shared editorial copy in
+     * views/store/data/home.php. The chrome around the page (the
+     * announcement bar, the header, the footer) is measured by the
+     * storefront layout, not by this controller.
      */
     public function index(): View
     {

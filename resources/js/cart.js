@@ -55,6 +55,10 @@ const state = {
     // Has the server answered yet? Until it has, the drawing comes from
     // the cache and is treated as provisional.
     ready: false,
+    // The shop's minimum order. The checkout refuses an order below it,
+    // so the cart has to say how far the shopper is from it. Zero means
+    // there is no minimum and no notice is shown.
+    minimumOrder: 0,
 };
 
 // ─── Cache ──────────────────────────────────────────────────────────
@@ -221,7 +225,37 @@ function applySummary(summary) {
     state.subtotal = Number(summary?.subtotal) || 0;
     state.ready = true;
 
+    // The minimum order travels with the summary. A summary that does
+    // not carry it (an older endpoint, a cached response) leaves the
+    // figure the page published in place rather than dropping it.
+    if (summary && summary.minimum_order !== undefined) {
+        state.minimumOrder = Number(summary.minimum_order) || 0;
+    }
+
     writeCache(state.lines);
+}
+
+/**
+ * The shop's rules the page published.
+ *
+ * The summary endpoint is the authority — it answers with the same
+ * figures — but the page carries them too so the first paint can show
+ * the notice before the first round trip lands.
+ */
+function readRules() {
+    const el = document.querySelector('[data-cart-rules]');
+
+    if (!el) return;
+
+    try {
+        const rules = JSON.parse(el.textContent || '{}');
+
+        if (rules && rules.minimum_order !== undefined) {
+            state.minimumOrder = Number(rules.minimum_order) || 0;
+        }
+    } catch (err) {
+        console.warn('Cart: failed to read the shop rules', err);
+    }
 }
 
 /**
@@ -628,9 +662,17 @@ function render() {
     // tabindex, and CSS uses [data-disabled="true"] to dim the button and
     // [aria-disabled="true"] to set pointer-events: none so the link can't
     // be followed.
+    //
+    // A cart below the shop's minimum order is disabled too: the
+    // checkout refuses that order, so letting the shopper walk into it
+    // only to be turned away at the last step is worse than saying so
+    // here, while they can still add something.
+    const belowMinimum = !isEmpty && state.minimumOrder > 0 && cart.subtotal < state.minimumOrder;
+    const ctaBlocked = isEmpty || belowMinimum;
+
     const cta = $('[data-cart-checkout]');
     if (cta) {
-        if (isEmpty) {
+        if (ctaBlocked) {
             cta.setAttribute('aria-disabled', 'true');
             cta.setAttribute('data-disabled', 'true');
             cta.setAttribute('tabindex', '-1');
@@ -642,7 +684,7 @@ function render() {
     }
     const mobileCta = $('[data-cart-mobilebar-checkout]');
     if (mobileCta) {
-        if (isEmpty) {
+        if (ctaBlocked) {
             mobileCta.setAttribute('aria-disabled', 'true');
             mobileCta.setAttribute('data-disabled', 'true');
             mobileCta.setAttribute('tabindex', '-1');
@@ -658,8 +700,40 @@ function render() {
     const mobileBar = $('[data-cart-mobilebar]');
     if (mobileBar) mobileBar.hidden = isEmpty;
 
+    // The minimum order notice. It is shown while the cart is short of
+    // the shop's minimum, and hidden once the cart clears it — the
+    // checkout refuses such an order, so the shopper is told here,
+    // where they can still add something.
+    renderMinimumNotice(isEmpty);
+
     // Nav count badge (live, computed from the cart as it stands).
     syncNavCount(count);
+}
+
+/**
+ * The minimum-order notice under the cart summary.
+ *
+ * A store with no minimum order has no notice at all: the element
+ * stays hidden and nothing is written into it.
+ */
+function renderMinimumNotice(isEmpty) {
+    const note = $('[data-cart-minimum-note]');
+
+    if (!note) return;
+
+    const subtotal = state.subtotal;
+
+    if (isEmpty || state.minimumOrder <= 0 || subtotal >= state.minimumOrder) {
+        note.hidden = true;
+        note.textContent = '';
+
+        return;
+    }
+
+    const remaining = Math.max(0, state.minimumOrder - subtotal);
+
+    note.hidden = false;
+    note.textContent = `Add ${formatEGP(remaining)} more to reach the ${formatEGP(state.minimumOrder)} minimum order.`;
 }
 
 function syncNavCount(n) {
@@ -848,6 +922,7 @@ function init() {
     // have the last word.
     state.lines = linesFromCache();
     state.subtotal = state.lines.reduce((sum, line) => sum + line.line_total, 0);
+    readRules();
     writeCache(state.lines);
     render();
 

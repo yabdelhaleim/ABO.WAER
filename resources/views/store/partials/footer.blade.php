@@ -1,39 +1,52 @@
 @php
     use App\Models\StoreSetting;
 
-    $year = date('Y');
-    // Footer columns: 3 (Shop / Help / Follow) per spec §2.10.
-    // Fallback columns if the home view didn't pass $footer.
-    $footerCols = $footer['columns'] ?? [
-        'Shop' => [
-            ['label' => 'All products', 'href' => '#shop'],
-            ['label' => 'New arrivals', 'href' => '#new'],
-            ['label' => 'Categories',   'href' => '#categories'],
-            ['label' => 'Sale',         'href' => '#sale'],
-        ],
-        'Help' => [
-            ['label' => 'Shipping', 'href' => route('shipping')],
-            ['label' => 'Returns',  'href' => route('returns')],
-            ['label' => 'Exchange', 'href' => route('exchange')],
-            ['label' => 'About us', 'href' => route('about')],
-            ['label' => 'Contact us', 'href' => route('contact')],
-        ],
-        'Follow' => [
-            ['label' => 'Instagram',  'href' => '#instagram'],
-            ['label' => 'TikTok',     'href' => '#tiktok'],
-            ['label' => 'X / Twitter','href' => '#x'],
-        ],
-    ];
+    // The footer's columns and the store's contact details are measured,
+    // not written: they come from the categories, the published pages
+    // and the store's own settings. The service is injected by the
+    // storefront layout — @inject('storefront', …) — and shared with
+    // every partial the layout includes.
+    $footerData = $storefront->footer();
+    $footerCols = $footerData['columns'];
+    $contact = $footerData['contact'];
     $footerTag = $footer['tagline'] ?? "Not made to blend in — premium men's streetwear from Cairo.";
+    $storeName = StoreSetting::storeName();
 @endphp
 
 <footer class="store-footer" role="contentinfo">
     <div class="store-footer__inner">
         <div class="store-footer__brand">
-            <a href="{{ route('home') }}" class="store-footer__logo" aria-label="{{ StoreSetting::storeName() }} — Home">
-                <img src="{{ StoreSetting::logoUrl() }}" alt="{{ StoreSetting::storeName() }}" width="44" height="44">
+            <a href="{{ route('home') }}" class="store-footer__logo" aria-label="{{ $storeName }} — Home">
+                <img src="{{ StoreSetting::logoUrl() }}" alt="{{ $storeName }}" width="44" height="44">
             </a>
             <p class="store-footer__tagline">{{ $footerTag }}</p>
+
+            {{-- The store's own details. A store that has not typed a
+                 phone number or an address does not get one here — the
+                 old footer invented neither, but it also showed none,
+                 so a shopper had no way to reach the shop. --}}
+            @if ($contact['phone'] !== '' || $contact['email'] !== '' || $contact['address'] !== '')
+                <ul class="store-footer__contact">
+                    @if ($contact['phone'] !== '')
+                        <li>
+                            <a href="tel:{{ preg_replace('/\s+/', '', $contact['phone']) }}">{{ $contact['phone'] }}</a>
+                        </li>
+                    @endif
+                    @if ($contact['whatsapp'] !== '')
+                        <li>
+                            <a href="https://wa.me/{{ preg_replace('/\D+/', '', $contact['whatsapp']) }}" rel="noopener">WhatsApp {{ $contact['whatsapp'] }}</a>
+                        </li>
+                    @endif
+                    @if ($contact['email'] !== '')
+                        <li>
+                            <a href="mailto:{{ $contact['email'] }}">{{ $contact['email'] }}</a>
+                        </li>
+                    @endif
+                    @if ($contact['address'] !== '')
+                        <li>{{ $contact['address'] }}</li>
+                    @endif
+                </ul>
+            @endif
         </div>
 
         @foreach ($footerCols as $heading => $links)
@@ -49,7 +62,7 @@
     </div>
 
     <div class="store-footer__base">
-        <p>© {{ $year }} ABO. All rights reserved.</p>
+        <p>© {{ date('Y') }} {{ $storeName }}. All rights reserved.</p>
         <p class="store-footer__base-meta">Crafted in Cairo.</p>
     </div>
 </footer>

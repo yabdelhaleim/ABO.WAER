@@ -11,14 +11,6 @@
 @section('title', $term !== '' ? 'Search — '.$term : 'Search')
 @section('description', 'Search the ABO collection by name, colour, size or category.')
 
-@section('announcement')
-    <aside class="announcement" aria-label="Store announcement">
-        <div class="announcement__inner">
-            <span>{{ $announcement ?? 'Free shipping over 1,500 EGP · Drop 02 is live' }}</span>
-        </div>
-    </aside>
-@endsection
-
 @section('content')
     <x-intro.overlay />
 

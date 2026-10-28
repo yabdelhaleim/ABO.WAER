@@ -6,6 +6,7 @@ use App\Models\CartItem;
 use App\Models\Customer;
 use App\Models\Product;
 use App\Models\ShippingSetting;
+use App\Models\StoreSetting;
 use App\Models\Variant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -159,7 +160,12 @@ class CartService
      * The free-shipping comparison lives here and nowhere else — the cart
      * page itself must not surface a progress bar or "free shipping" copy.
      *
-     * @return array{items: array<int, array<string, mixed>>, item_count: int, subtotal: float, free_shipping_enabled: bool, free_shipping_threshold: float, qualifies_for_free_shipping: bool, remaining_for_free_shipping: float}
+     * The minimum order travels with it for the same reason: the checkout
+     * refuses an order below it, so the cart has to be able to say how far
+     * the shopper is from it instead of letting them discover it at the
+     * last step.
+     *
+     * @return array{items: array<int, array<string, mixed>>, item_count: int, subtotal: float, free_shipping_enabled: bool, free_shipping_threshold: float, qualifies_for_free_shipping: bool, remaining_for_free_shipping: float, minimum_order: float, meets_minimum: bool, remaining_for_minimum: float}
      */
     public function getSummary(?Customer $customer, string $sessionId): array
     {
@@ -173,6 +179,8 @@ class CartService
         $enabled = (bool) ShippingSetting::get('free_shipping_enabled', false);
         $qualifies = $enabled && $threshold > 0 && $subtotal >= $threshold;
 
+        $minimum = (float) StoreSetting::get('orders.minimum', 0);
+
         return [
             'items' => $items->map(fn (CartItem $item) => $this->presentItem($item))->all(),
             'item_count' => (int) $items->sum('quantity'),
@@ -181,6 +189,9 @@ class CartService
             'free_shipping_threshold' => $threshold,
             'qualifies_for_free_shipping' => $qualifies,
             'remaining_for_free_shipping' => max(0.0, $threshold - $subtotal),
+            'minimum_order' => $minimum,
+            'meets_minimum' => $minimum <= 0 || $subtotal >= $minimum,
+            'remaining_for_minimum' => max(0.0, $minimum - $subtotal),
         ];
     }
 

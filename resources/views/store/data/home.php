@@ -15,7 +15,11 @@
  */
 
 return [
-    'announcement' => 'Free shipping over 1,500 EGP · Drop 02 is live',
+    // The announcement bar is NOT here. It is measured: the live
+    // campaign and the free-shipping threshold the shipping settings
+    // hold (see App\Services\Store\StorefrontService). It used to say
+    // "Free shipping over 1,500 EGP · Drop 02 is live" on every page of
+    // every store, whether or not that was true of them.
 
     'hero' => [
         'eyebrow' => 'URBAN / STREETWEAR / LIFESTYLE',
@@ -24,11 +28,13 @@ return [
         'lede' => "Premium men's wear built for the next generation. Style, comfort, attitude.",
         'primary_cta' => ['label' => 'Shop now', 'href' => '/shop'],
         'secondary_cta' => ['label' => 'Explore categories', 'href' => '/shop#categories'],
-        'stats' => [
-            ['value' => 120, 'suffix' => '+', 'label' => 'Designs'],
-            ['value' => 48, 'suffix' => 'h', 'label' => 'Delivery'],
-            ['value' => 14, 'suffix' => 'd', 'label' => 'Easy returns'],
-        ],
+        // The hero's three figures are measured too — how many designs
+        // the catalogue holds, how many categories they are filed
+        // under, and what the shopper pays to have one delivered. The
+        // old ones (120+ Designs, 48h Delivery, 14d Easy returns) were
+        // numbers the store had never been told. Store\HomeController
+        // fills this in from the database.
+        'stats' => [],
         'photo' => [
             'src' => 'images/streetwear-hero.jpg',
             'alt' => 'ABO brown polo sweatshirt with embroidered DEFINE ABO logo, side profile, lime neon backdrop',
@@ -74,24 +80,9 @@ return [
 
     'footer' => [
         'tagline' => 'Not made to blend in — premium men\'s streetwear from Cairo.',
-        'columns' => [
-            'Shop' => [
-                ['label' => 'All products', 'href' => '/shop'],
-                ['label' => 'New arrivals', 'href' => '/shop?sort=newest'],
-                ['label' => 'Categories', 'href' => '/shop#categories'],
-                ['label' => 'Sale', 'href' => '/shop?sort=price-asc'],
-            ],
-            'Help' => [
-                ['label' => 'Contact us', 'href' => '#contact'],
-                ['label' => 'Shipping & returns', 'href' => '#shipping'],
-                ['label' => 'Size guide', 'href' => '#size-guide'],
-                ['label' => 'FAQ', 'href' => '#faq'],
-            ],
-            'Follow' => [
-                ['label' => 'Instagram', 'href' => '#instagram'],
-                ['label' => 'TikTok', 'href' => '#tiktok'],
-                ['label' => 'X / Twitter', 'href' => '#x'],
-            ],
-        ],
+        // The footer's COLUMNS are not here either. They are measured:
+        // the categories the admin published, the pages the store has
+        // published, and the social accounts it has given. See
+        // App\Services\Store\StorefrontService::footer().
     ],
 ];

@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\Banner;
+use App\Models\Page;
+use App\Models\StoreSetting;
 use Database\Seeders\CatalogSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -72,14 +75,32 @@ class HomepageTest extends TestCase
 
     // ─── Section A: Announcement bar ──────────────────────────────
 
-    public function test_home_page_renders_lime_announcement_bar(): void
+    public function test_home_page_renders_the_announcement_the_admin_published(): void
     {
+        Banner::create([
+            'title' => 'Drop 02 is live',
+            'image_path' => 'banners/drop-02.jpg',
+            'placement' => 'announcement',
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+
         $response = $this->get('/');
 
         $response->assertOk();
         $response->assertSee('class="announcement"', false);
-        $response->assertSee('Free shipping over 1,500 EGP', false);
         $response->assertSee('Drop 02 is live', false);
+
+        // The line the page used to carry is not the store's to repeat.
+        $response->assertDontSee('Free shipping over 1,500 EGP', false);
+    }
+
+    public function test_home_page_has_no_announcement_bar_when_the_store_has_nothing_to_say(): void
+    {
+        $response = $this->get('/');
+
+        $response->assertOk();
+        $response->assertDontSee('aria-label="Store announcement"', false);
     }
 
     // ─── Section B: Header ──────────────────────────────────────
@@ -112,15 +133,25 @@ class HomepageTest extends TestCase
         $response->assertSee('EXPLORE CATEGORIES', false);
     }
 
-    public function test_home_page_renders_hero_stats(): void
+    public function test_home_page_renders_measured_hero_stats(): void
     {
         $response = $this->get('/');
 
         $response->assertOk();
-        $response->assertSee('data-home-stat-value', false);
-        $response->assertSee('120+', false);
-        $response->assertSee('48h', false);
-        $response->assertSee('14d', false);
+
+        $html = $response->getContent() ?: '';
+
+        preg_match_all('/<span class="hero__stat-value" data-home-stat-value>(.*?)<\/span>/s', $html, $m);
+
+        // The figures are counted from the catalogue the seeded fixture
+        // holds — four designs under four categories — and a store with
+        // no shipping settings configured gets no third figure invented
+        // to fill the row.
+        $this->assertSame(['4+', '4'], $m[1]);
+
+        // The numbers the store had never been told are gone.
+        $this->assertStringNotContainsString('120+', $html);
+        $this->assertStringNotContainsString('14d', $html);
     }
 
     public function test_home_page_renders_hero_photo_with_dimensions(): void
@@ -277,8 +308,15 @@ class HomepageTest extends TestCase
 
     // ─── Section J: Footer ──────────────────────────────────────
 
-    public function test_home_page_renders_footer_with_three_columns(): void
+    public function test_home_page_renders_footer_with_the_columns_the_store_has(): void
     {
+        // The footer's columns are measured: the Help column lists the
+        // pages the store has published and the Follow column lists the
+        // accounts it has given.
+        Page::create(['slug' => 'about', 'title' => 'About ABO', 'is_active' => true]);
+        Page::create(['slug' => 'shipping', 'title' => 'Shipping', 'is_active' => true]);
+        StoreSetting::set('store.social', ['instagram' => 'instagram.com/abo']);
+
         $response = $this->get('/');
 
         $response->assertOk();
@@ -288,6 +326,25 @@ class HomepageTest extends TestCase
         $response->assertSee('>Help</h2>', false);
         $response->assertSee('>Follow</h2>', false);
         $response->assertSee('All rights reserved', false);
+
+        // Every link points at the store's own rows.
+        $response->assertSee(route('about'), false);
+        $response->assertSee(route('shipping'), false);
+        $response->assertSee('https://instagram.com/abo', false);
+    }
+
+    public function test_home_page_footer_drops_the_columns_the_store_has_not_filled(): void
+    {
+        $response = $this->get('/');
+
+        $response->assertOk();
+
+        // No published pages and no social accounts: the Help and Follow
+        // columns have nothing to say, so they are not rendered. A
+        // column of links that go nowhere is worse than no column.
+        $response->assertSee('>Shop</h2>', false);
+        $response->assertDontSee('>Help</h2>', false);
+        $response->assertDontSee('>Follow</h2>', false);
     }
 
     // ─── Meta & assets ──────────────────────────────────────────

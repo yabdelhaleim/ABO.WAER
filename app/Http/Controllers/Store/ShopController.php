@@ -95,6 +95,16 @@ class ShopController extends Controller
             });
         }
 
+        // The sale filter — the products that carry a variant on a
+        // reduced price. The footer's "Sale" link points here, so the
+        // link has to be true: it used to point at a sort that did not
+        // sort by anything.
+        if ($request->query('sale')) {
+            $query->whereHas('variants', function (Builder $q) {
+                $q->whereNotNull('discount_price')->where('discount_price', '>', 0);
+            });
+        }
+
         // Sorting
         switch ($request->query('sort')) {
             case 'price-asc':
