@@ -1,7 +1,11 @@
+@php
+    use App\Models\StoreSetting;
+@endphp
+
 <header class="store-header" role="banner">
     <div class="store-header__inner">
-        <a href="{{ route('home') }}" class="store-header__brand" aria-label="ABO — Home">
-            <img src="{{ asset('images/abo-logo.svg') }}" alt="ABO" width="40" height="40">
+        <a href="{{ route('home') }}" class="store-header__brand" aria-label="{{ StoreSetting::storeName() }} — Home">
+            <img src="{{ StoreSetting::logoUrl() }}" alt="{{ StoreSetting::storeName() }}" width="40" height="40">
         </a>
 
         <nav class="store-header__nav" aria-label="Primary">

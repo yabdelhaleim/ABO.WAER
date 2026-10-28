@@ -70,16 +70,37 @@ class Order extends Model
     }
 
     /**
-     * Auto-generate the next order number for the current year.
-     * Sequence starts at 1001 for each year.
+     * The order number the shop would hand out next.
+     *
+     * The number is the configured prefix, the year and the sequence,
+     * and the sequence starts at 1001 for each year. The admin's order
+     * prefix reaches the orders themselves this way, and the preview on
+     * the settings screen and the number a customer receives come from
+     * this very method.
      */
-    public static function generateOrderNumber(): string
+    public static function nextOrderNumber(): string
     {
         $year = date('Y');
         $lastOrder = static::whereYear('created_at', $year)->latest('id')->first();
         $nextId = $lastOrder ? ($lastOrder->id + 1) : 1001;
 
-        return sprintf('ABO-%s-%04d', $year, $nextId);
+        return static::orderNumberPrefix().$year.'-'.sprintf('%04d', $nextId);
+    }
+
+    /**
+     * Auto-generate the next order number for the current year.
+     */
+    public static function generateOrderNumber(): string
+    {
+        return static::nextOrderNumber();
+    }
+
+    /**
+     * The text every order number starts with.
+     */
+    public static function orderNumberPrefix(): string
+    {
+        return (string) (StoreSetting::get('orders.prefix') ?: 'ABO-');
     }
 
     /**

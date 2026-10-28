@@ -40,7 +40,7 @@
     <meta name="twitter:image:alt" content="@yield('og_image_alt', 'ABO')">
 
     <link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
-    <link rel="icon" type="image/svg+xml" href="{{ asset('images/abo-logo.svg') }}">
+    <link rel="icon" type="image/svg+xml" href="{{ \App\Models\StoreSetting::faviconUrl() }}">
 
     @if (request()->routeIs('home'))
         {{-- Preload the hero photo only on the home page so LCP and reveal are instant. --}}

@@ -1,4 +1,6 @@
 @php
+    use App\Models\StoreSetting;
+
     $year = date('Y');
     // Footer columns: 3 (Shop / Help / Follow) per spec §2.10.
     // Fallback columns if the home view didn't pass $footer.
@@ -28,8 +30,8 @@
 <footer class="store-footer" role="contentinfo">
     <div class="store-footer__inner">
         <div class="store-footer__brand">
-            <a href="{{ route('home') }}" class="store-footer__logo" aria-label="ABO — Home">
-                <img src="{{ asset('images/abo-logo.svg') }}" alt="ABO" width="44" height="44">
+            <a href="{{ route('home') }}" class="store-footer__logo" aria-label="{{ StoreSetting::storeName() }} — Home">
+                <img src="{{ StoreSetting::logoUrl() }}" alt="{{ StoreSetting::storeName() }}" width="44" height="44">
             </a>
             <p class="store-footer__tagline">{{ $footerTag }}</p>
         </div>

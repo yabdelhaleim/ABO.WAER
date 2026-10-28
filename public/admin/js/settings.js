@@ -6,16 +6,17 @@
  * via @stack('scripts') so other admin pages never see a console
  * error from this file.
  *
- * NO network calls. NO localStorage. NO IndexedDB. Every value is
- * either hard-coded at the top of the view, passed via data-*
- * attributes on the settings root, or read from the DOM. Save is
- * visual only — clicking SAVE shows the "Saved (demo)" toast.
+ * The settings arrive from the server in a JSON tag and go back to it
+ * through PUT /admin/settings. The browser keeps a copy while the
+ * operator edits, but the copy is only ever replaced by the server's
+ * answer — never by what the browser hoped to save. No localStorage,
+ * no IndexedDB: the database holds the settings, not this page.
  *
  * Sections:
  *   initTodayDate      — set the header date (matches dashboard)
  *   initToast          — single shared toast
  *   initModal          — single shared confirm modal
- *   loadFromDom        — hydrate STATE from data-* attributes
+ *   loadPayload        — hydrate STATE from the server's JSON tag
  *   initFields         — hydrate inputs/toggles/textareas/selects,
  *                        listen for changes, mark the form dirty
  *   initTabs           — hash-driven section switching + sub-nav state
@@ -56,6 +57,76 @@ function setNested(obj, path, value) {
     }
     cur[keys[keys.length - 1]] = value;
 }
+
+/* ──────────────────────────────────────────────────────────────
+   Server requests
+   ────────────────────────────────────────────────────────────── */
+
+const csrfToken = () => {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.getAttribute('content') : '';
+};
+
+/** Read one of the page's JSON tags. */
+function readJson(selector) {
+    const node = document.querySelector(selector);
+    if (!node) return null;
+    try {
+        return JSON.parse(node.textContent);
+    } catch (err) {
+        console.warn('Settings: failed to parse ' + selector, err);
+        return null;
+    }
+}
+
+// The settings as the server stored them, and the endpoints it answers on.
+const PAYLOAD = readJson('[data-abo-admin-settings-payload]') || {};
+const ROUTES = readJson('[data-abo-admin-settings-routes]') || {};
+
+/** The message the server sent, or a readable stand-in. */
+const errorMessage = (payload, status) => {
+    if (payload && typeof payload.message === 'string' && payload.message.trim()) {
+        return payload.message;
+    }
+
+    if (payload && payload.errors) {
+        const first = Object.values(payload.errors)[0];
+        if (Array.isArray(first) && first.length) return first[0];
+    }
+
+    return 'The server refused the change (HTTP ' + status + ').';
+};
+
+/** Send a request to the settings endpoints. */
+const request = async (method, url, body) => {
+    const headers = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-TOKEN': csrfToken(),
+    };
+
+    const options = { method, headers, credentials: 'same-origin' };
+
+    if (body !== undefined && body !== null) {
+        options.body = JSON.stringify(body);
+    }
+
+    const response = await fetch(url, options);
+
+    let payload = null;
+    try {
+        payload = await response.json();
+    } catch (_) {
+        payload = null;
+    }
+
+    if (!response.ok || (payload && payload.success === false)) {
+        throw new Error(errorMessage(payload, response.status));
+    }
+
+    return payload || {};
+};
 
 /* ──────────────────────────────────────────────────────────────
    Today date (matches dashboard / admin.js pattern)
@@ -156,7 +227,7 @@ const STATE = {
              social: { instagram: '', facebook: '', tiktok: '' },
              maintenance: false },
     orders: { minimum: 0, autoCancelHours: 24, guestCheckout: true,
-              prefix: 'ABO-', nextNumber: 1043 },
+              prefix: 'ABO-', nextNumber: '' },
     inventory: { lowStockThreshold: 5, hideOutOfStock: false },
     reasons: [],
     receipts: { showLogo: true, headerText: '', footerNote: '',
@@ -177,6 +248,15 @@ const SNAPSHOT = {
     notifications: null,
 };
 
+/**
+ * The files the operator picked but has not saved yet.
+ *
+ * They are not part of the settings — they are files on the operator's
+ * machine — so they travel in their own bucket and are uploaded before
+ * the settings that name them.
+ */
+const PENDING_FILES = {};
+
 function snapshot() {
     SNAPSHOT.store         = JSON.parse(JSON.stringify(STATE.store));
     SNAPSHOT.orders        = JSON.parse(JSON.stringify(STATE.orders));
@@ -191,7 +271,8 @@ function deepEqual(a, b) {
 }
 
 function isDirty() {
-    return !deepEqual(STATE.store,         SNAPSHOT.store)
+    return Object.keys(PENDING_FILES).length > 0
+        || !deepEqual(STATE.store,         SNAPSHOT.store)
         || !deepEqual(STATE.orders,        SNAPSHOT.orders)
         || !deepEqual(STATE.inventory,     SNAPSHOT.inventory)
         || !deepEqual(STATE.reasons,       SNAPSHOT.reasons)
@@ -200,25 +281,59 @@ function isDirty() {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   LOAD FROM DOM (data-* attributes emitted by the Blade view)
+   LOAD THE PAYLOAD (the settings the server sent)
    ══════════════════════════════════════════════════════════════ */
 
-function loadFromDom(root) {
-    const ds = root.dataset;
+function loadPayload() {
     try {
-        if (ds.storeInfo)      STATE.store         = { ...STATE.store,         ...JSON.parse(ds.storeInfo) };
-        if (ds.orders)         STATE.orders        = { ...STATE.orders,        ...JSON.parse(ds.orders) };
-        if (ds.inventory)      STATE.inventory     = { ...STATE.inventory,     ...JSON.parse(ds.inventory) };
-        if (ds.receipts)       STATE.receipts      = { ...STATE.receipts,      ...JSON.parse(ds.receipts) };
-        if (ds.notifications)  STATE.notifications = { ...STATE.notifications, ...JSON.parse(ds.notifications) };
-        if (ds.reasons)        STATE.reasons       = JSON.parse(ds.reasons);
+        if (PAYLOAD.store)         STATE.store         = { ...STATE.store,         ...PAYLOAD.store };
+        if (PAYLOAD.orders)        STATE.orders        = { ...STATE.orders,        ...PAYLOAD.orders };
+        if (PAYLOAD.inventory)     STATE.inventory     = { ...STATE.inventory,     ...PAYLOAD.inventory };
+        if (PAYLOAD.receipts)      STATE.receipts      = { ...STATE.receipts,      ...PAYLOAD.receipts };
+        if (PAYLOAD.notifications) STATE.notifications = { ...STATE.notifications, ...PAYLOAD.notifications };
+        if (PAYLOAD.reasons)       STATE.reasons       = PAYLOAD.reasons;
     } catch (err) {
-        // Fall back to empty defaults if the JSON is malformed.
-        console.warn('Settings: failed to parse data-* attributes', err);
+        // Fall back to empty defaults if the payload is malformed.
+        console.warn('Settings: failed to read the payload', err);
     }
     // Make sure required nested objects exist.
     STATE.store.social = STATE.store.social || {};
     STATE.receipts.fields = STATE.receipts.fields || {};
+}
+
+/**
+ * Put the server's answer on screen.
+ *
+ * The settings that come back from a save are the truth — including
+ * the ids the database gave the cancellation reasons — so the local
+ * copy is replaced by them and the form is redrawn from them.
+ */
+function applyPayload(payload) {
+    if (!payload) return;
+
+    if (payload.store)         STATE.store         = { ...STATE.store,         ...payload.store };
+    if (payload.orders)        STATE.orders        = { ...STATE.orders,        ...payload.orders };
+    if (payload.inventory)     STATE.inventory     = { ...STATE.inventory,     ...payload.inventory };
+    if (payload.receipts)      STATE.receipts      = { ...STATE.receipts,      ...payload.receipts };
+    if (payload.notifications) STATE.notifications = { ...STATE.notifications, ...payload.notifications };
+    if (payload.reasons)       STATE.reasons       = payload.reasons;
+
+    STATE.store.social = STATE.store.social || {};
+    STATE.receipts.fields = STATE.receipts.fields || {};
+
+    const root = $('[data-abo-admin-settings-root]');
+    if (!root) return;
+
+    initFields(root);
+    initReasons(root);
+    initReceiptPreview(root);
+
+    // Re-sync all derived UI bits.
+    ['orders.prefix','receipts.headerText','receipts.footerNote',
+     'receipts.showLogo','receipts.paper','store.maintenance']
+      .forEach(updateDependents);
+    Object.keys(STATE.receipts.fields)
+          .forEach(k => updateDependents(`receipts.fields.${k}`));
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -247,6 +362,11 @@ function initFields(root) {
         } else if (!el.matches('[type="file"]')) {
             setFieldValue(el, value);
         }
+
+        // The listener is bound once. A re-hydration — after a discard
+        // or after the server answered a save — only refreshes values.
+        if (el.dataset.aboAdminSettingsBound === '1') return;
+        el.dataset.aboAdminSettingsBound = '1';
 
         // Wire up change → update STATE → re-render dependents → mark dirty.
         const onChange = () => {
@@ -295,7 +415,17 @@ function initFields(root) {
 function updateDependents(path) {
     if (path === 'orders.prefix') {
         const preview = $('[data-abo-admin-settings-preview="orders.nextNumber"]');
-        if (preview) preview.textContent = `${STATE.orders.prefix}${STATE.orders.nextNumber}`;
+        if (preview) {
+            // The server owns the number; the text in front of it is
+            // what the operator is typing. The saved prefix tells us
+            // how much of the number to replace.
+            const savedPrefix = (SNAPSHOT.orders && SNAPSHOT.orders.prefix) || '';
+            const next = String(STATE.orders.nextNumber || '');
+            const body = savedPrefix && next.startsWith(savedPrefix)
+                ? next.slice(savedPrefix.length)
+                : next;
+            preview.textContent = `${STATE.orders.prefix}${body}`;
+        }
     }
     if (path === 'receipts.headerText') {
         const node = $('[data-abo-admin-settings-receipt-store]');
@@ -404,12 +534,16 @@ function initFileInputs(root) {
             }
 
             if (!file) {
+                delete PENDING_FILES[key];
                 preview.style.backgroundImage = '';
                 preview.textContent = preview.dataset.fallback || preview.textContent;
                 filename.textContent = 'No file selected';
                 markDirty();
                 return;
             }
+
+            // The file waits for the save; it is not a setting yet.
+            PENDING_FILES[key] = file;
 
             const url = URL.createObjectURL(file);
             preview.dataset.objectUrl = url;
@@ -428,6 +562,32 @@ function initFileInputs(root) {
             markDirty();
         });
     });
+}
+
+/**
+ * Put the branding previews back to the logo that is stored.
+ */
+function syncBrandingPreviews() {
+    [['store.logo', STATE.store.logo || ''], ['store.favicon', STATE.store.favicon || '']]
+        .forEach(([key, url]) => {
+            const input    = $(`[data-abo-admin-settings-file="${key}"]`);
+            const preview  = $(`[data-abo-admin-settings-preview="${key}"]`);
+            const filename = $(`[data-abo-admin-settings-filename="${key}"]`);
+            if (input) input.value = '';
+            if (!preview || !filename) return;
+
+            if (preview.dataset.objectUrl) {
+                URL.revokeObjectURL(preview.dataset.objectUrl);
+                preview.dataset.objectUrl = '';
+            }
+
+            const img = $('img', preview);
+            if (img) img.remove();
+
+            preview.style.backgroundImage = url ? `url("${url}")` : '';
+            preview.textContent = url ? '' : (preview.dataset.fallback || '');
+            filename.textContent = url ? 'Current file' : 'No file selected';
+        });
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -492,6 +652,11 @@ function initReasons(root) {
     const list = $('[data-abo-admin-settings-reasons]', root);
     if (!list) return;
 
+    // The delegated listeners are bound once; a re-render only redraws
+    // the rows.
+    if (list.dataset.bound === '1') return;
+    list.dataset.bound = '1';
+
     // Delegated listeners on inputs inside the list.
     list.addEventListener('input', (e) => {
         const row = e.target.closest('[data-abo-admin-settings-reason-id]');
@@ -532,7 +697,7 @@ function initReasons(root) {
         if (btn.dataset.aboAdminSettingsReasonAction === 'delete') {
             openModal({
                 title: 'DELETE REASON',
-                body: `“${reason.en}” will be removed from the cancellation list. This action cannot be undone in this demo.`,
+                body: `“${reason.en}” will be removed from the cancellation list. This action cannot be undone.`,
                 confirmLabel: 'DELETE',
                 danger: true,
                 onConfirm: () => {
@@ -643,50 +808,135 @@ function markDirty() {
 }
 
 function initSaveBar() {
-    $('[data-abo-admin-settings-action="save"]')?.addEventListener('click', () => {
+    $('[data-abo-admin-settings-action="save"]')?.addEventListener('click', async () => {
         if (!isDirty()) return;
-        // Visual only: snapshots become the new "current" state.
-        snapshot();
-        markDirty();
-        showToast('Saved (demo)');
+        await saveSettings();
     });
 
     $('[data-abo-admin-settings-action="discard"]')?.addEventListener('click', () => {
         if (!isDirty()) return;
-        // Restore STATE from snapshot, then re-hydrate the DOM.
-        STATE.store         = JSON.parse(JSON.stringify(SNAPSHOT.store));
-        STATE.orders        = JSON.parse(JSON.stringify(SNAPSHOT.orders));
-        STATE.inventory     = JSON.parse(JSON.stringify(SNAPSHOT.inventory));
-        STATE.reasons       = JSON.parse(JSON.stringify(SNAPSHOT.reasons));
-        STATE.receipts      = JSON.parse(JSON.stringify(SNAPSHOT.receipts));
-        STATE.notifications = JSON.parse(JSON.stringify(SNAPSHOT.notifications));
-        const root = $('[data-abo-admin-settings-root]');
-        if (!root) return;
-        initFields(root);
-        initReasons(root);
-        initReceiptPreview(root);
-        // Re-sync all derived UI bits.
-        ['orders.prefix','receipts.headerText','receipts.footerNote',
-         'receipts.showLogo','receipts.paper','store.maintenance']
-          .forEach(updateDependents);
-        Object.keys(STATE.receipts.fields)
-              .forEach(k => updateDependents(`receipts.fields.${k}`));
+        // The picked files go with the edits.
+        Object.keys(PENDING_FILES).forEach(key => delete PENDING_FILES[key]);
+        // Restore the state from the snapshot, then re-hydrate the DOM.
+        applyPayload({
+            store: SNAPSHOT.store,
+            orders: SNAPSHOT.orders,
+            inventory: SNAPSHOT.inventory,
+            reasons: SNAPSHOT.reasons,
+            receipts: SNAPSHOT.receipts,
+            notifications: SNAPSHOT.notifications,
+        });
+        syncBrandingPreviews();
         markDirty();
     });
 
     $('[data-abo-admin-settings-action="restore"]')?.addEventListener('click', () => {
         openModal({
             title: 'RESTORE DEFAULTS',
-            body: 'Every setting in this page will be reset to the demo defaults shown when the page first loaded. This action cannot be undone in this demo.',
+            body: 'Every setting on this page goes back to its default, the cancellation reasons included. This cannot be undone.',
             confirmLabel: 'RESTORE',
             danger: false,
-            onConfirm: () => {
-                // Reload the page (simplest, reliable way to fully reset
-                // every hydrated input, including any chosen files).
-                window.location.reload();
+            onConfirm: async () => {
+                await restoreDefaults();
             },
         });
     });
+}
+
+/**
+ * Send the settings to the server and put its answer on screen.
+ */
+async function saveSettings() {
+    const button = $('[data-abo-admin-settings-action="save"]');
+    if (button) button.disabled = true;
+
+    try {
+        // The picked files go up first: the settings that follow carry
+        // the paths the server gave them.
+        const branding = await uploadBranding();
+        if (branding && branding.settings && branding.settings.store) {
+            Object.keys(PENDING_FILES).forEach(key => delete PENDING_FILES[key]);
+            STATE.store.logo = branding.settings.store.logo || '';
+            STATE.store.favicon = branding.settings.store.favicon || '';
+        }
+
+        const payload = await request('PUT', ROUTES.save, {
+            store: STATE.store,
+            orders: STATE.orders,
+            inventory: STATE.inventory,
+            reasons: STATE.reasons,
+            receipts: STATE.receipts,
+            notifications: STATE.notifications,
+        });
+
+        applyPayload(payload.settings);
+        snapshot();
+        markDirty();
+        showToast(payload.message || 'Saved');
+    } catch (err) {
+        showToast(err.message || 'The settings could not be saved.');
+    } finally {
+        if (button) button.disabled = false;
+    }
+}
+
+/**
+ * Upload the logo or the favicon the operator picked.
+ *
+ * The files travel as multipart — they are files, not settings — and
+ * the answer carries the settings as they are after the upload.
+ */
+async function uploadBranding() {
+    const files = Object.entries(PENDING_FILES).filter(([, file]) => file);
+    if (files.length === 0) return null;
+
+    const form = new FormData();
+    for (const [key, file] of files) {
+        form.append(key, file);
+    }
+
+    const response = await fetch(ROUTES.branding, {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': csrfToken(),
+        },
+        credentials: 'same-origin',
+        body: form,
+    });
+
+    let payload = null;
+    try {
+        payload = await response.json();
+    } catch (_) {
+        payload = null;
+    }
+
+    if (!response.ok || (payload && payload.success === false)) {
+        throw new Error(errorMessage(payload, response.status));
+    }
+
+    return payload || {};
+}
+
+/**
+ * Put every setting back to its default, on the server.
+ */
+async function restoreDefaults() {
+    let payload;
+    try {
+        payload = await request('POST', ROUTES.reset, {});
+    } catch (err) {
+        showToast(err.message || 'The settings could not be restored.');
+
+        return;
+    }
+
+    applyPayload(payload.settings);
+    snapshot();
+    markDirty();
+    showToast(payload.message || 'Settings restored to their defaults.');
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -745,7 +995,7 @@ function boot() {
     const root = $('[data-abo-admin-settings-root]');
     if (!root) return;
 
-    loadFromDom(root);
+    loadPayload();
     initFields(root);
     initTabs();
     initFileInputs(root);

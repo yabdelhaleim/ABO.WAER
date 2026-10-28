@@ -20,7 +20,7 @@
 
     {{-- Preconnect to the Bunny font CDN (used by the global brand stylesheet). --}}
     <link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
-    <link rel="icon" type="image/svg+xml" href="{{ asset('images/abo-logo.svg') }}">
+    <link rel="icon" type="image/svg+xml" href="{{ \App\Models\StoreSetting::faviconUrl() }}">
 
     {{-- Brand fonts + tokens from the global stylesheet. --}}
     @vite(['resources/css/app.css'])

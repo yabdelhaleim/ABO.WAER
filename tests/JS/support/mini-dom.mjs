@@ -286,6 +286,12 @@ function matchesSimple(element, selector) {
         rest = rest.slice(tag[0].length);
     }
 
+    // The attribute selectors are pulled out first. A value may hold a
+    // dot — the settings screen addresses its fields by a path like
+    // "store.name" — and that dot belongs to the value, not to a class.
+    const attributes = rest.match(/\[[^\]]*\]/g) || [];
+    rest = rest.replace(/\[[^\]]*\]/g, '');
+
     // An id, `#name`. Without this an id selector would match every
     // element on the page, and a script that writes to "the element
     // with that id" would write to the wrong one.
@@ -301,9 +307,6 @@ function matchesSimple(element, selector) {
         if (!element.classList.contains(className.slice(1))) return false;
     }
 
-    rest = rest.replace(/\.[\w-]+/g, '');
-
-    const attributes = rest.match(/\[[^\]]*\]/g) || [];
     for (const raw of attributes) {
         const inner = raw.slice(1, -1);
         const equals = inner.indexOf('=');

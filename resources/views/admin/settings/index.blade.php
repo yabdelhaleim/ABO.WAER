@@ -1,5 +1,5 @@
 {{--
-    Admin · Settings (front-end only, static data).
+    Admin · Settings.
 
     Page sections (sub-nav on the left, active panel on the right):
       1. store-info       — name, logo & favicon, contact, social
@@ -16,8 +16,10 @@
     under the page header. The sticky bottom bar appears whenever the
     user edits any field, with Discard + SAVE.
 
-    Save is visual only — settings.js shows a "Saved (demo)" toast and
-    the bottom bar vanishes. No backend / network call exists.
+    Every value on this page comes from the database: the payload below
+    was read by Admin\SettingsController and is published to
+    public/admin/js/settings.js, which sends the operator's changes
+    back to the same server and replaces its copy with the answer.
 
     Reuses the existing admin shell: .abo-admin-page, .abo-admin-card,
     .abo-admin-btn, .abo-admin-segmented, .abo-admin-attention__card,
@@ -31,69 +33,13 @@
 @section('description', 'ABO — admin settings: store info, orders, inventory, cancellation reasons, receipts, notifications.')
 
 @php
-    // TODO(backend): replace every value below with data fetched
-    // server-side from the database. The view shape is final; only
-    // the data source changes. The JS hydrates the values into the
-    // DOM at boot so the form can show real values from day one.
-
-    $storeInfo = [
-        'name'    => 'ABO',
-        'phone'   => '+20 100 123 4567',
-        'whatsapp'=> '+20 100 123 4567',
-        'email'   => 'hello@abo.store',
-        'address' => '15 El Horreya St., Cairo, Egypt',
-        'social'  => [
-            'instagram' => 'instagram.com/abo.store',
-            'facebook'  => 'facebook.com/abo.store',
-            'tiktok'    => 'tiktok.com/@abo.store',
-        ],
-        'maintenance' => false,
-    ];
-
-    $orders = [
-        'minimum'        => 500,
-        'autoCancelHours'=> 24,
-        'guestCheckout'  => true,
-        'prefix'         => 'ABO-',
-        'nextNumber'     => 1043,
-    ];
-
-    $inventory = [
-        'lowStockThreshold'  => 5,
-        'hideOutOfStock'     => false,
-    ];
-
-    $cancellationReasons = [
-        ['id' => 'r1', 'en' => 'Changed my mind',      'ar' => 'غيّرت رأيي',          'active' => true],
-        ['id' => 'r2', 'en' => 'Wrong size ordered',   'ar' => 'مقاس خاطئ',           'active' => true],
-        ['id' => 'r3', 'en' => 'Found a better price', 'ar' => 'وجدت سعراً أفضل',     'active' => true],
-        ['id' => 'r4', 'en' => 'Delivery too slow',    'ar' => 'التسليم بطيء',         'active' => true],
-        ['id' => 'r5', 'en' => 'Other',                'ar' => 'سبب آخر',              'active' => true],
-    ];
-
-    $receipts = [
-        'showLogo'       => true,
-        'headerText'     => 'ABO Store',
-        'footerNote'     => 'Thank you for shopping with us — returns within 14 days.',
-        'fields'         => [
-            'orderNumber'   => true,
-            'date'          => true,
-            'customerPhone' => true,
-            'address'       => false,
-            'paymentMethod' => true,
-            'shippingFee'   => true,
-        ],
-        'paper'          => 'a4', // 'a4' | 'thermal'
-    ];
-
-    $notifications = [
-        'newOrder'        => true,
-        'lowStock'        => true,
-        'returnRequest'   => true,
-        'shipmentFailed'  => false,
-        'couponExpiring'  => false,
-        'browserSound'    => true,
-    ];
+    // The settings as the server stored them. The screen draws these
+    // and sends them back; it holds nothing of its own.
+    $storeInfo = $payload['store'];
+    $orders = $payload['orders'];
+    $inventory = $payload['inventory'];
+    $receipts = $payload['receipts'];
+    $notifications = $payload['notifications'];
 
     $sections = [
         ['id' => 'store-info',      'label' => 'STORE INFO',      'num' => '01'],
@@ -145,16 +91,16 @@
         </div>
     </section>
 
+    {{-- ─── The settings, and the endpoints they are written to ──── --}}
+    {{-- The solidus is escaped so a value the admin typed can never
+         close the tag early. --}}
+    <script type="application/json" data-abo-admin-settings-payload>{!! str_replace('</', '<\/', json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) !!}</script>
+    <script type="application/json" data-abo-admin-settings-routes>{!! str_replace('</', '<\/', json_encode($routes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) !!}</script>
+
     {{-- ─── Settings shell (visible after hydration) ─────────────── --}}
     <section class="abo-admin-settings"
              hidden
-             data-abo-admin-settings-root
-             data-store-info='@json($storeInfo)'
-             data-orders='@json($orders)'
-             data-inventory='@json($inventory)'
-             data-reasons='@json($cancellationReasons)'
-             data-receipts='@json($receipts)'
-             data-notifications='@json($notifications)'>
+             data-abo-admin-settings-root>
 
         {{-- ─── Left: vertical sub-nav (becomes horizontal on mobile) --}}
         <nav class="abo-admin-settings__nav"
@@ -257,9 +203,13 @@
                     <div class="abo-admin-settings__field">
                         <label for="abo-admin-settings-store-logo">Store logo</label>
                         <label class="abo-admin-settings__file" for="abo-admin-settings-store-logo">
-                            <span class="abo-admin-settings__file-preview" data-abo-admin-settings-preview="store.logo" aria-hidden="true">ABO</span>
+                            <span class="abo-admin-settings__file-preview"
+                                  data-abo-admin-settings-preview="store.logo"
+                                  data-fallback="{{ $storeInfo['name'] }}"
+                                  @if ($storeInfo['logo']) style="background-image: url('{{ $storeInfo['logo'] }}')" @endif
+                                  aria-hidden="true">{{ $storeInfo['logo'] ? '' : $storeInfo['name'] }}</span>
                             <span class="abo-admin-settings__file-meta">
-                                <span class="abo-admin-settings__file-name" data-abo-admin-settings-filename="store.logo">No file selected</span>
+                                <span class="abo-admin-settings__file-name" data-abo-admin-settings-filename="store.logo">{{ $storeInfo['logo'] ? 'Current logo' : 'No file selected' }}</span>
                                 <span class="abo-admin-settings__file-hint">PNG, JPG or SVG · up to 2 MB</span>
                             </span>
                             <span class="abo-admin-settings__file-btn">CHANGE</span>
@@ -274,9 +224,13 @@
                     <div class="abo-admin-settings__field">
                         <label for="abo-admin-settings-store-favicon">Favicon</label>
                         <label class="abo-admin-settings__file" for="abo-admin-settings-store-favicon">
-                            <span class="abo-admin-settings__file-preview abo-admin-settings__file-preview--square" data-abo-admin-settings-preview="store.favicon" aria-hidden="true">A</span>
+                            <span class="abo-admin-settings__file-preview abo-admin-settings__file-preview--square"
+                                  data-abo-admin-settings-preview="store.favicon"
+                                  data-fallback="{{ mb_substr($storeInfo['name'], 0, 1) }}"
+                                  @if ($storeInfo['favicon']) style="background-image: url('{{ $storeInfo['favicon'] }}')" @endif
+                                  aria-hidden="true">{{ $storeInfo['favicon'] ? '' : mb_substr($storeInfo['name'], 0, 1) }}</span>
                             <span class="abo-admin-settings__file-meta">
-                                <span class="abo-admin-settings__file-name" data-abo-admin-settings-filename="store.favicon">No file selected</span>
+                                <span class="abo-admin-settings__file-name" data-abo-admin-settings-filename="store.favicon">{{ $storeInfo['favicon'] ? 'Current favicon' : 'No file selected' }}</span>
                                 <span class="abo-admin-settings__file-hint">ICO, PNG · square, 32×32 or 64×64</span>
                             </span>
                             <span class="abo-admin-settings__file-btn">CHANGE</span>
@@ -414,7 +368,8 @@
                                aria-label="Toggle guest checkout">
                             <input type="checkbox"
                                    role="switch"
-                                   aria-checked="true"
+                                   aria-checked="{{ $orders['guestCheckout'] ? 'true' : 'false' }}"
+                                   @checked($orders['guestCheckout'])
                                    data-abo-admin-settings-field="orders.guestCheckout">
                             <span class="abo-admin-settings__toggle-track" aria-hidden="true"></span>
                             <span class="abo-admin-settings__toggle-thumb" aria-hidden="true"></span>
@@ -428,7 +383,7 @@
                                autocomplete="off"
                                maxlength="10"
                                data-abo-admin-settings-field="orders.prefix">
-                        <p class="abo-admin-settings__helper">Preview · the next order will be <code class="abo-admin-settings__code" data-abo-admin-settings-preview="orders.nextNumber">ABO-1043</code></p>
+                        <p class="abo-admin-settings__helper">Preview · the next order will be <code class="abo-admin-settings__code" data-abo-admin-settings-preview="orders.nextNumber">{{ $orders['nextNumber'] }}</code></p>
                     </div>
                 </div>
             </article>
@@ -469,7 +424,8 @@
                                aria-label="Toggle hide out-of-stock products">
                             <input type="checkbox"
                                    role="switch"
-                                   aria-checked="false"
+                                   aria-checked="{{ $inventory['hideOutOfStock'] ? 'true' : 'false' }}"
+                                   @checked($inventory['hideOutOfStock'])
                                    data-abo-admin-settings-field="inventory.hideOutOfStock">
                             <span class="abo-admin-settings__toggle-track" aria-hidden="true"></span>
                             <span class="abo-admin-settings__toggle-thumb" aria-hidden="true"></span>
@@ -505,9 +461,9 @@
                 </div>
 
                 <ul class="abo-admin-settings__reasons" data-abo-admin-settings-reasons>
-                    {{-- Reasons are injected by settings.js from the static
-                         $cancellationReasons array so add / delete / drag
-                         reorder can mutate the live DOM. --}}
+                    {{-- The reasons are drawn by settings.js from the rows
+                         the server sent, so add / delete / drag reorder
+                         can mutate the live DOM. --}}
                 </ul>
 
                 <button type="button"
@@ -546,7 +502,8 @@
                                        aria-label="Toggle show store logo on receipt">
                                     <input type="checkbox"
                                            role="switch"
-                                           aria-checked="true"
+                                           aria-checked="{{ $receipts['showLogo'] ? 'true' : 'false' }}"
+                                           @checked($receipts['showLogo'])
                                            data-abo-admin-settings-field="receipts.showLogo">
                                     <span class="abo-admin-settings__toggle-track" aria-hidden="true"></span>
                                     <span class="abo-admin-settings__toggle-thumb" aria-hidden="true"></span>
@@ -623,18 +580,18 @@
                         <div class="abo-admin-settings__receipt-paper
                                     @if (($receipts['paper'] ?? 'a4') === 'thermal') abo-admin-settings__receipt-paper--thermal @endif">
                             <div class="abo-admin-settings__receipt-head">
-                                <div class="abo-admin-settings__receipt-logo" data-abo-admin-settings-receipt-logo>ABO</div>
+                                <div class="abo-admin-settings__receipt-logo" data-abo-admin-settings-receipt-logo>{{ $storeInfo['name'] }}</div>
                                 <p class="abo-admin-settings__receipt-store" data-abo-admin-settings-receipt-store>{{ $receipts['headerText'] }}</p>
                             </div>
                             <hr class="abo-admin-settings__rule abo-admin-settings__rule--inset">
                             <dl class="abo-admin-settings__receipt-rows">
                                 @foreach ([
-                                    ['key' => 'orderNumber',   'label' => 'Order',    'value' => 'ABO-1043'],
-                                    ['key' => 'date',          'label' => 'Date',     'value' => '16 Oct 2026'],
-                                    ['key' => 'customerPhone', 'label' => 'Phone',    'value' => '+20 100 123 4567'],
-                                    ['key' => 'address',       'label' => 'Address',  'value' => '15 El Horreya St., Cairo'],
-                                    ['key' => 'paymentMethod', 'label' => 'Payment',  'value' => 'Cash on delivery'],
-                                    ['key' => 'shippingFee',   'label' => 'Shipping', 'value' => '60 EGP'],
+                                    ['key' => 'orderNumber',   'label' => 'Order',    'value' => $receiptPreview['orderNumber']],
+                                    ['key' => 'date',          'label' => 'Date',     'value' => $receiptPreview['date']],
+                                    ['key' => 'customerPhone', 'label' => 'Phone',    'value' => $receiptPreview['customerPhone']],
+                                    ['key' => 'address',       'label' => 'Address',  'value' => $receiptPreview['address']],
+                                    ['key' => 'paymentMethod', 'label' => 'Payment',  'value' => $receiptPreview['paymentMethod']],
+                                    ['key' => 'shippingFee',   'label' => 'Shipping', 'value' => $receiptPreview['shippingFee']],
                                 ] as $row)
                                     <div class="abo-admin-settings__receipt-row" data-abo-admin-settings-receipt-row="{{ $row['key'] }}" @if (! ($receipts['fields'][$row['key']] ?? false)) hidden @endif>
                                         <dt>{{ $row['label'] }}</dt>
@@ -761,14 +718,14 @@
         </div>
     </div>
 
-    {{-- ─── Toast (Saved (demo)) ──────────────────────────────────── --}}
+    {{-- ─── Toast (the server's answer) ───────────────────────────── --}}
     <div class="abo-admin-settings__toast"
          role="status"
          aria-live="polite"
          hidden
          data-abo-admin-settings-toast>
         <span class="abo-admin-settings__toast-dot" aria-hidden="true"></span>
-        <span class="abo-admin-settings__toast-text" data-abo-admin-settings-toast-text>Saved (demo)</span>
+        <span class="abo-admin-settings__toast-text" data-abo-admin-settings-toast-text>Saved</span>
     </div>
 @endsection
 

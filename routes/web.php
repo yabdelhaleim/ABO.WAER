@@ -16,6 +16,7 @@ use App\Http\Controllers\Admin\PasswordResetController;
 use App\Http\Controllers\Admin\ProductBulkController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\ReportController;
+use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\ShippingController;
 use App\Http\Controllers\Admin\SizeGuideController;
 use App\Http\Controllers\Auth\LoginController;
@@ -258,20 +259,11 @@ Route::middleware('web')->prefix('admin')->name('admin.')->group(function () {
 // registers the same method + URI, so the preview was already unreachable.
 // The screen is served by Admin\BannerController.
 
-// ─── Admin: Settings preview (front-end only) ─────────────────────────────
-// Placeholder route that renders the new admin.settings.index view — used to
-// preview the front-end design before the settings catalog is connected to
-// the database. Closure-only, no controller, no model, no validation. No
-// protected admin.settings route exists, so the URL stays `/admin/settings`
-// (no `-v2` suffix needed) and only the route name is suffixed with `.v2`
-// (per the project convention).
-//
-// No protected route shadows this one either, so the `admin` middleware is
-// what keeps the settings page off the public internet. To open the page in
-// a browser: log in at /admin/login, then visit /admin/settings.
-Route::middleware(['web', 'admin', 'admin.permission:settings'])->get('/admin/settings', function () {
-    return view('admin.settings.index');
-})->name('admin.settings.v2');
+// ─── Admin: Settings (no preview) ──────────────────────────────────────────
+// The `/admin/settings` preview closure is gone. It rendered the settings
+// screen with a static array behind it and saved nothing; the protected
+// group below serves the very same URL from Admin\SettingsController, with
+// the settings read from the database and every change written back to it.
 
 // ─── Admin: Admins ─────────────────────────────────────────────────────────
 // The admins page is served by the protected group further down, from
@@ -491,6 +483,20 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::post('/shipping/governorates', [ShippingController::class, 'storeGovernorate'])->name('shipping.governorates.store');
         Route::match(['put', 'patch'], '/shipping/governorates/{governorate}', [ShippingController::class, 'updateGovernorate'])->name('shipping.governorates.update');
         Route::delete('/shipping/governorates/{governorate}', [ShippingController::class, 'destroyGovernorate'])->name('shipping.governorates.destroy');
+    });
+
+    // Settings — the store's own settings: identity, order rules,
+    // stock thresholds, the cancellation reasons, the receipt layout and
+    // the notification switches. The screen draws what the server stored
+    // and writes every change back through the endpoints below.
+    //
+    // Only the owner reaches the "manage" level on this module, so the
+    // settings are the owner's to change; a manager may look at them.
+    Route::middleware('admin.permission:settings')->group(function () {
+        Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
+        Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
+        Route::post('/settings/branding', [SettingsController::class, 'branding'])->name('settings.branding');
+        Route::post('/settings/reset', [SettingsController::class, 'reset'])->name('settings.reset');
     });
 
     // Admin bell — the JSON half behind the notification bell in

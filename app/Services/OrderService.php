@@ -13,6 +13,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ShippingSetting;
+use App\Models\StoreSetting;
 use App\Models\Variant;
 use App\Services\Admin\OrderService as AdminOrderService;
 use App\Services\Store\CouponService;
@@ -95,6 +96,14 @@ class OrderService
             ]);
         }
 
+        // A store that turned guest checkout off only takes orders from
+        // a customer who is signed in.
+        if ($customer === null && ! StoreSetting::get('orders.guestCheckout', true)) {
+            throw ValidationException::withMessages([
+                'email' => 'Please sign in to place your order.',
+            ]);
+        }
+
         $order = DB::transaction(function () use ($customer, $sessionId, $checkoutData): Order {
             $governorate = $this->resolveGovernorate($checkoutData['governorate']);
 
@@ -148,6 +157,16 @@ class OrderService
                     'quantity' => $item['quantity'],
                     'total_price' => $lineTotal,
                 ];
+            }
+
+            // The store's minimum order value. An order below it is
+            // refused before anything is written.
+            $minimum = (float) StoreSetting::get('orders.minimum', 0);
+
+            if ($minimum > 0 && $subtotal < $minimum) {
+                throw ValidationException::withMessages([
+                    'cart' => 'The minimum order value is '.number_format($minimum, 2).' EGP.',
+                ]);
             }
 
             $shippingFee = $this->calculateShippingFee($governorate, $subtotal);

@@ -4,6 +4,7 @@ namespace App\Services\Admin;
 
 use App\Enums\OrderStatus;
 use App\Models\Order;
+use App\Models\StoreSetting;
 use App\Models\Variant;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -37,6 +38,19 @@ class DashboardService
      * the Low Stock strip and the "items low stock" attention card.
      */
     private const LOW_STOCK_THRESHOLD = 5;
+
+    /**
+     * The number of units at which a variant counts as low on stock.
+     *
+     * The admin sets it in the settings screen, so the dashboard asks
+     * the settings for it instead of carrying a second copy of the
+     * number. The default above is what a store that never touched the
+     * screen starts with.
+     */
+    public static function lowStockThreshold(): int
+    {
+        return (int) StoreSetting::get('inventory.lowStockThreshold', self::LOW_STOCK_THRESHOLD);
+    }
 
     /**
      * Virtual full-shelf baseline used to render the stock progress
@@ -143,7 +157,9 @@ class DashboardService
 
     public function getAttentionMetrics(): array
     {
-        return Cache::remember('dashboard.attention', self::CACHE_TTL_ATTENTION, function (): array {
+        $threshold = self::lowStockThreshold();
+
+        return Cache::remember('dashboard.attention.'.$threshold, self::CACHE_TTL_ATTENTION, function () use ($threshold): array {
             return [
                 [
                     'count' => Order::query()
@@ -155,7 +171,7 @@ class DashboardService
                 ],
                 [
                     'count' => Variant::query()
-                        ->where('quantity', '<=', self::LOW_STOCK_THRESHOLD)
+                        ->where('quantity', '<=', $threshold)
                         ->count(),
                     'label' => 'items low stock',
                     'href' => route('admin.products.index'),
@@ -489,10 +505,12 @@ class DashboardService
      */
     public function getLowStockItems(int $limit = 4): Collection
     {
-        $rows = Cache::remember("dashboard.low_stock.{$limit}", self::CACHE_TTL_ATTENTION, function () use ($limit): array {
+        $threshold = self::lowStockThreshold();
+
+        $rows = Cache::remember("dashboard.low_stock.{$limit}.{$threshold}", self::CACHE_TTL_ATTENTION, function () use ($limit, $threshold): array {
             return Variant::query()
                 ->with(['product', 'color', 'size'])
-                ->where('quantity', '<=', self::LOW_STOCK_THRESHOLD)
+                ->where('quantity', '<=', $threshold)
                 ->orderBy('quantity')
                 ->orderBy('id')
                 ->limit($limit)

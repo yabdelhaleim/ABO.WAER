@@ -29,16 +29,16 @@
         ],
         'SYSTEM' => [
             ['num' => '14', 'label' => 'Admins',      'url' => route('admin.admins.index'),            'active' => request()->routeIs('admin.admins*')],
-            ['num' => '15', 'label' => 'Settings',    'url' => route('admin.settings.v2'),            'active' => request()->routeIs('admin.settings*')],
+            ['num' => '15', 'label' => 'Settings',    'url' => route('admin.settings.index'),         'active' => request()->routeIs('admin.settings*')],
         ],
     ];
 @endphp
 
 <aside class="abo-admin-sidebar" aria-label="Admin navigation">
-    <a class="abo-admin-sidebar__brand" href="{{ route('admin.dashboard') }}" aria-label="ABO — Admin home">
-        <img src="{{ asset('images/abo-logo.svg') }}" alt="ABO" width="36" height="36">
+    <a class="abo-admin-sidebar__brand" href="{{ route('admin.dashboard') }}" aria-label="{{ \App\Models\StoreSetting::storeName() }} — Admin home">
+        <img src="{{ \App\Models\StoreSetting::logoUrl() }}" alt="{{ \App\Models\StoreSetting::storeName() }}" width="36" height="36">
         <span class="abo-admin-sidebar__brand-text">
-            <strong>ABO</strong>
+            <strong>{{ \App\Models\StoreSetting::storeName() }}</strong>
             <em>Admin</em>
         </span>
     </a>

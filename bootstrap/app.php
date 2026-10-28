@@ -3,6 +3,7 @@
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\EnsureAdminPermission;
 use App\Http\Middleware\EnsureNotBlocked;
+use App\Http\Middleware\EnsureStoreIsOpen;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -21,6 +22,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin.permission' => EnsureAdminPermission::class,
             'not_blocked' => EnsureNotBlocked::class,
         ]);
+
+        // The store's maintenance switch. It is a global middleware so
+        // it runs once for every request, and it lets the back office
+        // through — the person who turned the switch on has to be able
+        // to turn it off again.
+        $middleware->append(EnsureStoreIsOpen::class);
 
         // The admin check has to happen BEFORE the route parameters are
         // bound. Route-model binding lives in SubstituteBindings, which

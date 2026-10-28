@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\Color;
 use App\Models\Product;
 use App\Models\Size;
+use App\Models\StoreSetting;
 use App\Models\Variant;
 use App\Services\ImageService;
 use App\Services\SizeGuideService;
@@ -40,6 +41,11 @@ class ShopController extends Controller
                 'productColors.color:id,name,hex_code',
                 'productColors.images',
             ]);
+
+        // The admin can keep the sold-out products out of the store.
+        if (StoreSetting::get('inventory.hideOutOfStock', false)) {
+            $query->whereHas('variants', fn (Builder $q) => $q->where('quantity', '>', 0));
+        }
 
         // Category filter (slug) — includes all descendant subcategories.
         $activeCategory = null;
