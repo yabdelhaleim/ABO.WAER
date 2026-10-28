@@ -412,6 +412,9 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::get('/size-guides', [SizeGuideController::class, 'index'])->name('size-guides.index');
         Route::post('/size-guides', [SizeGuideController::class, 'store'])->name('size-guides.store');
         Route::match(['put', 'patch'], '/size-guides/{sizeGuide}', [SizeGuideController::class, 'update'])->name('size-guides.update');
+        Route::patch('/size-guides/{sizeGuide}/toggle', [SizeGuideController::class, 'toggle'])->name('size-guides.toggle');
+        Route::post('/size-guides/{sizeGuide}/duplicate', [SizeGuideController::class, 'duplicate'])->name('size-guides.duplicate');
+        Route::post('/size-guides/{sizeGuide}/image', [SizeGuideController::class, 'image'])->name('size-guides.image');
         Route::delete('/size-guides/{sizeGuide}', [SizeGuideController::class, 'destroy'])->name('size-guides.destroy');
     });
 

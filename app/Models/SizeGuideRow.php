@@ -12,10 +12,9 @@ class SizeGuideRow extends Model
     protected function casts(): array
     {
         return [
-            'chest' => 'float',
-            'length' => 'float',
-            'sleeve' => 'float',
-            'shoulder' => 'float',
+            // The row's measurements, keyed by the guide's column
+            // names: {"Chest": 56, "Length": 72}.
+            'measurements' => 'array',
             'sort_order' => 'integer',
         ];
     }

@@ -8,6 +8,19 @@ use App\Models\SizeGuideRow;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Size guides: a chart is a grid.
+ *
+ * The rows are the sizes and the columns are the measurements, and the
+ * admin names the columns — a pair of pants is measured by waist and
+ * hip, a hoodie by chest and sleeve. The guide therefore carries the
+ * ordered list of column names and every row carries its values keyed
+ * by those names.
+ *
+ * The storefront reads the same grid: SizeGuideService::chartForCategory
+ * hands the modal the columns and the rows, and the modal prints the
+ * column names as they are.
+ */
 class SizeGuideService
 {
     /**
@@ -15,7 +28,7 @@ class SizeGuideService
      */
     public function listForAdmin(): Collection
     {
-        return SizeGuide::with(['category', 'rows'])
+        return SizeGuide::with(['category' => fn ($query) => $query->withCount('products'), 'rows'])
             ->orderByDesc('id')
             ->get();
     }
@@ -64,21 +77,64 @@ class SizeGuideService
     }
 
     /**
+     * Copy a guide and its chart.
+     *
+     * The copy is inactive and carries no category: it is a draft the
+     * admin edits before it goes anywhere near the storefront.
+     */
+    public function duplicate(SizeGuide $guide): SizeGuide
+    {
+        return DB::transaction(function () use ($guide) {
+            $copy = SizeGuide::create([
+                'name' => $guide->name.' (copy)',
+                'name_ar' => $guide->name_ar ? $guide->name_ar.' (نسخة)' : null,
+                'description' => $guide->description,
+                'note' => $guide->note,
+                'note_ar' => $guide->note_ar,
+                'unit' => $guide->unit,
+                'how_to' => $guide->how_to,
+                'how_to_ar' => $guide->how_to_ar,
+                'image' => $guide->image,
+                'measurements' => $guide->measurements,
+                'is_active' => false,
+            ]);
+
+            foreach ($guide->rows as $row) {
+                $copy->rows()->create([
+                    'size_name' => $row->size_name,
+                    'measurements' => $row->measurements,
+                    'sort_order' => $row->sort_order,
+                ]);
+            }
+
+            return $copy->load(['category', 'rows']);
+        });
+    }
+
+    /**
+     * Show or hide a guide.
+     *
+     * The storefront only ever reads active guides, so this is what
+     * takes a chart off the product page.
+     */
+    public function toggle(SizeGuide $guide, bool $active): SizeGuide
+    {
+        $guide->update(['is_active' => $active]);
+
+        return $guide;
+    }
+
+    /**
      * The size chart for a category, shaped for the storefront modal.
      *
      * The modal component (resources/views/components/size-guide/modal.blade.php)
-     * keys its charts by category slug and reads one row per size with a
-     * `measurements` map. This builds exactly that from the `size_guides`
+     * keys its charts by category slug and reads one row per size with
+     * a `measurements` map. This builds exactly that from the `size_guides`
      * and `size_guide_rows` tables.
      *
      * A guide with no measurement rows is not a chart — the modal would
      * render an empty table. Null is returned instead so the modal shows
      * its "measurements coming soon" state rather than an empty grid.
-     *
-     * The measurement columns are derived from the data: `chest` and
-     * `length` are always present (the column is NOT NULL), while
-     * `sleeve` and `shoulder` only join the table when at least one row
-     * actually carries a value.
      *
      * @return array{unit: string, types: array<string, array{columns: array<int, string>, rows: array<int, array{size: string, measurements: array<string, float>}>}>, howToMeasure: array<int, array{label: string, hint: string}>}|null
      */
@@ -105,33 +161,22 @@ class SizeGuideService
             return null;
         }
 
-        $columns = ['chest', 'length'];
+        // The guide names its own columns. A guide written before the
+        // grid existed has none, so its columns are read off the rows.
+        $columns = $guide->measurements ?? [];
 
-        foreach (['sleeve', 'shoulder'] as $optional) {
-            if ($rows->contains(fn (SizeGuideRow $row): bool => $row->{$optional} !== null)) {
-                $columns[] = $optional;
-            }
+        if ($columns === []) {
+            $columns = $this->columnsFromRows($rows);
         }
 
         return [
-            'unit' => 'cm',
+            'unit' => $guide->unit ?: 'cm',
             'types' => [
                 $category->slug => [
                     'columns' => $columns,
                     'rows' => $rows->map(fn (SizeGuideRow $row): array => [
                         'size' => (string) $row->size_name,
-                        'measurements' => array_map(
-                            fn (?float $value): float => (float) $value,
-                            array_intersect_key(
-                                [
-                                    'chest' => $row->chest,
-                                    'length' => $row->length,
-                                    'sleeve' => $row->sleeve,
-                                    'shoulder' => $row->shoulder,
-                                ],
-                                array_flip($columns)
-                            )
-                        ),
+                        'measurements' => $this->numericMeasurements($row->measurements, $columns),
                     ])->values()->all(),
                 ],
             ],
@@ -173,6 +218,13 @@ class SizeGuideService
             'name',
             'name_ar',
             'description',
+            'note',
+            'note_ar',
+            'unit',
+            'how_to',
+            'how_to_ar',
+            'image',
+            'measurements',
             'is_active',
         ]));
     }
@@ -181,6 +233,9 @@ class SizeGuideService
      * Synchronize the guide's measurement rows: existing rows not
      * present in the submitted list are removed and incoming ones
      * are inserted (or updated when an `id` is supplied).
+     *
+     * A row carries its values keyed by the guide's column names:
+     * `{"size_name": "M", "measurements": {"Chest": 56, "Length": 72}}`.
      *
      * @param  array<int, array<string, mixed>>  $rows
      */
@@ -199,21 +254,16 @@ class SizeGuideService
         }
 
         foreach ($rows as $index => $row) {
-            if (! isset($row['size_name'], $row['chest'], $row['length'])) {
+            if (! isset($row['size_name'])) {
                 continue;
             }
 
             $payload = [
                 'size_guide_id' => $guide->id,
                 'size_name' => (string) $row['size_name'],
-                'chest' => (float) $row['chest'],
-                'length' => (float) $row['length'],
-                'sleeve' => isset($row['sleeve']) && $row['sleeve'] !== ''
-                    ? (float) $row['sleeve']
-                    : null,
-                'shoulder' => isset($row['shoulder']) && $row['shoulder'] !== ''
-                    ? (float) $row['shoulder']
-                    : null,
+                'measurements' => $this->numericMeasurements(
+                    is_array($row['measurements'] ?? null) ? $row['measurements'] : [],
+                ),
                 'sort_order' => (int) ($row['sort_order'] ?? $index),
                 'updated_at' => now(),
             ];
@@ -233,5 +283,60 @@ class SizeGuideService
             $payload['created_at'] = now();
             SizeGuideRow::create($payload);
         }
+    }
+
+    /**
+     * The columns a guide's rows carry, in the order they first appear.
+     *
+     * @param  Collection<int, SizeGuideRow>  $rows
+     * @return array<int, string>
+     */
+    protected function columnsFromRows(Collection $rows): array
+    {
+        $columns = [];
+
+        foreach ($rows as $row) {
+            foreach (array_keys($row->measurements ?? []) as $name) {
+                $columns[$name] = true;
+            }
+        }
+
+        return array_keys($columns);
+    }
+
+    /**
+     * A row's measurements as numbers, in the guide's column order.
+     *
+     * Cells the admin left empty are dropped rather than stored as
+     * zeroes, so "not measured" and "measured zero" stay apart.
+     *
+     * @param  array<string, mixed>|null  $values
+     * @param  array<int, string>|null  $columns
+     * @return array<string, float>
+     */
+    protected function numericMeasurements(?array $values, ?array $columns = null): array
+    {
+        if ($values === null || $values === []) {
+            return [];
+        }
+
+        $ordered = $columns === null ? array_keys($values) : $columns;
+        $result = [];
+
+        foreach ($ordered as $name) {
+            if (! array_key_exists($name, $values)) {
+                continue;
+            }
+
+            $value = $values[$name];
+
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            $result[$name] = (float) $value;
+        }
+
+        return $result;
     }
 }

@@ -19,6 +19,8 @@ class SizeGuide extends Model
     {
         return [
             'is_active' => 'boolean',
+            // The ordered names of the chart's columns.
+            'measurements' => 'array',
         ];
     }
 

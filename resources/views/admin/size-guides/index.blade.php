@@ -1,10 +1,10 @@
 {{--
-    Admin · Size Guides (front-end only, static data).
+    Admin · Size Guides.
 
-    Extends the existing admin layout. No controller, no model.
-    All data is hard-coded in the $guides array at the top of this
-    view, and exposed to the page-local script via a single
-    <script type="application/json"> tag with the same shape.
+    Extends the existing admin layout. The guides, their charts and
+    the size palette all come from the database: Admin\SizeGuideController
+    builds the payload the editor draws and hands it over in a single
+    <script type="application/json"> tag.
 
     Page structure (top to bottom):
       1. Page header  — CATALOG eyebrow, "SIZE" + " GUIDES" title,
@@ -27,112 +27,9 @@
 @section('description', 'ABO — admin size guides: per-guide chart, sizes, measurements, unit switch and customer note.')
 
 @php
-    // TODO(backend): replace the static $guides array below with
-    // data fetched server-side from the size_guides table (or a
-    // similar relation). The shape is final; only the source
-    // changes. A future server-side implementation can keep the
-    // PHP<->JSON bridge and just change how the array is built.
-
-    // The full size palette (per the Colors & Sizes page). The
-    // "+ Add size row" select in the editor lists only sizes that
-    // are not already in the current guide's sizes list.
-    $sizePalette = [
-        'letter' => ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'],
-        'pants'  => ['28', '30', '32', '34', '36', '38'],
-        'one'    => ['One size'],
-    ];
-    $allSizes = array_merge($sizePalette['letter'], $sizePalette['pants'], $sizePalette['one']);
-
-    $guides = [
-        [
-            'id'              => 'sg-hoodies',
-            'name'            => 'Hoodies and Jackets',
-            'name_ar'         => 'هودييز و جاكيتس',
-            'sizes'           => ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
-            'measurements'    => ['Chest', 'Length', 'Shoulder', 'Sleeve'],
-            'rows'            => [
-                ['52', '68', '44', '62'],
-                ['54', '70', '45', '63'],
-                ['56', '72', '46', '64'],
-                ['58', '74', '47', '65'],
-                ['60', '76', '48', '66'],
-                ['62', '78', '49', '67'],
-            ],
-            'note'            => 'Measurements are in cm. If you are between sizes, choose the larger one.',
-            'note_ar'         => 'القياسات بالسنتيمتر. إذا كنت بين مقاسين، اختر المقاس الأكبر.',
-            'unit'            => 'cm',
-            'how_to'          => 'Lay the garment flat. Measure across the chest just under the armhole. For length, measure from the highest point of the shoulder to the hem.',
-            'how_to_ar'       => 'ضع القطعة على سطح مستوٍ. قس عبر الصدر أسفل فتحة الذراع مباشرة. للطول، قس من أعلى نقطة في الكتف إلى الحافة السفلية.',
-            'image'           => null,
-            'product_count'   => 24,
-            'active'          => true,
-        ],
-        [
-            'id'              => 'sg-tshirts',
-            'name'            => 'T-shirts',
-            'name_ar'         => 'تي شيرتات',
-            'sizes'           => ['S', 'M', 'L', 'XL', 'XXL'],
-            'measurements'    => ['Chest', 'Length', 'Shoulder'],
-            'rows'            => [
-                ['52', '70', '44'],
-                ['54', '72', '45'],
-                ['56', '74', '46'],
-                ['58', '76', '47'],
-                ['60', '78', '48'],
-            ],
-            'note'            => 'Measurements are in cm. The fit is regular.',
-            'note_ar'         => 'القياسات بالسنتيمتر. القصة عادية.',
-            'unit'            => 'cm',
-            'how_to'          => 'Lay the garment flat. Measure across the chest 1 cm below the armhole.',
-            'how_to_ar'       => 'ضع القطعة على سطح مستوٍ. قس عبر الصدر على بعد 1 سم أسفل فتحة الذراع.',
-            'image'           => null,
-            'product_count'   => 18,
-            'active'          => true,
-        ],
-        [
-            'id'              => 'sg-pants',
-            'name'            => 'Pants',
-            'name_ar'         => 'بناطيل',
-            'sizes'           => ['28', '30', '32', '34', '36', '38'],
-            'measurements'    => ['Waist', 'Hip', 'Inseam', 'Thigh'],
-            'rows'            => [
-                ['72', '92', '76', '52'],
-                ['76', '96', '77', '54'],
-                ['80', '100', '78', '56'],
-                ['84', '104', '79', '58'],
-                ['88', '108', '80', '60'],
-                ['92', '112', '81', '62'],
-            ],
-            'note'            => 'Measurements are in cm. Pants are cut a little slim — size up if you prefer a relaxed fit.',
-            'note_ar'         => 'القياسات بالسنتيمتر. البناطيل بقصة ضيقة بعض الشيء — اختر مقاساً أكبر إذا كنت تفضل قصة مريحة.',
-            'unit'            => 'cm',
-            'how_to'          => 'Measure across the elastic waist laid flat (then double it), and around the widest part of the hip.',
-            'how_to_ar'       => 'قس عبر الخصر المرن وهو مفرود على سطح مستوٍ (ثم اضرب في اثنين)، وحول أوسع جزء في الورك.',
-            'image'           => null,
-            'product_count'   => 12,
-            'active'          => true,
-        ],
-        [
-            'id'              => 'sg-accessories',
-            'name'            => 'Accessories',
-            'name_ar'         => 'إكسسوارات',
-            'sizes'           => ['One size'],
-            'measurements'    => [],
-            'rows'            => [],
-            'note'            => 'One size fits most. No measurements needed for this guide.',
-            'note_ar'         => 'مقاس واحد يناسب معظم الأشخاص. لا حاجة للقياسات.',
-            'unit'            => 'cm',
-            'how_to'          => '',
-            'how_to_ar'       => '',
-            'image'           => null,
-            'product_count'   => 0,
-            'active'          => false,
-        ],
-    ];
-
     // The first guide is the default selection. The JS keeps the
     // selection in sync with the row clicks and the keyboard.
-    $firstId = $guides[0]['id'] ?? null;
+    $firstId = $payload[0]['id'] ?? null;
 @endphp
 
 @section('content')
@@ -294,6 +191,20 @@
                                autocomplete="off"
                                dir="rtl"
                                data-abo-admin-size-guides-name-ar>
+                    </div>
+
+                    {{-- The category this guide belongs to. The storefront
+                         shows the chart of the product's category, so a
+                         guide without one is never reached. --}}
+                    <div class="abo-admin-size-guides__field">
+                        <label for="abo-admin-size-guides-category">Category</label>
+                        <select id="abo-admin-size-guides-category"
+                                data-abo-admin-size-guides-category>
+                            <option value="">No category — the chart stays off the shop</option>
+                            @foreach ($categories as $category)
+                                <option value="{{ $category->id }}">{{ $category->name }}</option>
+                            @endforeach
+                        </select>
                     </div>
 
                     {{-- Note for customers (with EN/AR switch) --}}
@@ -540,16 +451,18 @@
          data-abo-admin-size-guides-toast>
         <span class="abo-admin-size-guides__toast-dot abo-admin-size-guides__toast-dot--lime"
               aria-hidden="true"></span>
-        <span data-abo-admin-size-guides-toast-text>Saved (demo)</span>
+        <span data-abo-admin-size-guides-toast-text>Saved</span>
     </div>
 
-    {{-- ─── Static data → JSON for the page-local script ────────── --}}
+    {{-- ─── The database → JSON for the page-local script ────────── --}}
     {{-- Same shape on both ends. JS never re-types this; it just
          reads the data off the tag and keeps an in-memory copy. --}}
     <script type="application/json"
-            data-abo-admin-size-guides-data>{!! json_encode($guides, JSON_UNESCAPED_UNICODE) !!}</script>
+            data-abo-admin-size-guides-data>{!! json_encode($payload, JSON_UNESCAPED_UNICODE) !!}</script>
     <script type="application/json"
-            data-abo-admin-size-guides-sizes>{!! json_encode($allSizes, JSON_UNESCAPED_UNICODE) !!}</script>
+            data-abo-admin-size-guides-sizes>{!! json_encode($sizes, JSON_UNESCAPED_UNICODE) !!}</script>
+    <script type="application/json"
+            data-abo-admin-size-guides-routes>{!! json_encode($routes, JSON_UNESCAPED_UNICODE) !!}</script>
 @endsection
 
 @push('head')

@@ -3,11 +3,12 @@
  *
  * Self-gating: init() only runs if the [data-abo-admin-size-guides]
  * is present (i.e. the size-guides page). It hydrates the list,
- * the edit panel, the preview modal and the toast from a single
- * static $guides array (served by the view as a <script
- * type="application/json"> tag) and the size palette.
+ * the edit panel, the preview modal and the toast from the payload
+ * Admin\SizeGuideController builds out of the database, and the size
+ * palette the shop sells.
  *
- * NO network calls. NO localStorage. NO IndexedDB.
+ * Every change goes back to the server and the screen is replaced by
+ * the answer: the guide on screen is the guide the database holds.
  *
  * Sections:
  *   initTodayDate  — header date
@@ -98,6 +99,7 @@ function initTodayDate() {
 const STATE = {
     guides: [],
     palette: [],
+    routes: {},
     filter: '',
     selectedId: null,    // id of the guide currently in the panel
     panelMode: 'edit',   // 'edit' | 'new' | null
@@ -111,6 +113,188 @@ function getGuide(id) { return STATE.guides.find(g => g.id === id) || null; }
 function nextId() { return 'sg-' + Date.now().toString(36); }
 
 function cloneGuide(g) { return JSON.parse(JSON.stringify(g)); }
+
+/* ──────────────────────────────────────────────────────────────
+   The server boundary
+
+   The database owns the guide: the screen hydrates from the payload
+   Admin\SizeGuideController builds, and every change goes back to it
+   and is replaced by the answer. The browser never keeps a copy the
+   server has not confirmed.
+   ────────────────────────────────────────────────────────────── */
+
+function csrfToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.getAttribute('content') : '';
+}
+
+/** Pull the most useful message out of a Laravel error body. */
+function errorMessage(payload, status) {
+    if (payload && typeof payload.message === 'string' && payload.message) {
+        return payload.message;
+    }
+    const errors = (payload && payload.errors) || {};
+    const firstKey = Object.keys(errors)[0];
+    if (firstKey) {
+        const value = errors[firstKey];
+        return Array.isArray(value) ? (value[0] || '') : String(value);
+    }
+    return 'Request failed (' + status + ')';
+}
+
+/**
+ * Run one request against the server.
+ *
+ * Rejects when the call fails, so the caller can put the row back the
+ * way the database still sees it.
+ */
+async function api(method, url, body) {
+    const response = await fetch(url, {
+        method: method || 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            'X-CSRF-TOKEN': csrfToken(),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+    });
+
+    let payload = null;
+    try {
+        payload = await response.json();
+    } catch (err) {
+        payload = null;
+    }
+
+    if (!response.ok || (payload && payload.success === false)) {
+        throw new Error(errorMessage(payload, response.status));
+    }
+
+    return payload;
+}
+
+/**
+ * Upload the how-to image of a guide.
+ *
+ * The image is its own request: the guide has to exist before it can
+ * carry a file.
+ */
+async function uploadImage(guideId, file) {
+    const route = STATE.routes.image;
+    if (!route || !route.url || !file) return null;
+
+    const form = new FormData();
+    form.append('image_file', file);
+
+    const response = await fetch(route.url.replace('__GUIDE__', encodeURIComponent(guideId)), {
+        method: 'POST',
+        headers: {
+            Accept: 'application/json',
+            'X-CSRF-TOKEN': csrfToken(),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: form,
+    });
+
+    let payload = null;
+    try {
+        payload = await response.json();
+    } catch (err) {
+        payload = null;
+    }
+
+    if (!response.ok || (payload && payload.success === false)) {
+        throw new Error(errorMessage(payload, response.status));
+    }
+
+    return payload;
+}
+
+/** The URL of one of the guide endpoints. */
+function guideUrl(key, guideId) {
+    const route = STATE.routes[key];
+    if (!route || !route.url) return null;
+    return route.url.replace('__GUIDE__', encodeURIComponent(guideId));
+}
+
+/**
+ * The guide the server sent, in the shape the editor draws.
+ *
+ * The server sends the chart as rows of named measurements; the
+ * editor draws a grid, so the values are laid out in the guide's
+ * column order here.
+ */
+function guideFromPayload(payload) {
+    const columns = Array.isArray(payload.measurements) ? payload.measurements : [];
+    const sizes = Array.isArray(payload.sizes) ? payload.sizes : [];
+    const rows = Array.isArray(payload.rows) ? payload.rows : [];
+
+    return {
+        id: String(payload.id),
+        name: payload.name || '',
+        name_ar: payload.name_ar || '',
+        description: payload.description || '',
+        note: payload.note || '',
+        note_ar: payload.note_ar || '',
+        unit: payload.unit === 'inch' ? 'inch' : 'cm',
+        how_to: payload.how_to || '',
+        how_to_ar: payload.how_to_ar || '',
+        image: payload.image || null,
+        image_path: payload.image_path || '',
+        category_id: payload.category_id || null,
+        product_count: Number(payload.product_count || 0),
+        active: !!payload.active,
+        measurements: columns.slice(),
+        sizes: sizes.slice(),
+        rows: rows.map((row) => columns.map((column) => {
+            const values = row.measurements || {};
+            const value = values[column];
+            return value === null || value === undefined ? '' : String(value);
+        })),
+        // The ids of the stored rows, so saving a guide updates its
+        // rows instead of replacing all of them.
+        rowIds: rows.map((row) => (row.id ? String(row.id) : null)),
+    };
+}
+
+/**
+ * The editor's guide, in the shape the server stores.
+ */
+function payloadFromEditor(working) {
+    const rows = working.sizes.map((size, index) => {
+        const values = {};
+
+        working.measurements.forEach((column, mi) => {
+            const value = working.rows[index] ? working.rows[index][mi] : '';
+            if (value !== '' && value !== null && value !== undefined) {
+                values[column] = value;
+            }
+        });
+
+        const row = { size_name: size, measurements: values };
+        const id = working.rowIds ? working.rowIds[index] : null;
+        if (id) row.id = id;
+
+        return row;
+    });
+
+    return {
+        name: working.name,
+        name_ar: working.name_ar,
+        description: working.description,
+        note: working.note,
+        note_ar: working.note_ar,
+        unit: working.unit,
+        how_to: working.how_to,
+        how_to_ar: working.how_to_ar,
+        image: working.image_path || '',
+        category_id: working.category_id || null,
+        is_active: !!working.active,
+        measurements: working.measurements.slice(),
+        rows: rows,
+    };
+}
 
 /* ──────────────────────────────────────────────────────────────
    Unit conversion (display only, the data stays in cm)
@@ -226,6 +410,50 @@ function syncSelectedRow() {
     });
 }
 
+/**
+ * Show or hide a guide.
+ *
+ * The switch moves on screen first, and is put back where the
+ * database still sees it when the server refuses the change. The
+ * guide on screen is the guide the server answered with.
+ */
+async function toggleGuide(g, input) {
+    const next = !g.active;
+    const previous = g.active;
+
+    g.active = next;
+    input.checked = next;
+    input.setAttribute('aria-checked', next ? 'true' : 'false');
+
+    const url = guideUrl('toggle', g.id);
+
+    if (!url) {
+        g.active = previous;
+        input.checked = previous;
+        input.setAttribute('aria-checked', previous ? 'true' : 'false');
+        showToast('The size guide endpoint is not configured.', 'coral');
+        return;
+    }
+
+    try {
+        const response = await api('PATCH', url, { is_active: next });
+        const saved = guideFromPayload(response.guide);
+        const index = STATE.guides.findIndex((x) => x.id === saved.id);
+        if (index > -1) STATE.guides[index] = saved;
+        if (STATE.selectedId === saved.id && editor) {
+            editor.active = saved.active;
+            renderEditor();
+        }
+        renderList();
+        showToast(response.message || 'Saved');
+    } catch (err) {
+        g.active = previous;
+        input.checked = previous;
+        input.setAttribute('aria-checked', previous ? 'true' : 'false');
+        showToast(err.message, 'coral');
+    }
+}
+
 /* ──────────────────────────────────────────────────────────────
    Editor + panel
    ────────────────────────────────────────────────────────────── */
@@ -270,12 +498,18 @@ function newGuide() {
             ['', ''],
             ['', ''],
         ],
+        // The ids of the stored rows — a new guide has none yet.
+        rowIds: [null, null, null],
+        description: '',
         note: '',
         note_ar: '',
         unit: 'cm',
         how_to: '',
         how_to_ar: '',
         image: null,
+        image_path: '',
+        image_file: null,
+        category_id: null,
         product_count: 0,
         active: true,
     };
@@ -322,6 +556,12 @@ function renderEditor() {
     if (!editor) return;
     $('[data-abo-admin-size-guides-name]').value    = editor.name    || '';
     $('[data-abo-admin-size-guides-name-ar]').value = editor.name_ar || '';
+
+    // The category the guide belongs to. The storefront reads the
+    // chart of the product's category, so this is what puts the chart
+    // on the product page.
+    const categorySel = $('[data-abo-admin-size-guides-category]');
+    if (categorySel) categorySel.value = editor.category_id || '';
 
     // Note + how-to: show only the EN or AR textarea based on the
     // currently selected language tab.
@@ -561,6 +801,13 @@ function initEditor() {
     const noteAr = $('[data-abo-admin-size-guides-note-ar]');
     if (noteAr) noteAr.addEventListener('input', () => { editor.note_ar = noteAr.value; setDirty(true); });
 
+    // The category the guide belongs to.
+    const categorySel = $('[data-abo-admin-size-guides-category]');
+    if (categorySel) categorySel.addEventListener('change', () => {
+        editor.category_id = categorySel.value || null;
+        setDirty(true);
+    });
+
     // How-to textareas
     const howtoEn = $('[data-abo-admin-size-guides-howto]');
     if (howtoEn) howtoEn.addEventListener('input', () => { editor.how_to = howtoEn.value; setDirty(true); });
@@ -619,6 +866,7 @@ function initEditor() {
             const si = +t.dataset.aboAdminSizeGuidesRowRemove;
             editor.sizes.splice(si, 1);
             editor.rows.splice(si, 1);
+            if (editor.rowIds) editor.rowIds.splice(si, 1);
             setDirty(true);
             renderChartTable();
         });
@@ -655,12 +903,14 @@ function initEditor() {
             if (dragSrc === dst) return;
             const [movedSize] = editor.sizes.splice(dragSrc, 1);
             const [movedRow]  = editor.rows.splice(dragSrc, 1);
+            const [movedId]   = editor.rowIds ? editor.rowIds.splice(dragSrc, 1) : [null];
             editor.sizes.splice(dst, 0, movedSize);
             editor.rows.splice(dst, 0, movedRow);
+            if (editor.rowIds) editor.rowIds.splice(dst, 0, movedId);
             dragSrc = null;
+            // The order is part of the guide, so it is saved with it.
             setDirty(true);
             renderChartTable();
-            showToast('Order updated (demo)');
         });
     }
 
@@ -692,6 +942,7 @@ function initEditor() {
             if (!v) return;
             editor.sizes.push(v);
             editor.rows.push(new Array(editor.measurements.length).fill(''));
+            if (editor.rowIds) editor.rowIds.push(null);
             setDirty(true);
             addSizeSel.hidden = true;
             addSizeSel.value = '';
@@ -722,15 +973,18 @@ function initEditor() {
     if (fileInput) fileInput.addEventListener('change', () => {
         const file = fileInput.files?.[0];
         if (!file) return;
-        const url = URL.createObjectURL(file);
-        editor.image = url;
+        // The file is uploaded once the guide has an id to hold it.
+        editor.image_file = file;
+        editor.image = URL.createObjectURL(file);
         setDirty(true);
         renderEditor();
     });
     const removeImgBtn = $('[data-abo-admin-size-guides-howto-image-remove]');
     if (removeImgBtn) removeImgBtn.addEventListener('click', () => {
-        if (!editor.image) return;
+        if (!editor.image && !editor.image_file) return;
         editor.image = null;
+        editor.image_path = '';
+        editor.image_file = null;
         setDirty(true);
         renderEditor();
     });
@@ -745,34 +999,78 @@ function initEditor() {
 
     // Save / Duplicate / Delete / Preview
     const saveBtn = $('[data-abo-admin-size-guides-save]');
-    if (saveBtn) saveBtn.addEventListener('click', () => {
+    if (saveBtn) saveBtn.addEventListener('click', async () => {
         if (!editor) return;
-        if (STATE.panelMode === 'new') {
-            STATE.guides.unshift(editor);
-        } else {
-            const g = getGuide(STATE.selectedId);
-            if (g) Object.assign(g, editor);
+
+        const working = cloneGuide(editor);
+        const isNew = STATE.panelMode === 'new';
+
+        saveBtn.disabled = true;
+
+        try {
+            const url = isNew ? STATE.routes.store?.url : guideUrl('update', working.id);
+            if (!url) throw new Error('The size guide endpoint is not configured.');
+
+            const response = await api(isNew ? 'POST' : 'PUT', url, payloadFromEditor(working));
+
+            // The server's guide replaces the local copy — including
+            // the ids it gave the rows.
+            let saved = guideFromPayload(response.guide);
+
+            // A new image is uploaded once the guide exists.
+            if (working.image_file) {
+                const uploaded = await uploadImage(saved.id, working.image_file);
+                if (uploaded && uploaded.guide) {
+                    saved = guideFromPayload(uploaded.guide);
+                }
+            }
+
+            if (isNew) {
+                STATE.guides.unshift(saved);
+            } else {
+                const index = STATE.guides.findIndex((g) => g.id === saved.id);
+                if (index > -1) STATE.guides[index] = saved;
+            }
+
+            STATE.selectedId = saved.id;
+            STATE.panelMode = 'edit';
+            setDirty(false);
+            renderList();
+            openEditor(saved.id);
+            showToast(response.message || 'Saved');
+        } catch (err) {
+            showToast(err.message, 'coral');
+        } finally {
+            saveBtn.disabled = false;
         }
-        showToast('Saved (demo)');
-        STATE.selectedId = editor.id;
-        STATE.panelMode  = 'edit';
-        setDirty(false);
-        renderList();
-        openEditor(editor.id);
     });
     const dupBtn = $('[data-abo-admin-size-guides-duplicate]');
-    if (dupBtn) dupBtn.addEventListener('click', () => {
+    if (dupBtn) dupBtn.addEventListener('click', async () => {
         if (!editor) return;
-        const copy = cloneGuide(editor);
-        copy.id = nextId();
-        copy.name = `${editor.name || 'Untitled'} (copy)`;
-        copy.name_ar = editor.name_ar ? `${editor.name_ar} (نسخة)` : '';
-        copy.product_count = 0;
-        copy.active = false;
-        STATE.guides.unshift(copy);
-        showToast('Duplicated (demo)');
-        renderList();
-        openEditor(copy.id);
+
+        const url = guideUrl('duplicate', editor.id);
+        if (!url) {
+            showToast('The size guide endpoint is not configured.', 'coral');
+            return;
+        }
+
+        dupBtn.disabled = true;
+
+        try {
+            const response = await api('POST', url, {});
+            const copy = guideFromPayload(response.guide);
+            STATE.guides.unshift(copy);
+            STATE.selectedId = copy.id;
+            STATE.panelMode = 'edit';
+            setDirty(false);
+            renderList();
+            openEditor(copy.id);
+            showToast(response.message || 'Duplicated');
+        } catch (err) {
+            showToast(err.message, 'coral');
+        } finally {
+            dupBtn.disabled = false;
+        }
     });
     const delBtn = $('[data-abo-admin-size-guides-delete]');
     if (delBtn) delBtn.addEventListener('click', () => {
@@ -868,12 +1166,26 @@ function openDeleteModal() {
     const body = $('[data-abo-admin-size-guides-modal-body]', modal);
     if (body) body.textContent = `Delete "${editor?.name || 'this guide'}"? This action cannot be undone.`;
     modal.hidden = false;
-    deleteHandler = () => {
+    deleteHandler = async () => {
         if (!editor) return;
-        STATE.guides = STATE.guides.filter(g => g.id !== editor.id);
-        closePanel();
-        showToast('Guide deleted (demo)', 'coral');
-        renderList();
+
+        const target = editor;
+        const url = guideUrl('destroy', target.id);
+
+        if (!url) {
+            showToast('The size guide endpoint is not configured.', 'coral');
+            return;
+        }
+
+        try {
+            const response = await api('DELETE', url);
+            STATE.guides = STATE.guides.filter(g => g.id !== target.id);
+            closePanel();
+            renderList();
+            showToast(response.message || 'Guide deleted', 'coral');
+        } catch (err) {
+            showToast(err.message, 'coral');
+        }
     };
 }
 function closeDeleteModal() {
@@ -920,15 +1232,22 @@ function initList() {
     const list = $('[data-abo-admin-size-guides-list]');
     if (!list) return;
 
-    // Read the static data shipped by the view.
+    // Read the data and the routes the controller shipped with the page.
     const dataEl = $('[data-abo-admin-size-guides-data]');
     const sizeEl = $('[data-abo-admin-size-guides-sizes]');
+    const routeEl = $('[data-abo-admin-size-guides-routes]');
     try {
-        STATE.guides  = dataEl ? JSON.parse(dataEl.textContent || '[]') : [];
+        const payload = dataEl ? JSON.parse(dataEl.textContent || '[]') : [];
+        STATE.guides = (Array.isArray(payload) ? payload : []).map(guideFromPayload);
         STATE.palette = sizeEl ? JSON.parse(sizeEl.textContent || '[]') : [];
     } catch (e) {
         STATE.guides  = [];
         STATE.palette = [];
+    }
+    try {
+        STATE.routes = routeEl ? JSON.parse(routeEl.textContent || '{}') : {};
+    } catch (e) {
+        STATE.routes = {};
     }
 
     initEditor();
@@ -957,15 +1276,7 @@ function initList() {
         if (toggle) {
             const id = toggle.dataset.aboAdminSizeGuidesRowToggle;
             const g = getGuide(id);
-            if (g) {
-                g.active = !g.active;
-                toggle.checked = g.active;
-                toggle.setAttribute('aria-checked', g.active ? 'true' : 'false');
-                if (STATE.selectedId === id) {
-                    editor.active = g.active;
-                    setDirty(true);
-                }
-            }
+            if (g) toggleGuide(g, toggle);
             return;
         }
         // Otherwise: select the row

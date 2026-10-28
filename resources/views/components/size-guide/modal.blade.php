@@ -17,11 +17,11 @@
         'unit'  => 'cm',
         'types' => [
             '<category-slug>' => [
-                // 'columns' uses KEY names; labels are derived below so
-                // the data file can never mismatch the column header.
-                'columns' => ['chest', 'length', 'shoulder', 'sleeve'],
+                // The column names are the ones the admin gave the
+                // measurements, and they drive the headers.
+                'columns' => ['Chest', 'Length', 'Shoulder', 'Sleeve'],
                 'rows'    => [
-                    ['size' => 'S',  'measurements' => ['chest' => 52, 'length' => 71, 'shoulder' => 45]],
+                    ['size' => 'S',  'measurements' => ['Chest' => 52, 'Length' => 71, 'Shoulder' => 45]],
                     ['size' => 'M',  'measurements' => [...]],
                 ],
             ],
@@ -40,7 +40,7 @@
       no type for the product's category.
     - No cross-type fallback: if the product's category isn't a key in
       $chart['types'], we render the empty state — never another type.
-    - Single source for labels: the column keys drive the headers.
+    - Single source for labels: the column names drive the headers.
     - Selected-size highlight is NOT done in Blade. The JS reads
       [data-product-size] from the page when the modal opens and adds
       .is-active to the matching row. With no attribute on the page
@@ -57,14 +57,9 @@
     $id = $id ?: 'size-guide-'.($product['slug'] ?? 'default');
 
     // Source of truth: column KEY → human label. Adding a new column
-    // means adding one entry here, the chart file uses the key.
-    $columnLabels = [
-        'chest'    => 'Chest',
-        'length'   => 'Length',
-        'shoulder' => 'Shoulder',
-        'sleeve'   => 'Sleeve',
-    ];
-
+    // The column names are the admin's own: a pair of pants is
+    // measured by waist and hip, a hoodie by chest and sleeve. They
+    // are printed as they are named.
     $hasChart = is_array($chart) && !empty($chart['types']);
     $productType = $product['category'] ?? null;
     $hasTypeForProduct = $hasChart && $productType && isset($chart['types'][$productType]);
@@ -150,7 +145,7 @@
                                 <th scope="col" class="size-guide__col-size">Size</th>
                                 @foreach ($type['columns'] as $col)
                                     <th scope="col" class="size-guide__col-measure">
-                                        {{ $columnLabels[$col] ?? ucfirst($col) }}
+                                        {{ $col }}
                                         <span class="size-guide__unit">({{ $unit }})</span>
                                     </th>
                                 @endforeach

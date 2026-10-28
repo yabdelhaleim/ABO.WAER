@@ -350,24 +350,21 @@ class PhaseAStorefrontTest extends TestCase
         $guide = SizeGuide::create([
             'category_id' => $this->hoodies->id,
             'name' => 'Hoodies guide',
+            'measurements' => ['Chest', 'Length', 'Sleeve', 'Shoulder'],
             'is_active' => true,
         ]);
 
         SizeGuideRow::create([
             'size_guide_id' => $guide->id,
             'size_name' => 'M',
-            'chest' => 54.0,
-            'length' => 68.0,
+            'measurements' => ['Chest' => 54.0, 'Length' => 68.0],
             'sort_order' => 0,
         ]);
 
         SizeGuideRow::create([
             'size_guide_id' => $guide->id,
             'size_name' => 'L',
-            'chest' => 56.0,
-            'length' => 70.0,
-            'sleeve' => 61.0,
-            'shoulder' => 46.0,
+            'measurements' => ['Chest' => 56.0, 'Length' => 70.0, 'Sleeve' => 61.0, 'Shoulder' => 46.0],
             'sort_order' => 1,
         ]);
 
@@ -417,14 +414,14 @@ class PhaseAStorefrontTest extends TestCase
         $guide = SizeGuide::create([
             'category_id' => $other->id,
             'name' => 'Jackets guide',
+            'measurements' => ['Chest', 'Length'],
             'is_active' => true,
         ]);
 
         SizeGuideRow::create([
             'size_guide_id' => $guide->id,
             'size_name' => 'M',
-            'chest' => 99.0,
-            'length' => 99.0,
+            'measurements' => ['Chest' => 99.0, 'Length' => 99.0],
             'sort_order' => 0,
         ]);
 
