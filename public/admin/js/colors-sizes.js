@@ -68,7 +68,7 @@
         name: c.name || '',
         nameAr: c.nameAr || '',
         hex: (c.hex || '#000000').toUpperCase(),
-        products: 0,
+        products: c.products || 0,
         active: !!c.active,
     }));
 
@@ -81,11 +81,12 @@
                 id: gid,
                 name: GROUP_META[gid]?.name || gid,
                 note: GROUP_META[gid]?.note || '',
-                visible: true,
+                // The group is shown when every size in it is shown.
+                visible: list.length > 0 && list.every((s) => !!s.active),
                 sizes: list.map((s) => ({
                     id: String(s.id),
                     label: s.name || '',
-                    products: 0,
+                    products: s.products || 0,
                     visible: !!s.active,
                 })),
             };
@@ -186,6 +187,123 @@
 
     const colorById = (id) => COLORS.find((c) => c.id === id);
     const orderIndex = (id) => COLORS.findIndex((c) => c.id === id);
+
+    /* ─── Talking to the server ────────────────────────────────── */
+
+    const csrfToken = () =>
+        document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+    /** The colors as the server last confirmed them. A refused change
+     *  puts the list back the way the database holds it. */
+    let serverColors = COLORS.map((color) => ({ ...color }));
+
+    const restoreServerColors = () => {
+        COLORS.length = 0;
+        serverColors.forEach((color) => COLORS.push({ ...color }));
+    };
+
+    /** Put a color the server answered with back into the list. */
+    const replaceColor = (saved) => {
+        for (const list of [COLORS, serverColors]) {
+            const idx = list.findIndex((c) => String(c.id) === String(saved.id));
+            if (idx > -1) {
+                list[idx] = saved;
+            } else {
+                list.push(saved);
+            }
+        }
+    };
+
+    /** The color as the server sends it. */
+    const colorFromPayload = (payload) => ({
+        id: String(payload.id),
+        name: payload.name || '',
+        nameAr: payload.nameAr || '',
+        hex: (payload.hex || '#000000').toUpperCase(),
+        products: payload.products || 0,
+        active: !!payload.active,
+    });
+
+    /** Write the new order of the colors to the server. */
+    const persistColorOrder = async () => {
+        try {
+            const res = await fetch('/admin/colors/reorder', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken(),
+                },
+                body: JSON.stringify({ colors: COLORS.map((c) => Number(c.id)) }),
+            });
+
+            const json = await res.json();
+
+            if (!res.ok) {
+                restoreServerColors();
+                renderColors();
+                showToast(json.message || 'The order could not be saved.', 'coral');
+
+                return;
+            }
+
+            // The server owns the order — draw what it answered.
+            if (Array.isArray(json.colors)) {
+                serverColors = json.colors.map(colorFromPayload);
+                COLORS.length = 0;
+                serverColors.forEach((color) => COLORS.push({ ...color }));
+                renderColors();
+            }
+
+            showToast(json.message || 'Order updated.', 'lime');
+        } catch (err) {
+            restoreServerColors();
+            renderColors();
+            showToast('The order could not be saved.', 'coral');
+        }
+    };
+
+    /** Switch a color on or off. The server decides. */
+    const toggleColor = async (color, next) => {
+        try {
+            const res = await fetch(`/admin/colors/${color.id}/toggle`, {
+                method: 'PATCH',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken(),
+                },
+            });
+
+            const json = await res.json();
+
+            if (!res.ok) {
+                restoreServerColors();
+                renderColors();
+                showToast(json.message || 'The color could not be switched.', 'coral');
+
+                return;
+            }
+
+            if (json.color) {
+                replaceColor(colorFromPayload(json.color));
+            }
+
+            renderColors();
+
+            // If the toggled row is also the selected one, sync the
+            // panel switch.
+            if (json.color && state.selectedColorId === String(color.id) && state.editingColor) {
+                state.editingColor.active = json.color.active;
+                renderColorPanel();
+            }
+
+            showToast(json.message || (next ? 'Activated' : 'Deactivated'), 'lime');
+        } catch (err) {
+            restoreServerColors();
+            renderColors();
+            showToast('The color could not be switched.', 'coral');
+        }
+    };
 
     const filterColorMatches = (c) => {
         if (!state.colorFilter) return true;
@@ -356,15 +474,22 @@
             const draggedId = e.dataTransfer.getData('text/plain');
             if (!draggedId || draggedId === li.dataset.id) return;
             const before = li.classList.contains('is-drop-before');
+
+            // The color is taken out of the list before it is put back
+            // in its new place — it has to be held on the way.
             const draggedIdx = orderIndex(draggedId);
-            if (draggedIdx > -1) COLORS.splice(draggedIdx, 1);
+            const dragged = draggedIdx > -1 ? COLORS[draggedIdx] : null;
+            if (!dragged) return;
+
+            COLORS.splice(draggedIdx, 1);
             const targetIdx = orderIndex(li.dataset.id);
-            COLORS.splice(before ? targetIdx : targetIdx + 1, 0, colorById(draggedId));
+            COLORS.splice(before ? targetIdx : targetIdx + 1, 0, dragged);
+
             $$('.abo-admin-colors-sizes__row').forEach((el) => {
                 el.classList.remove('is-drop-before', 'is-drop-after');
             });
             renderColors();
-            showToast('Order updated (demo)', 'lime');
+            persistColorOrder();
         });
 
         li.addEventListener('keydown', (e) => onColorKeydown(e, li));
@@ -421,13 +546,16 @@
                 e.stopPropagation();
                 const id = toggleInput.dataset.aboAdminCsToggle;
                 const c = colorById(id);
-                if (c) {
-                    c.active = toggleInput.checked;
-                    toggleInput.setAttribute('aria-checked', String(toggleInput.checked));
-                }
+                if (!c) return;
+
+                // The switch moves right away; the server has the last
+                // word and the list is redrawn from what it answers.
+                c.active = toggleInput.checked;
+                toggleInput.setAttribute('aria-checked', String(toggleInput.checked));
+
                 const row = toggleInput.closest('li[data-id]');
                 const countEl = row && row.querySelector('.abo-admin-colors-sizes__count');
-                if (countEl && c) {
+                if (countEl) {
                     countEl.classList.toggle('abo-admin-colors-sizes__count--inactive', c.active === false);
                     countEl.textContent = productCountText(c.products);
                 }
@@ -436,7 +564,8 @@
                     state.editingColor.active = toggleInput.checked;
                     renderColorPanel();
                 }
-                showToast(toggleInput.checked ? 'Activated (demo)' : 'Deactivated (demo)', 'lime');
+
+                toggleColor(c, toggleInput.checked);
                 return;
             }
         });
@@ -703,10 +832,10 @@
                     const nodeData = {
                         id: String(saved.id),
                         name: saved.name,
-                        nameAr: saved.name_ar || '',
-                        hex: (saved.hex_code || '').toUpperCase(),
-                        products: 0,
-                        active: !!saved.is_active,
+                        nameAr: saved.nameAr || '',
+                        hex: (saved.hex || '').toUpperCase(),
+                        products: saved.products || 0,
+                        active: !!saved.active,
                     };
                     if (!isNew) {
                         const idx = COLORS.findIndex((c) => String(c.id) === String(existing.id));
@@ -747,6 +876,94 @@
         const g = groupById(gid);
         if (!g) return null;
         return g.sizes.find((s) => s.id === sid) || null;
+    };
+
+    /** Put the sizes the server answered with back into their groups. */
+    const applySizesFromServer = (sizes) => {
+        const byGroup = new Map();
+
+        for (const size of sizes) {
+            const list = byGroup.get(size.group) || [];
+            list.push({
+                id: String(size.id),
+                label: size.name || '',
+                products: size.products || 0,
+                visible: !!size.active,
+            });
+            byGroup.set(size.group, list);
+        }
+
+        for (const group of SIZE_GROUPS) {
+            const list = byGroup.get(group.id) || [];
+            group.sizes = list;
+            group.visible = list.length > 0 && list.every((s) => s.visible);
+        }
+    };
+
+    /** Write the new order of the sizes in a group to the server. */
+    const persistSizeOrder = async (group) => {
+        try {
+            const res = await fetch('/admin/sizes/reorder', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken(),
+                },
+                body: JSON.stringify({ sizes: group.sizes.map((s) => Number(s.id)) }),
+            });
+
+            const json = await res.json();
+
+            if (!res.ok) {
+                showToast(json.message || 'The order could not be saved.', 'coral');
+
+                return;
+            }
+
+            // The server owns the order — draw what it answered.
+            if (Array.isArray(json.sizes)) {
+                applySizesFromServer(json.sizes);
+            }
+
+            renderSizes();
+            showToast(json.message || 'Order updated.', 'lime');
+        } catch (err) {
+            showToast('The order could not be saved.', 'coral');
+        }
+    };
+
+    /** Show or hide every size of a group at once. */
+    const toggleSizeGroup = async (group, next) => {
+        try {
+            const res = await fetch(`/admin/sizes/group/${group.id}/toggle`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken(),
+                },
+                body: JSON.stringify({ is_active: next }),
+            });
+
+            const json = await res.json();
+
+            if (!res.ok) {
+                renderSizes();
+                showToast(json.message || 'The group could not be switched.', 'coral');
+
+                return;
+            }
+
+            if (Array.isArray(json.sizes)) {
+                applySizesFromServer(json.sizes);
+            }
+
+            renderSizes();
+            showToast(json.message || (next ? 'Group visible in store' : 'Group hidden in store'), 'lime');
+        } catch (err) {
+            showToast('The group could not be switched.', 'coral');
+        }
     };
 
     const buildSizeGroup = (g) => {
@@ -860,9 +1077,11 @@
                 const id = groupToggle.dataset.aboAdminCsGroupToggle;
                 const g = groupById(id);
                 if (g) {
+                    // The switch moves right away; the server writes
+                    // every size of the group.
                     g.visible = groupToggle.checked;
                     groupToggle.setAttribute('aria-checked', String(groupToggle.checked));
-                    showToast(g.visible ? 'Group visible in store (demo)' : 'Group hidden in store (demo)', 'lime');
+                    toggleSizeGroup(g, groupToggle.checked);
                 }
                 return;
             }
@@ -906,27 +1125,22 @@
             const chip = e.target.closest('[data-abo-admin-cs-chip]');
             if (!chip || !dragSize) return;
             if (chip.dataset.groupId !== dragSize.groupId) return;
+            if (chip.dataset.sizeId === dragSize.sizeId) return;
             e.preventDefault();
             const before = chip.classList.contains('is-drop-before');
             const g = groupById(dragSize.groupId);
             if (!g) return;
             const draggedIdx = g.sizes.findIndex((s) => s.id === dragSize.sizeId);
-            if (draggedIdx > -1) g.sizes.splice(draggedIdx, 1);
+            const dragged = draggedIdx > -1 ? g.sizes[draggedIdx] : null;
+            if (!dragged) return;
+            g.sizes.splice(draggedIdx, 1);
             const targetIdx = g.sizes.findIndex((s) => s.id === chip.dataset.sizeId);
-            g.sizes.splice(before ? targetIdx : targetIdx + 1, 0,
-                { id: dragSize.sizeId,
-                  label: sizeById(dragSize.groupId, dragSize.sizeId)?.label || '',
-                  products: sizeById(dragSize.groupId, dragSize.sizeId)?.products || 0,
-                  visible: sizeById(dragSize.groupId, dragSize.sizeId)?.visible });
-            // The splice may have left a null if the size was already removed.
-            // Re-attach the original size by re-lookup.
-            // (Simpler: just rebuild from the original by id from the static.)
-            // To keep state consistent, splice the actual size object.
+            g.sizes.splice(before ? targetIdx : targetIdx + 1, 0, dragged);
             $$('.abo-admin-colors-sizes__chip').forEach((el) => {
                 el.classList.remove('is-drop-before', 'is-drop-after');
             });
             renderSizes();
-            showToast('Order updated (demo)', 'lime');
+            persistSizeOrder(g);
         });
 
         // Keyboard: arrow keys move between chips in the same group.
@@ -1155,8 +1369,8 @@
                     const nodeData = {
                         id: String(saved.id),
                         label: saved.name,
-                        products: 0,
-                        visible: !!saved.is_active,
+                        products: saved.products || 0,
+                        visible: !!saved.active,
                     };
                     const grp = groupById(saved.group || m.groupId);
                     if (grp) {
@@ -1271,6 +1485,10 @@
                             }
                             const idx = COLORS.findIndex((c) => String(c.id) === String(e.id));
                             if (idx > -1) COLORS.splice(idx, 1);
+
+                            const serverIdx = serverColors.findIndex((c) => String(c.id) === String(e.id));
+                            if (serverIdx > -1) serverColors.splice(serverIdx, 1);
+
                             state.selectedColorId = null;
                             state.editingColor = null;
                             state.colorDirty = false;

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Color;
 use App\Models\Size;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class ColorSizeService
 {
@@ -14,6 +15,7 @@ class ColorSizeService
     public function getColors(): Collection
     {
         return Color::query()
+            ->withCount('products')
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
@@ -22,15 +24,61 @@ class ColorSizeService
     /**
      * Return sizes grouped by `group`, with each group ordered by
      * sort_order (then by name for stability).
+     *
+     * The product count is the number of distinct products the size
+     * appears in — one product can carry the same size in more than
+     * one variant.
      */
     public function getSizesGrouped(): Collection
     {
         return Size::query()
+            ->withCount([
+                'variants as products_count' => fn ($query) => $query
+                    ->selectRaw('count(distinct variants.product_id)'),
+            ])
             ->orderBy('group')
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get()
             ->groupBy('group');
+    }
+
+    /**
+     * Write the order of the colors.
+     *
+     * @param  array<int, int>  $colorIds
+     */
+    public function reorderColors(array $colorIds): void
+    {
+        DB::transaction(function () use ($colorIds): void {
+            foreach (array_values($colorIds) as $index => $colorId) {
+                Color::query()->whereKey($colorId)->update(['sort_order' => $index]);
+            }
+        });
+    }
+
+    /**
+     * Write the order of the sizes inside their group.
+     *
+     * @param  array<int, int>  $sizeIds
+     */
+    public function reorderSizes(array $sizeIds): void
+    {
+        DB::transaction(function () use ($sizeIds): void {
+            foreach (array_values($sizeIds) as $index => $sizeId) {
+                Size::query()->whereKey($sizeId)->update(['sort_order' => $index]);
+            }
+        });
+    }
+
+    /**
+     * Switch every size of a group on or off at once.
+     */
+    public function setGroupActive(string $group, bool $active): int
+    {
+        return Size::query()
+            ->where('group', $group)
+            ->update(['is_active' => $active]);
     }
 
     /**

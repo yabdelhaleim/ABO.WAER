@@ -364,7 +364,11 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     Route::middleware('admin.permission:categories')->group(function () {
         Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
         Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');
+        // Declared before the {category} routes so the word "reorder"
+        // is never read as a category id.
+        Route::post('/categories/reorder', [CategoryController::class, 'reorder'])->name('categories.reorder');
         Route::match(['put', 'patch'], '/categories/{category}', [CategoryController::class, 'update'])->name('categories.update');
+        Route::patch('/categories/{category}/toggle', [CategoryController::class, 'toggle'])->name('categories.toggle');
         Route::delete('/categories/{category}', [CategoryController::class, 'destroy'])->name('categories.destroy');
     });
 
@@ -372,9 +376,15 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     Route::middleware('admin.permission:colors_sizes')->group(function () {
         Route::get('/colors-sizes', [ColorSizeController::class, 'index'])->name('colors-sizes.index');
         Route::post('/colors', [ColorSizeController::class, 'storeColor'])->name('colors.store');
+        // Declared before the {color} routes so the word "reorder" is
+        // never read as a color id.
+        Route::post('/colors/reorder', [ColorSizeController::class, 'reorderColors'])->name('colors.reorder');
         Route::match(['put', 'patch'], '/colors/{color}', [ColorSizeController::class, 'updateColor'])->name('colors.update');
+        Route::patch('/colors/{color}/toggle', [ColorSizeController::class, 'toggleColor'])->name('colors.toggle');
         Route::delete('/colors/{color}', [ColorSizeController::class, 'destroyColor'])->name('colors.destroy');
         Route::post('/sizes', [ColorSizeController::class, 'storeSize'])->name('sizes.store');
+        Route::post('/sizes/reorder', [ColorSizeController::class, 'reorderSizes'])->name('sizes.reorder');
+        Route::patch('/sizes/group/{group}/toggle', [ColorSizeController::class, 'toggleSizeGroup'])->name('sizes.group.toggle');
         Route::match(['put', 'patch'], '/sizes/{size}', [ColorSizeController::class, 'updateSize'])->name('sizes.update');
         Route::delete('/sizes/{size}', [ColorSizeController::class, 'destroySize'])->name('sizes.destroy');
     });

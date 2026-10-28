@@ -156,6 +156,153 @@
     // Stable manual order: respect the original sequence in CATEGORIES.
     const orderIndex = (id) => CATEGORIES.findIndex((c) => c.id === id);
 
+    /* ─── Talking to the server ────────────────────────────────── */
+
+    const csrfToken = () =>
+        document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+    /** The tree as the server last confirmed it. A refused change puts
+     *  it back, so the screen never shows an order the database does
+     *  not hold. */
+    let serverCategories = CATEGORIES.map((cat) => ({ ...cat }));
+
+    const restoreServerTree = () => {
+        CATEGORIES.length = 0;
+        serverCategories.forEach((cat) => CATEGORIES.push({ ...cat }));
+    };
+
+    /** Put a category the server answered with back into the tree. */
+    const replaceCategory = (saved) => {
+        for (const list of [CATEGORIES, serverCategories]) {
+            const idx = list.findIndex((c) => String(c.id) === String(saved.id));
+            if (idx > -1) {
+                list[idx] = saved;
+            } else {
+                list.push(saved);
+            }
+        }
+    };
+
+    /** The tree the way the server reads it: every category with the
+     *  parent it sits under and its place among its siblings. */
+    const orderPayload = () => {
+        const counters = new Map();
+        const payload = [];
+
+        for (const cat of CATEGORIES) {
+            const parent = cat.parentId === null || cat.parentId === undefined
+                ? ''
+                : String(cat.parentId);
+            const sortOrder = counters.get(parent) || 0;
+            counters.set(parent, sortOrder + 1);
+
+            payload.push({
+                id: String(cat.id),
+                parent_id: parent === '' ? null : parent,
+                sort_order: sortOrder,
+            });
+        }
+
+        return payload;
+    };
+
+    /** Whether a category sits under another one. */
+    const isUnder = (parentId, categoryId) => {
+        let current = parentId === null || parentId === undefined ? null : node(parentId);
+
+        while (current) {
+            if (String(current.id) === String(categoryId)) return true;
+
+            current = current.parentId === null || current.parentId === undefined
+                ? null
+                : node(current.parentId);
+        }
+
+        return false;
+    };
+
+    /** Write the new order to the server and draw what it answers. */
+    const persistOrder = async () => {
+        try {
+            const res = await fetch('/admin/categories/reorder', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken(),
+                },
+                body: JSON.stringify({ categories: orderPayload() }),
+            });
+
+            const json = await res.json();
+
+            if (!res.ok) {
+                restoreServerTree();
+                renderTree();
+                showToast(json.message || 'The order could not be saved.', 'coral');
+
+                return;
+            }
+
+            // The server owns the tree — draw what it answered.
+            if (Array.isArray(json.categories)) {
+                serverCategories = json.categories.map((cat) => ({ ...cat }));
+                CATEGORIES.length = 0;
+                serverCategories.forEach((cat) => CATEGORIES.push({ ...cat }));
+                renderTree();
+            }
+
+            showToast(json.message || 'Order updated.', 'lime');
+        } catch (err) {
+            restoreServerTree();
+            renderTree();
+            showToast('The order could not be saved.', 'coral');
+        }
+    };
+
+    /** Switch a category on or off. The server decides. */
+    const toggleCategory = async (cat, next) => {
+        try {
+            const res = await fetch(`/admin/categories/${cat.id}/toggle`, {
+                method: 'PATCH',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken(),
+                },
+            });
+
+            const json = await res.json();
+
+            if (!res.ok) {
+                restoreServerTree();
+                renderTree();
+                showToast(json.message || 'The category could not be switched.', 'coral');
+
+                return;
+            }
+
+            const saved = json.category;
+            if (saved) {
+                replaceCategory(saved);
+            }
+
+            renderTree();
+
+            // If the toggled row is also the selected one, sync the
+            // panel switch.
+            if (saved && state.selectedId === String(cat.id)) {
+                state.editing = { ...(state.editing || {}), active: saved.active };
+                renderPanel();
+            }
+
+            showToast(json.message || (saved && saved.active ? 'Activated' : 'Deactivated'), 'lime');
+        } catch (err) {
+            restoreServerTree();
+            renderTree();
+            showToast('The category could not be switched.', 'coral');
+        }
+    };
+
     /** Names + slug rendered as plain text by the panel — no HTML injection. */
     const productCountText = (n) => n === 0 ? '0 products' : (n === 1 ? '1 product' : `${n} products`);
 
@@ -192,23 +339,18 @@
             ].filter(Boolean).join(' '),
         });
 
-        // drag handle (top-level only)
-        if (!isChild) {
-            const handle = ce('span', {
-                class: 'abo-admin-categories__handle',
-                'aria-label': 'Drag to reorder',
-                role: 'button',
-                tabindex: '0',
-                dataset: { aboAdminCategoriesHandle: cat.id },
-                html: '<svg viewBox="0 0 6 10" aria-hidden="true"><circle cx="1.5" cy="1.5" r="1"/><circle cx="4.5" cy="1.5" r="1"/><circle cx="1.5" cy="5" r="1"/><circle cx="4.5" cy="5" r="1"/><circle cx="1.5" cy="8.5" r="1"/><circle cx="4.5" cy="8.5" r="1"/></svg>',
-            });
-            handle.draggable = !isChild;
-            li.appendChild(handle);
-        } else {
-            li.appendChild(ce('span', { class: 'abo-admin-categories__handle', 'aria-hidden': 'true',
-                html: '<svg viewBox="0 0 6 10"><circle cx="1.5" cy="1.5" r="1"/><circle cx="4.5" cy="1.5" r="1"/></svg>',
-            }));
-        }
+        // drag handle — every row can be picked up, so a sub-category
+        // can be moved as well as a top-level one.
+        const handle = ce('span', {
+            class: 'abo-admin-categories__handle',
+            'aria-label': 'Drag to reorder',
+            role: 'button',
+            tabindex: '0',
+            dataset: { aboAdminCategoriesHandle: cat.id },
+            html: '<svg viewBox="0 0 6 10" aria-hidden="true"><circle cx="1.5" cy="1.5" r="1"/><circle cx="4.5" cy="1.5" r="1"/><circle cx="1.5" cy="5" r="1"/><circle cx="4.5" cy="5" r="1"/><circle cx="1.5" cy="8.5" r="1"/><circle cx="4.5" cy="8.5" r="1"/></svg>',
+        });
+        handle.draggable = true;
+        li.appendChild(handle);
 
         // caret (only for parents with children)
         if (hasKids) {
@@ -275,9 +417,11 @@
         if (hasKids) {
             for (const child of kids) childrenList.appendChild(buildRow(child, depth + 1));
             li.appendChild(childrenList);
-            // Sub-category rows also need the same drop behaviour but only
-            // within their parent group, set below.
         }
+
+        // Every row takes part in the drag: a row can be dropped on, and
+        // a row can be picked up.
+        bindRowDragHandlers(li, /* isParent */ hasKids);
 
         return li;
     };
@@ -355,9 +499,6 @@
             if (state.allExpanded) state.expanded.add(parent.id);
 
             const li = buildParentGroup(parent);
-            // Make the draggable area the entire row (except inputs /
-            // buttons inside it). We rely on HTML5 drag events.
-            bindRowDragHandlers(li, /* isParent */ true);
             treeEl.appendChild(li);
         }
     };
@@ -380,10 +521,10 @@
             name: cat.name,
             nameAr: cat.nameAr || '',
             slug: cat.slug,
-            description: '',          // not in the static array; default
+            description: cat.description || '',
             active: cat.active,
-            visibleInStore: true,
-            showInHomepage: false,
+            visibleInStore: cat.visibleInStore !== false,
+            showInHomepage: !!cat.showInHomepage,
             cover: cat.cover || null,
         };
         state.dirty = false;
@@ -438,6 +579,14 @@
 
         rowLi.addEventListener('drop', (e) => {
             e.preventDefault();
+
+            // The row the pointer was over is the one that handles the
+            // drop — a child row must not be handled by its parent.
+            const hitRow = e.target && e.target.closest
+                ? e.target.closest('li[data-id]')
+                : null;
+            if (hitRow && hitRow !== rowLi) return;
+
             const draggedId = e.dataTransfer.getData('text/plain');
             if (!draggedId || draggedId === rowLi.dataset.id) return;
 
@@ -446,24 +595,30 @@
             if (!dragged || !target) return;
 
             // Decide the target depth — depth 0 = top level. A drop on
-            // a child row can be reparented; a drop on a parent stays a
-            // sibling reorder.
+            // a child row joins that row's group; a drop on a top-level
+            // row moves the dragged row to the top level.
             const targetDepth = parseInt(rowLi.dataset.depth, 10) || 0;
             const before = rowLi.classList.contains('is-drop-before');
+            const newParentId = targetDepth > 0 ? target.parentId : null;
+
+            // A category cannot sit under one of its own children.
+            if (newParentId !== null && isUnder(newParentId, dragged.id)) {
+                showToast('A category cannot be moved under itself.', 'coral');
+                return;
+            }
 
             // Reorder in CATEGORIES: remove dragged from its slot, insert
-            // before/after target. For child moves we also update parentId.
+            // before/after target. The tree is drawn from the order of
+            // the rows that share a parent, so the row lands next to
+            // the one it was dropped on.
             const draggedIdx = orderIndex(draggedId);
             if (draggedIdx > -1) CATEGORIES.splice(draggedIdx, 1);
+            dragged.parentId = newParentId;
             const targetIdx = orderIndex(target.id);
             CATEGORIES.splice(before ? targetIdx : targetIdx + 1, 0, dragged);
 
-            // If a top-level row was dropped onto a sub-category row,
-            // promote it under the same parent. Anything else keeps its
-            // existing parent.
-            if (dragged.parentId === null && targetDepth > 0) {
-                dragged.parentId = target.parentId;
-                if (state.expanded.has(target.parentId)) state.expanded.add(target.parentId);
+            if (newParentId !== null && state.expanded.has(newParentId)) {
+                state.expanded.add(newParentId);
             }
 
             // Clear any lingering drop indicators.
@@ -471,7 +626,7 @@
                 el.classList.remove('is-drop-before', 'is-drop-after', 'is-drop-target');
             });
             renderTree();
-            showToast('Order updated (demo)', 'lime');
+            persistOrder();
         });
 
         rowLi.addEventListener('keydown', (e) => onTreeKeydown(e, rowLi, isParent));
@@ -615,14 +770,17 @@
                 // Stop the row from also being selected on the same click.
                 const id = toggleInput.dataset.aboAdminCategoriesToggle;
                 const cat = node(id);
-                if (cat) {
-                    cat.active = toggleInput.checked;
-                    toggleInput.setAttribute('aria-checked', String(toggleInput.checked));
-                }
+                if (!cat) return;
+
+                // The switch moves right away; the server has the last
+                // word and the tree is redrawn from what it answers.
+                cat.active = toggleInput.checked;
+                toggleInput.setAttribute('aria-checked', String(toggleInput.checked));
+
                 // Update count style without a full re-render.
                 const row = toggleInput.closest('li[data-id]');
                 const countEl = row && row.querySelector('.abo-admin-categories__count');
-                if (countEl && cat) {
+                if (countEl) {
                     countEl.classList.toggle('abo-admin-categories__count--inactive', cat.active === false);
                     countEl.textContent = productCountText(cat.products);
                 }
@@ -633,7 +791,8 @@
                     state.editing.active = toggleInput.checked;
                     renderPanel();
                 }
-                showToast(toggleInput.checked ? 'Activated (demo)' : 'Deactivated (demo)', 'lime');
+
+                toggleCategory(cat, toggleInput.checked);
                 return;
             }
         });
@@ -1011,19 +1170,7 @@
                     }
 
                     const savedCat = json.category;
-                    const nodeData = {
-                        id: String(savedCat.id),
-                        parentId: savedCat.parent_id ? String(savedCat.parent_id) : null,
-                        name: savedCat.name,
-                        nameAr: savedCat.name_ar || '',
-                        slug: savedCat.slug,
-                        description: savedCat.description || '',
-                        products: 0,
-                        active: !!savedCat.is_active,
-                        visibleInStore: !!savedCat.is_visible,
-                        showInHomepage: !!savedCat.show_in_homepage,
-                        cover: savedCat.image_url || null
-                    };
+                    const nodeData = { ...savedCat, id: String(savedCat.id) };
 
                     if (!isNew) {
                         const idx = CATEGORIES.findIndex(c => String(c.id) === String(existing.id));
@@ -1032,6 +1179,7 @@
                         CATEGORIES.push(nodeData);
                         e.id = nodeData.id;
                     }
+                    replaceCategory(nodeData);
 
                     state.dirty = false;
                     if (dirtyDotEl) dirtyDotEl.classList.remove('is-visible');
@@ -1112,6 +1260,10 @@
 
                 const idx = CATEGORIES.findIndex((c) => String(c.id) === String(e.id));
                 if (idx > -1) CATEGORIES.splice(idx, 1);
+
+                const serverIdx = serverCategories.findIndex((c) => String(c.id) === String(e.id));
+                if (serverIdx > -1) serverCategories.splice(serverIdx, 1);
+
                 state.selectedId = null;
                 state.editing = null;
                 state.dirty = false;

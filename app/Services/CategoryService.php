@@ -15,6 +15,7 @@ class CategoryService
     public function getAll(): Collection
     {
         return Category::with('children')
+            ->withCount('products')
             ->orderBy('sort_order')
             ->get();
     }

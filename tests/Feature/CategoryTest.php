@@ -161,4 +161,87 @@ class CategoryTest extends TestCase
         $this->assertDatabaseMissing('categories', ['id' => $category->id]);
         Storage::disk('public')->assertMissing($path);
     }
+
+    public function test_admin_can_switch_a_category_on_and_off(): void
+    {
+        $category = Category::create([
+            'name' => 'Hoodies',
+            'slug' => 'hoodies',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($this->admin, 'admin')
+            ->patchJson("/admin/categories/{$category->id}/toggle")
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('category.active', false)
+            ->assertJsonPath('category.id', (string) $category->id);
+
+        $this->assertFalse($category->fresh()->is_active);
+
+        $this->actingAs($this->admin, 'admin')
+            ->patchJson("/admin/categories/{$category->id}/toggle")
+            ->assertOk()
+            ->assertJsonPath('category.active', true);
+
+        $this->assertTrue($category->fresh()->is_active);
+    }
+
+    public function test_admin_can_reorder_the_category_tree(): void
+    {
+        $hoodies = Category::create(['name' => 'Hoodies', 'slug' => 'hoodies', 'sort_order' => 0]);
+        $pants = Category::create(['name' => 'Pants', 'slug' => 'pants', 'sort_order' => 1]);
+        $oversize = Category::create([
+            'name' => 'Oversize',
+            'slug' => 'oversize',
+            'parent_id' => $hoodies->id,
+            'sort_order' => 0,
+        ]);
+
+        $response = $this->actingAs($this->admin, 'admin')->postJson('/admin/categories/reorder', [
+            'categories' => [
+                ['id' => $pants->id, 'parent_id' => null, 'sort_order' => 0],
+                ['id' => $hoodies->id, 'parent_id' => null, 'sort_order' => 1],
+                ['id' => $oversize->id, 'parent_id' => $hoodies->id, 'sort_order' => 0],
+            ],
+        ]);
+
+        $response->assertOk()->assertJsonPath('success', true);
+
+        $this->assertSame(0, $pants->fresh()->sort_order);
+        $this->assertSame(1, $hoodies->fresh()->sort_order);
+        $this->assertSame($hoodies->id, $oversize->fresh()->parent_id);
+    }
+
+    public function test_reordering_refuses_to_move_a_category_under_its_own_child(): void
+    {
+        $parent = Category::create(['name' => 'Hoodies', 'slug' => 'hoodies']);
+        $child = Category::create([
+            'name' => 'Oversize',
+            'slug' => 'oversize',
+            'parent_id' => $parent->id,
+        ]);
+
+        $this->actingAs($this->admin, 'admin')
+            ->postJson('/admin/categories/reorder', [
+                'categories' => [
+                    ['id' => $parent->id, 'parent_id' => $child->id, 'sort_order' => 0],
+                    ['id' => $child->id, 'parent_id' => $parent->id, 'sort_order' => 0],
+                ],
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+
+        $this->assertNull($parent->fresh()->parent_id);
+    }
+
+    public function test_the_categories_page_carries_the_product_count(): void
+    {
+        $category = Category::create(['name' => 'Hoodies', 'slug' => 'hoodies']);
+
+        $response = $this->actingAs($this->admin, 'admin')->get('/admin/categories');
+
+        $response->assertOk();
+        $response->assertSee('"products":0', false);
+    }
 }
