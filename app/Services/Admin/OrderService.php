@@ -71,6 +71,25 @@ class OrderService
     ];
 
     /**
+     * Status bucket -> the stored statuses it holds.
+     *
+     * The inverse of STATUS_KEYS: the browser filters by bucket, the
+     * database stores the enum. An export that filtered by bucket has
+     * to expand it again, or "Processing" would drop the confirmed
+     * orders that live in the same tab.
+     *
+     * @var array<string, array<int, string>>
+     */
+    private const STATUS_BUCKETS = [
+        'new' => ['pending'],
+        'processing' => ['confirmed', 'processing'],
+        'shipped' => ['shipped'],
+        'delivered' => ['delivered'],
+        'cancelled' => ['cancelled'],
+        'returned' => ['returned'],
+    ];
+
+    /**
      * Stored payment status -> the pill orders.js can style.
      *
      * orders.js has no `failed` entry, and its drawer interpolates the
@@ -120,6 +139,86 @@ class OrderService
         return $query->get()
             ->map(fn (Order $order): array => $this->serializeOrder($order))
             ->all();
+    }
+
+    /**
+     * The orders an export should carry, in the order the screen shows
+     * them.
+     *
+     * The export is a second reading of the same book the screen shows.
+     * The browser sends the filters it is currently displaying, the
+     * database does the filtering, and the rows come back from the
+     * orders table — not from the copy the page already carries, which
+     * only holds the rows the page was opened with.
+     *
+     * @param  array{statuses?: array<int, string>, search?: string, payment?: string, governorate?: string, customer_id?: int|null, date_from?: string|null, date_to?: string|null, sort?: string, direction?: string}  $filters
+     * @return Collection<int, Order>
+     */
+    public function exportOrders(array $filters): Collection
+    {
+        $query = Order::query()->with('items');
+
+        $statuses = $filters['statuses'] ?? [];
+
+        if ($statuses !== []) {
+            $query->whereIn('status', $statuses);
+        }
+
+        $search = trim((string) ($filters['search'] ?? ''));
+
+        if ($search !== '') {
+            $like = '%'.$search.'%';
+
+            $query->where(function ($builder) use ($like): void {
+                $builder->where('order_number', 'like', $like)
+                    ->orWhere('customer_name', 'like', $like)
+                    ->orWhere('customer_phone', 'like', $like);
+            });
+        }
+
+        if (! empty($filters['payment'])) {
+            $query->where('payment_method', $filters['payment']);
+        }
+
+        if (! empty($filters['governorate'])) {
+            $query->where('governorate_name', $filters['governorate']);
+        }
+
+        if (! empty($filters['customer_id'])) {
+            $query->where('customer_id', (int) $filters['customer_id']);
+        }
+
+        if (! empty($filters['date_from'])) {
+            $query->whereDate('created_at', '>=', $filters['date_from']);
+        }
+
+        if (! empty($filters['date_to'])) {
+            $query->whereDate('created_at', '<=', $filters['date_to']);
+        }
+
+        // The screen sorts by date or by total; the export follows the
+        // same choice so the file reads like the list.
+        $descending = ($filters['direction'] ?? 'desc') !== 'asc';
+
+        if (($filters['sort'] ?? 'date') === 'total') {
+            $query->orderBy('total', $descending ? 'desc' : 'asc');
+        } else {
+            $query->orderBy('created_at', $descending ? 'desc' : 'asc');
+        }
+
+        $query->orderBy('id', $descending ? 'desc' : 'asc');
+
+        return $query->get();
+    }
+
+    /**
+     * The stored statuses a status bucket holds.
+     *
+     * @return array<int, string>
+     */
+    public function statusesForBucket(string $bucket): array
+    {
+        return self::STATUS_BUCKETS[$bucket] ?? [];
     }
 
     /**
@@ -260,6 +359,18 @@ class OrderService
     }
 
     /**
+     * The label the screen prints for a stored status.
+     *
+     * An export is read next to the screen it was taken from, so it
+     * carries the same English label rather than the bilingual one the
+     * enum offers.
+     */
+    public function statusLabel(OrderStatus $status): string
+    {
+        return self::STATUS_LABELS[$this->statusKey($status)];
+    }
+
+    /**
      * Serialise one order row into the object orders.js walks.
      *
      * @return array<string, mixed>
@@ -309,7 +420,11 @@ class OrderService
             'subtotal' => round((float) $order->subtotal, 2),
             'shipping' => round((float) $order->shipping_fee, 2),
             'discount' => round((float) $order->discount_amount, 2),
-            'coupon' => '',
+            // The code the customer actually used, snapshotted on the
+            // order when it was placed. The drawer prints it beside the
+            // discount, so it has to come from the row and not from a
+            // constant.
+            'coupon' => (string) ($order->coupon_code ?? ''),
             'total' => round((float) $order->total, 2),
             'payment' => [
                 'method' => $order->payment_method ?? 'cod',

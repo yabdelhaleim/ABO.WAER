@@ -422,6 +422,10 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     // because the browser addresses orders by their order number.
     Route::middleware('admin.permission:orders')->group(function () {
         Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');
+        // The export sits next to the list it exports: it reads the
+        // same filters off the query string and streams the rows the
+        // screen is showing.
+        Route::get('/orders/export', [AdminOrderController::class, 'export'])->name('orders.export');
         Route::patch('/orders/{order}/status', [AdminOrderController::class, 'updateStatus'])->name('orders.status');
         Route::post('/orders/{order}/cancel', [AdminOrderController::class, 'cancel'])->name('orders.cancel');
         Route::patch('/orders/{order}/tracking', [AdminOrderController::class, 'updateTracking'])->name('orders.tracking');

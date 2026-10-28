@@ -322,6 +322,156 @@ class OrderManagerTest extends TestCase
         $this->get(route('admin.orders.index'))->assertRedirect();
     }
 
+    // ─── Exporting the orders ────────────────────────────────────────────
+
+    /**
+     * The export is a file the admin opens in a spreadsheet, so it
+     * carries the order's money, its items and the coupon it was
+     * placed with.
+     */
+    public function test_the_export_writes_the_orders_as_csv(): void
+    {
+        $order = Order::factory()->create([
+            'customer_name' => 'Layla Hassan',
+            'governorate_name' => 'Cairo',
+            'subtotal' => 300.00,
+            'shipping_fee' => 50.00,
+            'discount_amount' => 50.00,
+            'total' => 300.00,
+            'coupon_code' => 'SUMMER20',
+        ]);
+
+        OrderItem::factory()->create([
+            'order_id' => $order->id,
+            'product_name' => 'Boxy T-Shirt',
+            'color_name' => 'Black',
+            'size_name' => 'L',
+            'quantity' => 3,
+            'unit_price' => 100.00,
+            'total_price' => 300.00,
+        ]);
+
+        $response = $this->actingAsAdmin()->get(route('admin.orders.export'));
+
+        $response->assertOk();
+        $this->assertStringContainsString('text/csv', (string) $response->headers->get('content-type'));
+
+        $csv = $response->streamedContent();
+
+        $this->assertStringContainsString('Order number', $csv);
+        $this->assertStringContainsString($order->order_number, $csv);
+        $this->assertStringContainsString('Layla Hassan', $csv);
+        $this->assertStringContainsString('Cairo', $csv);
+        // The line items travel with the order.
+        $this->assertStringContainsString('Boxy T-Shirt (Black / L) x3', $csv);
+        // The coupon the customer used is on the row.
+        $this->assertStringContainsString('SUMMER20', $csv);
+    }
+
+    /**
+     * The export answers the filters the screen is showing, so the file
+     * holds the rows the admin is looking at.
+     */
+    public function test_the_export_carries_the_filters_the_screen_is_showing(): void
+    {
+        $delivered = Order::factory()->create(['status' => OrderStatus::Delivered]);
+        $pending = Order::factory()->create(['status' => OrderStatus::Pending]);
+
+        $csv = $this->actingAsAdmin()
+            ->get(route('admin.orders.export', ['status' => 'delivered']))
+            ->streamedContent();
+
+        $this->assertStringContainsString($delivered->order_number, $csv);
+        $this->assertStringNotContainsString($pending->order_number, $csv);
+    }
+
+    /**
+     * "Processing" is one tab on the screen and two statuses in the
+     * database; the export has to carry both.
+     */
+    public function test_the_processing_bucket_exports_the_confirmed_orders_too(): void
+    {
+        $confirmed = Order::factory()->create(['status' => OrderStatus::Confirmed]);
+        $shipped = Order::factory()->create(['status' => OrderStatus::Shipped]);
+
+        $csv = $this->actingAsAdmin()
+            ->get(route('admin.orders.export', ['status' => 'processing']))
+            ->streamedContent();
+
+        $this->assertStringContainsString($confirmed->order_number, $csv);
+        $this->assertStringNotContainsString($shipped->order_number, $csv);
+    }
+
+    /**
+     * The search box on the screen looks at the order number, the
+     * customer name and the phone number.
+     */
+    public function test_the_export_searches_the_order_number_and_the_customer(): void
+    {
+        $mine = Order::factory()->create([
+            'order_number' => 'ABO-2026-4242',
+            'customer_name' => 'Layla Hassan',
+            'customer_phone' => '01000000001',
+        ]);
+        $other = Order::factory()->create([
+            'order_number' => 'ABO-2026-7777',
+            'customer_name' => 'Omar Nabil',
+            'customer_phone' => '01000000002',
+        ]);
+
+        $csv = $this->actingAsAdmin()
+            ->get(route('admin.orders.export', ['q' => 'Layla']))
+            ->streamedContent();
+
+        $this->assertStringContainsString($mine->order_number, $csv);
+        $this->assertStringNotContainsString($other->order_number, $csv);
+    }
+
+    /**
+     * A customer whose name begins with "=" would be run as a formula
+     * by the spreadsheet that opens the file.
+     */
+    public function test_the_export_escapes_a_cell_a_spreadsheet_would_run(): void
+    {
+        Order::factory()->create(['customer_name' => '=cmd|calc']);
+
+        $csv = $this->actingAsAdmin()
+            ->get(route('admin.orders.export'))
+            ->streamedContent();
+
+        $this->assertStringContainsString("'=cmd|calc", $csv);
+    }
+
+    public function test_guest_cannot_export_the_orders(): void
+    {
+        $this->get(route('admin.orders.export'))->assertRedirect(route('admin.login'));
+    }
+
+    /**
+     * The drawer prints the coupon beside the discount, so the code the
+     * customer used has to travel with the order.
+     */
+    public function test_the_payload_carries_the_coupon_code(): void
+    {
+        Order::factory()->create([
+            'coupon_code' => 'SUMMER20',
+            'discount_amount' => 50.00,
+        ]);
+
+        $this->assertSame('SUMMER20', $this->firstOrderFromIndex()['coupon']);
+    }
+
+    /**
+     * An order without a coupon carries an empty string, so the drawer
+     * can ask `o.coupon !== ''` without guarding for null.
+     */
+    public function test_an_order_without_a_coupon_carries_an_empty_string(): void
+    {
+        Order::factory()->create(['coupon_code' => null]);
+
+        $this->assertSame('', $this->firstOrderFromIndex()['coupon']);
+    }
+
     // ─── Narrowing the screen to one customer ────────────────────────────
 
     /**

@@ -448,6 +448,8 @@
         renderSelectionHeader();
         renderBulkBar();
         renderClearVisibility();
+        // The export carries the filters, so it follows the list.
+        syncExportLink();
         // Drawer needs to keep up if the row inside it disappears.
         if (state.drawer.open && !list.find((o) => o.id === state.drawer.id)) {
             closeDrawer();
@@ -561,12 +563,45 @@
         });
     });
 
-    // ─── Listeners: export CSV ────────────────────────────────
+    // ─── Export CSV ───────────────────────────────────────────
 
-    $('[data-abo-admin-orders-action="export"]')
-      && $('[data-abo-admin-orders-action="export"]').addEventListener('click', () => {
-        toast('Export started (demo)');
-    });
+    /**
+     * The export link, carrying the filters the screen is showing.
+     *
+     * The server does the filtering: the link names the same filters
+     * the toolbar holds, and the endpoint reads the rows out of the
+     * orders table. The browser never builds the file itself.
+     */
+    function exportUrl() {
+        const route = ROUTES.export;
+        if (!route || !route.url) return null;
+
+        const f = state.filter;
+        const params = new URLSearchParams();
+
+        if (f.tab && f.tab !== 'all') params.set('status', f.tab);
+        if (f.search.trim()) params.set('q', f.search.trim());
+        if (f.payment) params.set('payment', f.payment);
+        if (f.governorate) params.set('governorate', f.governorate);
+        if (f.customer) params.set('customer', f.customer);
+        if (f.dateFrom) params.set('from', f.dateFrom);
+        if (f.dateTo) params.set('to', f.dateTo);
+        if (f.sort) params.set('sort', f.sort.key);
+        if (f.sort) params.set('dir', f.sort.dir);
+
+        const query = params.toString();
+
+        return route.url + (query ? '?' + query : '');
+    }
+
+    /**
+     * Keep the export link in step with the list on screen.
+     */
+    function syncExportLink() {
+        const link = $('[data-abo-admin-orders-action="export"]');
+        const url = exportUrl();
+        if (link && url) link.setAttribute('href', url);
+    }
 
     // ─── Listeners: row open / view / checkbox ────────────────
 

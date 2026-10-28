@@ -8,10 +8,12 @@ use App\Models\Customer;
 use App\Models\Governorate;
 use App\Models\Order;
 use App\Services\Admin\OrderService;
+use App\Services\CsvExportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Admin orders screen.
@@ -47,6 +49,7 @@ class OrderController extends Controller
 
         return view('admin.orders.index', [
             'ordersJson' => json_encode($orders, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'ordersCount' => count($orders),
             'governorates' => Governorate::query()
                 ->orderBy('name')
                 ->pluck('name'),
@@ -63,6 +66,9 @@ class OrderController extends Controller
                 'tracking' => [
                     'url' => route('admin.orders.tracking', ['order' => '__ORDER__']),
                     'method' => 'PATCH',
+                ],
+                'export' => [
+                    'url' => route('admin.orders.export'),
                 ],
             ],
         ]);
@@ -179,5 +185,140 @@ class OrderController extends Controller
             'message' => 'Tracking number updated.',
             'tracking_number' => $order->fresh()->tracking_number,
         ]);
+    }
+
+    /**
+     * Export the orders as a CSV file.
+     *
+     * The browser sends the filters the screen is showing, so the file
+     * holds the rows the admin is looking at rather than the whole
+     * book. The rows are read from the database instead of from the
+     * copy the page carries: that copy holds only the orders the page
+     * was opened with, and a filter that narrows the list would
+     * otherwise have nothing to narrow.
+     *
+     * Every cell goes through CsvExportService first — a customer
+     * whose name begins with "=" would otherwise be run as a formula
+     * by the spreadsheet that opens the file.
+     */
+    public function export(Request $request): StreamedResponse
+    {
+        $orders = $this->service->exportOrders($this->exportFilters($request));
+
+        $filename = 'abo-orders-'.now()->format('Y-m-d').'.csv';
+
+        return response()->streamDownload(function () use ($orders): void {
+            $handle = fopen('php://output', 'wb');
+
+            fputcsv($handle, [
+                'Order number', 'Date', 'Status', 'Customer', 'Phone', 'Email',
+                'Governorate', 'Area', 'Address', 'Items', 'Items count',
+                'Subtotal', 'Shipping', 'Discount', 'Coupon', 'Total',
+                'Payment method', 'Payment status', 'Tracking number',
+            ]);
+
+            foreach ($orders as $order) {
+                fputcsv($handle, CsvExportService::row([
+                    $order->order_number,
+                    $order->created_at?->format('Y-m-d H:i'),
+                    $this->service->statusLabel($order->status),
+                    $order->customer_name,
+                    $order->customer_phone,
+                    $order->customer_email,
+                    $order->governorate_name,
+                    $order->area,
+                    $order->address,
+                    $this->itemsSummary($order),
+                    (int) $order->items->sum('quantity'),
+                    $order->subtotal,
+                    $order->shipping_fee,
+                    $order->discount_amount,
+                    $order->coupon_code,
+                    $order->total,
+                    $order->payment_method,
+                    $order->payment_status?->value,
+                    $order->tracking_number,
+                ]));
+            }
+
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    /**
+     * The filters the export should apply.
+     *
+     * These are the filters the screen shows, sent back by the browser
+     * as query parameters. Anything missing or unknown means "no
+     * filter" — an export of the whole book is a better answer than a
+     * refused download.
+     *
+     * @return array<string, mixed>
+     */
+    protected function exportFilters(Request $request): array
+    {
+        $bucket = (string) $request->query('status', '');
+
+        $payment = (string) $request->query('payment', '');
+        $governorate = (string) $request->query('governorate', '');
+        $search = (string) $request->query('q', '');
+        $customerId = $request->query('customer');
+
+        return [
+            'statuses' => $this->service->statusesForBucket($bucket),
+            'search' => $search,
+            'payment' => $payment,
+            'governorate' => $governorate,
+            'customer_id' => is_numeric($customerId) ? (int) $customerId : null,
+            'date_from' => $this->dateFilter($request->query('from')),
+            'date_to' => $this->dateFilter($request->query('to')),
+            'sort' => $request->query('sort') === 'total' ? 'total' : 'date',
+            'direction' => $request->query('dir') === 'asc' ? 'asc' : 'desc',
+        ];
+    }
+
+    /**
+     * A date filter, or null when it is absent or malformed.
+     */
+    protected function dateFilter(mixed $value): ?string
+    {
+        if (! is_string($value) || $value === '') {
+            return null;
+        }
+
+        $date = \DateTimeImmutable::createFromFormat('Y-m-d', $value);
+
+        if ($date === false || $date->format('Y-m-d') !== $value) {
+            return null;
+        }
+
+        return $value;
+    }
+
+    /**
+     * The order's line items as one cell: "Hoodie (Black / M) x2, Cap x1".
+     */
+    protected function itemsSummary(Order $order): string
+    {
+        $parts = [];
+
+        foreach ($order->items as $item) {
+            $label = (string) $item->product_name;
+
+            $variant = array_values(array_filter([
+                $item->color_name,
+                $item->size_name,
+            ]));
+
+            if ($variant !== []) {
+                $label .= ' ('.implode(' / ', $variant).')';
+            }
+
+            $parts[] = $label.' x'.(int) $item->quantity;
+        }
+
+        return implode(', ', $parts);
     }
 }

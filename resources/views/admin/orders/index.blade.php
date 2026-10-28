@@ -77,15 +77,19 @@
         </div>
 
         <div class="abo-admin-page__head-actions">
-            <button type="button" class="abo-admin-btn abo-admin-btn--ghost"
-                    data-abo-admin-orders-action="export">
+            {{-- A real link: the browser downloads the file, and the
+                 script rewrites the href with the filters the screen
+                 is showing so the file holds the rows on screen. --}}
+            <a href="{{ route('admin.orders.export') }}"
+               class="abo-admin-btn abo-admin-btn--ghost"
+               data-abo-admin-orders-action="export">
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path d="M12 21V9m0 0-4 4m4-4 4 4M5 3h14"
                           stroke="currentColor" stroke-width="1.6" fill="none"
                           stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
                 EXPORT CSV
-            </button>
+            </a>
         </div>
     </header>
 
@@ -206,7 +210,7 @@
 
         <div class="abo-admin-orders__wrap abo-admin-orders__table-wrap">
             <table class="abo-admin-orders__table abo-admin-orders__table--orders">
-                <caption class="sr-only">Orders list — 38 sample orders across all statuses.</caption>
+                <caption class="sr-only">Orders list — {{ $ordersCount }} orders across all statuses.</caption>
                 <thead>
                     <tr>
                         <th scope="col" class="abo-admin-orders__th-check">
