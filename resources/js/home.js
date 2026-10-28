@@ -305,6 +305,14 @@ function runCountUp(els) {
 }
 
 // ─── Mouse parallax on hero photo ─────────────────────────────
+//
+// The photo only moves where it has room to move. On a phone the hero
+// is stacked — the photograph keeps its own ratio and the copy sits
+// below it — so there is nothing for the parallax to shift, and
+// moving the photo would only open a gap between it and the black
+// underneath.
+
+const STACKED_HERO_QUERY = '(max-width: 899px)';
 
 function initParallax() {
     if (prefersReducedMotion() || isTouch()) return;
@@ -318,6 +326,8 @@ function initParallax() {
     const root = wrap.closest('[data-home-hero]');
 
     function onMove(ev) {
+        if (window.matchMedia?.(STACKED_HERO_QUERY)?.matches) return;
+
         const rect = wrap.getBoundingClientRect();
         const cx = rect.left + rect.width / 2;
         const cy = rect.top + rect.height / 2;

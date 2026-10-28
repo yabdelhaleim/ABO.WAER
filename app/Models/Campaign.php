@@ -56,6 +56,23 @@ class Campaign extends Model
     }
 
     /**
+     * التحقق من الصلاحية لربط المسار بالمعرف سواء كان رقمياً أو بصيغة c-XXX.
+     *
+     * @param  mixed  $value
+     * @param  string|null  $field
+     * @return Model|null
+     */
+    public function resolveRouteBinding($value, $field = null)
+    {
+        if (($field === null || $field === 'id') && is_string($value) && str_starts_with($value, 'c-')) {
+            $numeric = preg_replace('/\D/', '', $value);
+            $value = $numeric !== '' ? (int) $numeric : $value;
+        }
+
+        return parent::resolveRouteBinding($value, $field);
+    }
+
+    /**
      * تحويل الحملة إلى الشكل الذي تستهلكه واجهة campaigns.js
      * في لوحة الأدمن (id ثابت كـ c-XXX لتطابق الترقيم الحالي).
      *

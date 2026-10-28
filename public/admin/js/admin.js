@@ -655,8 +655,8 @@ async function registerWebPush() {
     }
 
     const vapidKey = window.VAPID_PUBLIC_KEY;
-    const endpoints = endpointsConfig();
-    const subscribeUrl = endpoints.pushSubscribe;
+    const ep = endpoints();
+    const subscribeUrl = ep.pushSubscribe;
 
     if (!vapidKey || !subscribeUrl) {
         return;

@@ -2484,40 +2484,61 @@ html.abo-intro-lock body {
     font-size: 0.7rem;
 }
 
-/* Mobile hero: cinematic framed photo + centered neon-contrasted content */
+/* Mobile hero: the whole photograph, uncropped, with the copy below it.
+
+   A full-bleed photo in a portrait phone can only show a narrow slice
+   of its frame: the hero was showing the top of the model's head
+   instead of the scene the desktop shows. Here the photo keeps its own
+   ratio — the phone sees the same frame the desktop sees, at the
+   phone's width, with every detail in it — and the copy sits on the
+   black underneath. */
 @media (max-width: 899px) {
     .hero {
         min-height: 88dvh;
+        display: flex;
+        flex-direction: column;
+    }
+    .hero__photo-wrap {
+        position: relative;
+        inset: auto;
+        flex: 0 0 auto;
+        width: 100%;
+        overflow: hidden;
+    }
+    .hero__photo {
+        position: relative;
+        inset: auto;
+        display: block;
+        width: 100%;
+        /* The photo's own ratio: nothing is cropped out and nothing is
+           scaled up — the phone gets the frame as it was shot. */
+        height: auto;
+        object-fit: cover;
+        object-position: center 35%;
+        transform: none;
+        opacity: 1;
+    }
+    .hero__photo-wrap::after {
+        /* A soft shade at the top and a fade into the black the copy
+           sits on. The photo itself stays legible. */
+        background:
+            linear-gradient(180deg,
+                rgba(5, 6, 7, 0.40) 0%,
+                rgba(5, 6, 7, 0.00) 32%,
+                rgba(5, 6, 7, 0.00) 66%,
+                rgba(5, 6, 7, 0.92) 100%);
     }
     .hero__container {
-        min-height: 88dvh;
+        flex: 1 1 auto;
+        min-height: 0;
         align-items: center;
-        padding: clamp(4.5rem, 9vh, 6rem) clamp(1.25rem, 4vw, 1.75rem) clamp(2rem, 5vh, 3rem);
+        padding: clamp(1.5rem, 5vw, 2.5rem) clamp(1.25rem, 4vw, 1.75rem) clamp(2rem, 5vh, 3rem);
     }
     .hero__inner {
         max-width: 100%;
         padding: 0;
         min-height: auto;
         gap: 1rem;
-    }
-    .hero__photo {
-        width: 100%;
-        /* The model's head/face is at 42.5% from the left, 33% from the top.
-           45% 20% centers the head and shoulders in the portrait mobile crop. */
-        object-position: 45% 20%;
-        opacity: 1;
-    }
-    .hero__photo-wrap::after {
-        /* Clean dark cinematic vignette — no green tint over the photo */
-        background:
-            linear-gradient(180deg,
-                rgba(5, 6, 7, 0.20) 0%,
-                rgba(5, 6, 7, 0.40) 35%,
-                rgba(5, 6, 7, 0.82) 70%,
-                var(--abo-black) 98%),
-            linear-gradient(90deg,
-                rgba(5, 6, 7, 0.55) 0%,
-                rgba(5, 6, 7, 0.15) 100%);
     }
     .hero__headline {
         font-size: clamp(32px, 9.5vw, 50px);
