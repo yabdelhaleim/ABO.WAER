@@ -219,7 +219,7 @@
                         </div>
 
                         <div data-anim="rise" data-anim-delay="720">
-                            <x-auth.google-button :enabled="$googleEnabled" />
+                            <x-auth.google-button :enabled="$googleEnabled" :href="route('auth.google')" />
                         </div>
 
                         <p class="abo-auth__register" data-anim="fade-up" data-anim-delay="780">

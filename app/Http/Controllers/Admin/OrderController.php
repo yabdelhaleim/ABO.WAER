@@ -8,6 +8,7 @@ use App\Models\Customer;
 use App\Models\Governorate;
 use App\Models\Order;
 use App\Services\Admin\OrderService;
+use App\Services\Admin\ReceiptService;
 use App\Services\CsvExportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -185,6 +186,80 @@ class OrderController extends Controller
             'message' => 'Tracking number updated.',
             'tracking_number' => $order->fresh()->tracking_number,
         ]);
+    }
+
+    /**
+     * The printable invoice for one order.
+     *
+     * The drawer used to answer "Invoice ready (demo)" — a toast and no
+     * document. This is the document: the order's own rows and the
+     * receipt settings the store saved, laid out for the paper the
+     * settings ask for.
+     *
+     * The page is deliberately outside the admin chrome. A receipt is
+     * handed to a customer; it must not carry the back office's
+     * sidebar, its bell or its signed-in admin's name.
+     */
+    public function invoice(Order $order, ReceiptService $receipts): View
+    {
+        return view('admin.orders.print.invoice', [
+            'receipt' => $receipts->invoice($order),
+        ]);
+    }
+
+    /**
+     * The printable shipping labels for a batch of orders.
+     *
+     * The bulk bar used to answer "Labels ready (demo)" — a toast and no
+     * sheet. This is the sheet: one label per selected order, each one
+     * measured from the order's own rows.
+     *
+     * The orders travel as a comma-separated list of order numbers in
+     * the query string, because that is how the browser addresses them
+     * (public/admin/js/orders.js keys its rows by order_number). A
+     * number that belongs to no order is skipped rather than refused:
+     * one stale id in a selection should not cost the operator the
+     * whole sheet.
+     */
+    public function labels(Request $request, ReceiptService $receipts): View
+    {
+        $numbers = $this->requestedOrderNumbers($request);
+
+        $orders = $numbers === []
+            ? collect()
+            : Order::query()
+                ->whereIn('order_number', $numbers)
+                ->with('items')
+                ->get()
+                ->sortBy(fn (Order $order): int => array_search($order->order_number, $numbers, true))
+                ->values();
+
+        return view('admin.orders.print.labels', [
+            'labels' => $receipts->labels($orders),
+            'layout' => $receipts->layout(),
+            'store' => $receipts->store(),
+        ]);
+    }
+
+    /**
+     * The order numbers the labels request asked for.
+     *
+     * @return array<int, string>
+     */
+    protected function requestedOrderNumbers(Request $request): array
+    {
+        $raw = (string) $request->query('orders', '');
+
+        if (trim($raw) === '') {
+            return [];
+        }
+
+        $numbers = array_values(array_filter(array_map(
+            fn (string $number): string => trim($number),
+            explode(',', $raw),
+        )));
+
+        return array_values(array_unique($numbers));
     }
 
     /**
