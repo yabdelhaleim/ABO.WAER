@@ -2281,27 +2281,25 @@ html.abo-intro-lock body {
 }
 .hero__photo {
     position: absolute;
-    right: 0;
-    top: 0;
-    width: min(78vw, 1300px);
+    inset: 0;
+    width: 100%;
     height: 100%;
     object-fit: cover;
-    object-position: 30% 50%;
+    object-position: right center;
     transform: scale(1) translate3d(var(--parallax-x), var(--parallax-y), 0);
     transform-origin: center center;
     will-change: transform, opacity;
 }
-/* Left edge of the photo fades to the page bg over 38% of the width,
-   bottom 22% fades to the page bg. The mask is built from two stacked
-   linear gradients so the corners are clean. */
+/* Full-bleed hero overlay: dark gradient gives contrast for the text on the left,
+   seamlessly fading to reveal the model on the right and black at the bottom. */
 .hero__photo-wrap::after {
     content: '';
     position: absolute;
     inset: 0;
     pointer-events: none;
     background:
-        linear-gradient(180deg, transparent 0%, transparent 78%, var(--abo-black) 100%),
-        linear-gradient(90deg, var(--abo-black) 0%, rgba(5, 6, 7, 0.92) 22%, rgba(5, 6, 7, 0.45) 38%, transparent 50%);
+        linear-gradient(180deg, rgba(5, 6, 7, 0.35) 0%, transparent 22%, transparent 75%, var(--abo-black) 100%),
+        linear-gradient(90deg, rgba(5, 6, 7, 0.94) 0%, rgba(5, 6, 7, 0.82) 32%, rgba(5, 6, 7, 0.4) 62%, rgba(5, 6, 7, 0.05) 100%);
     z-index: 1;
 }
 
