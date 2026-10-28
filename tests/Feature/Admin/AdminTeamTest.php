@@ -7,6 +7,7 @@ use App\Http\Middleware\EnsureAdminPermission;
 use App\Models\Admin;
 use App\Models\AdminActivity;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 /**
@@ -230,6 +231,105 @@ class AdminTeamTest extends TestCase
             ->assertForbidden();
 
         $this->assertSame(AdminRole::Manager, $manager->fresh()->role);
+    }
+
+    /**
+     * An owner may delete another owner when two active owners exist,
+     * but once down to a single active owner, that remaining owner cannot be removed.
+     */
+    public function test_an_owner_can_delete_another_owner_when_two_exist_but_cannot_leave_zero_active_owners(): void
+    {
+        $second = $this->makeAdmin('Second Owner', 'second.owner@store.com', AdminRole::Owner);
+
+        // Deleting the second owner succeeds while the first remains active.
+        $this->actingAs($this->owner, 'admin')
+            ->delete("/admin/admins/{$second->id}")
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseMissing('admins', ['id' => $second->id]);
+        $this->assertSame(1, Admin::where('role', AdminRole::Owner->value)->where('is_active', true)->count());
+
+        // Now that only the first owner is left, attempting to delete it is rejected.
+        $this->actingAs($this->owner, 'admin')
+            ->delete("/admin/admins/{$this->owner->id}")
+            ->assertSessionHasErrors('admin');
+
+        $this->assertDatabaseHas('admins', ['id' => $this->owner->id]);
+    }
+
+    /**
+     * An owner may deactivate another owner when two exist, but an inactive owner
+     * does not count toward keeping the panel from locking itself out.
+     */
+    public function test_an_owner_can_deactivate_another_owner_when_two_exist_but_inactive_owner_does_not_protect_from_lockout(): void
+    {
+        $second = $this->makeAdmin('Second Owner', 'second.owner@store.com', AdminRole::Owner);
+
+        // Deactivate second owner
+        $this->actingAs($this->owner, 'admin')
+            ->patch("/admin/admins/{$second->id}/toggle")
+            ->assertSessionHasNoErrors();
+
+        $this->assertFalse($second->fresh()->is_active);
+
+        // The remaining active owner cannot be suspended, even though an inactive owner row exists in DB
+        $this->actingAs($this->owner, 'admin')
+            ->patch("/admin/admins/{$this->owner->id}/toggle")
+            ->assertSessionHasErrors('admin');
+
+        $this->assertTrue($this->owner->fresh()->is_active);
+    }
+
+    /**
+     * Demoting an owner is refused when the other existing owner is suspended.
+     */
+    public function test_demoting_an_owner_is_refused_when_other_owner_is_suspended(): void
+    {
+        $this->makeAdmin('Suspended Owner', 'suspended.owner@store.com', AdminRole::Owner, false);
+
+        // Demoting the only active owner must be refused
+        $this->actingAs($this->owner, 'admin')
+            ->put("/admin/admins/{$this->owner->id}", [
+                'name' => $this->owner->name,
+                'email' => $this->owner->email,
+                'role' => 'manager',
+            ])
+            ->assertSessionHasErrors('admin');
+
+        $this->assertSame(AdminRole::Owner, $this->owner->fresh()->role);
+    }
+
+    /**
+     * When another operation holds the active owners lock and times out,
+     * the controller refuses cleanly with an informative error rather than failing ungracefully.
+     */
+    public function test_concurrent_operation_lock_timeout_returns_clear_refusal_without_corrupting_state(): void
+    {
+        $second = $this->makeAdmin('Second Owner', 'second.owner@store.com', AdminRole::Owner);
+
+        // Acquire the atomic lock externally to simulate another process executing
+        $lock = Cache::lock('admin_active_owners_lock', 10);
+        $this->assertTrue($lock->acquire());
+
+        try {
+            // Because the lock is held, any action requiring the lock fails upon timeout.
+            // In unit testing with array cache, block(0) or timeout returns refusal.
+            // We can verify that when lock cannot be acquired or times out, the user receives an error response.
+            $response = $this->actingAs($this->owner, 'admin')
+                ->delete("/admin/admins/{$second->id}");
+
+            $response->assertSessionHasErrors('admin');
+            $this->assertDatabaseHas('admins', ['id' => $second->id]);
+        } finally {
+            $lock->release();
+        }
+
+        // Once the lock is released, the operation goes through normally
+        $this->actingAs($this->owner, 'admin')
+            ->delete("/admin/admins/{$second->id}")
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseMissing('admins', ['id' => $second->id]);
     }
 
     // ─── Addresses ───────────────────────────────────────────────────────────

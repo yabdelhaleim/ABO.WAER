@@ -8,10 +8,12 @@ use App\Http\Requests\AdminRequest;
 use App\Models\Admin;
 use App\Models\AdminActivity;
 use App\Services\Admin\AdminActivityService;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -163,15 +165,35 @@ class AdminController extends Controller
             && $admin->is_active;
 
         if ($demotingOwner) {
-            $refused = $this->guardLastActiveOwner(
-                $admin,
-                'You cannot demote the last active owner.',
-                $request
-            );
+            return $this->executeWithActiveOwnersLock(function () use ($request, $admin, $data, $role) {
+                $refused = $this->guardLastActiveOwner(
+                    $admin,
+                    'You cannot demote the last active owner.',
+                    $request
+                );
 
-            if ($refused !== null) {
-                return $refused;
-            }
+                if ($refused !== null) {
+                    return $refused;
+                }
+
+                $admin->fill([
+                    'name' => $data['name'],
+                    'email' => $data['email'],
+                    'role' => $role->value,
+                ]);
+
+                if (! empty($data['password'])) {
+                    $admin->password = $data['password'];
+                }
+
+                $admin->save();
+
+                $this->activity->record('admin.updated', $admin, [
+                    'role' => $role->value,
+                ]);
+
+                return $this->success($request, 'Admin updated successfully.');
+            }, $request);
         }
 
         $admin->fill([
@@ -204,33 +226,35 @@ class AdminController extends Controller
             return $this->refuse('admin', 'Cannot delete your own account.', $request);
         }
 
-        if ($admin->is_active && Admin::where('is_active', true)->count() <= 1) {
-            return $this->refuse('admin', 'Cannot delete the last active admin.', $request);
-        }
-
-        if ($admin->is_active && $admin->role === AdminRole::Owner) {
-            $refused = $this->guardLastActiveOwner(
-                $admin,
-                'Cannot delete the last active owner.',
-                $request
-            );
-
-            if ($refused !== null) {
-                return $refused;
+        return $this->executeWithActiveOwnersLock(function () use ($request, $admin) {
+            if ($admin->is_active && Admin::where('is_active', true)->whereKeyNot($admin->getKey())->count() < 1) {
+                return $this->refuse('admin', 'Cannot delete the last active admin.', $request);
             }
-        }
 
-        $name = $admin->name;
-        $id = $admin->id;
+            if ($admin->is_active && $admin->role === AdminRole::Owner) {
+                $refused = $this->guardLastActiveOwner(
+                    $admin,
+                    'Cannot delete the last active owner.',
+                    $request
+                );
 
-        $admin->delete();
+                if ($refused !== null) {
+                    return $refused;
+                }
+            }
 
-        $this->activity->record('admin.deleted', null, [
-            'name' => $name,
-            'admin_id' => $id,
-        ]);
+            $name = $admin->name;
+            $id = $admin->id;
 
-        return $this->success($request, 'Admin deleted successfully.');
+            $admin->delete();
+
+            $this->activity->record('admin.deleted', null, [
+                'name' => $name,
+                'admin_id' => $id,
+            ]);
+
+            return $this->success($request, 'Admin deleted successfully.');
+        }, $request);
     }
 
     /**
@@ -244,8 +268,16 @@ class AdminController extends Controller
             return $this->refuse('admin', 'Cannot deactivate your own account.', $request);
         }
 
-        if ($admin->is_active) {
-            if (Admin::where('is_active', true)->count() <= 1) {
+        if (! $admin->is_active) {
+            $admin->update(['is_active' => true]);
+
+            $this->activity->record('admin.activated', $admin);
+
+            return $this->success($request, 'Admin status updated.');
+        }
+
+        return $this->executeWithActiveOwnersLock(function () use ($request, $admin) {
+            if (Admin::where('is_active', true)->whereKeyNot($admin->getKey())->count() < 1) {
                 return $this->refuse('admin', 'Cannot deactivate the last active admin.', $request);
             }
 
@@ -260,16 +292,13 @@ class AdminController extends Controller
                     return $refused;
                 }
             }
-        }
 
-        $admin->update(['is_active' => ! $admin->is_active]);
+            $admin->update(['is_active' => false]);
 
-        $this->activity->record(
-            $admin->is_active ? 'admin.activated' : 'admin.suspended',
-            $admin
-        );
+            $this->activity->record('admin.suspended', $admin);
 
-        return $this->success($request, 'Admin status updated.');
+            return $this->success($request, 'Admin status updated.');
+        }, $request);
     }
 
     /**
@@ -290,11 +319,30 @@ class AdminController extends Controller
     }
 
     /**
+     * Run a critical operation that reduces active admins/owners within a shared
+     * atomic lock and database transaction, guaranteeing pessimistic row locking
+     * and mutual exclusion across concurrent requests.
+     */
+    protected function executeWithActiveOwnersLock(\Closure $callback, Request $request): mixed
+    {
+        try {
+            return Cache::lock('admin_active_owners_lock', 10)->block(5, function () use ($callback) {
+                return DB::transaction(function () use ($callback) {
+                    Admin::query()
+                        ->where('role', AdminRole::Owner->value)
+                        ->lockForUpdate()
+                        ->get(['id']);
+
+                    return $callback();
+                });
+            });
+        } catch (LockTimeoutException) {
+            return $this->refuse('admin', 'Another administration change is in progress. Please retry.', $request);
+        }
+    }
+
+    /**
      * Refuse the action when it would take the last active owner away.
-     *
-     * The count is taken inside a transaction that locks the owner rows
-     * first, so two requests arriving together cannot both see a second
-     * owner and both remove one.
      *
      * The account being acted on is left out of the count, because the
      * action is about to take it out of the picture — that is the whole
@@ -307,27 +355,20 @@ class AdminController extends Controller
      */
     protected function guardLastActiveOwner(Admin $admin, string $message, Request $request): JsonResponse|RedirectResponse|null
     {
-        return DB::transaction(function () use ($admin, $message, $request): JsonResponse|RedirectResponse|null {
-            Admin::query()
-                ->where('role', AdminRole::Owner->value)
-                ->lockForUpdate()
-                ->get(['id']);
+        $remainingOwners = Admin::query()
+            ->where('role', AdminRole::Owner->value)
+            ->where('is_active', true)
+            ->when(
+                $admin->is_active,
+                fn ($query) => $query->whereKeyNot($admin->getKey()),
+            )
+            ->count();
 
-            $remainingOwners = Admin::query()
-                ->where('role', AdminRole::Owner->value)
-                ->where('is_active', true)
-                ->when(
-                    $admin->is_active,
-                    fn ($query) => $query->whereKeyNot($admin->getKey()),
-                )
-                ->count();
+        if ($remainingOwners < 1) {
+            return $this->refuse('admin', $message, $request);
+        }
 
-            if ($remainingOwners < 1) {
-                return $this->refuse('admin', $message, $request);
-            }
-
-            return null;
-        });
+        return null;
     }
 
     /**
