@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Delivers one campaign to its whole audience from the queue.
@@ -84,20 +85,29 @@ class SendCampaignJob implements ShouldQueue
             'sent_at' => now(),
         ]);
 
-        $segmentationService
-            ->getAudienceQuery($campaign->audience)
-            ->chunkById($this->chunkSize, function (Collection $customers) use ($campaign, $deliveryService): void {
-                $delivered = 0;
+        $audienceQuery = $segmentationService->getAudienceQuery($campaign->audience);
+        $totalRecipients = $audienceQuery->count();
 
-                foreach ($customers as $customer) {
-                    $deliveryService->deliverToCustomer($campaign, $customer);
+        if ($totalRecipients === 0) {
+            Log::info("Campaign #{$campaign->id} ({$campaign->title}) ended with 0 recipients matching audience: {$campaign->audience->value}");
+            $campaign->update(['status' => CampaignStatus::Ended]);
+
+            return;
+        }
+
+        $audienceQuery->chunkById($this->chunkSize, function (Collection $customers) use ($campaign, $deliveryService): void {
+            $delivered = 0;
+
+            foreach ($customers as $customer) {
+                if ($deliveryService->deliverToCustomer($campaign, $customer)) {
                     $delivered++;
                 }
+            }
 
-                if ($delivered > 0) {
-                    $campaign->increment('sent_count', $delivered);
-                }
-            });
+            if ($delivered > 0) {
+                $campaign->increment('sent_count', $delivered);
+            }
+        });
 
         $campaign->update(['status' => CampaignStatus::Ended]);
     }

@@ -2494,7 +2494,7 @@ html.abo-intro-lock body {
    black underneath. */
 @media (max-width: 899px) {
     .hero {
-        min-height: 88dvh;
+        min-height: auto;
         display: flex;
         flex-direction: column;
     }
@@ -2524,15 +2524,15 @@ html.abo-intro-lock body {
         background:
             linear-gradient(180deg,
                 rgba(5, 6, 7, 0.40) 0%,
-                rgba(5, 6, 7, 0.00) 32%,
-                rgba(5, 6, 7, 0.00) 66%,
-                rgba(5, 6, 7, 0.92) 100%);
+                rgba(5, 6, 7, 0.00) 30%,
+                rgba(5, 6, 7, 0.00) 82%,
+                rgba(5, 6, 7, 0.85) 100%);
     }
     .hero__container {
-        flex: 1 1 auto;
+        flex: 0 0 auto;
         min-height: 0;
-        align-items: center;
-        padding: clamp(1.5rem, 5vw, 2.5rem) clamp(1.25rem, 4vw, 1.75rem) clamp(2rem, 5vh, 3rem);
+        align-items: flex-start;
+        padding: clamp(1.75rem, 6vw, 2.75rem) clamp(1.25rem, 4vw, 1.75rem) clamp(2rem, 5vh, 3rem);
     }
     .hero__inner {
         max-width: 100%;
@@ -6968,14 +6968,17 @@ html.size-guide-open body {
 /* ─── 1. Home: hero ─────────────────────────────────────────── */
 
 @media (max-width: 640px) {
+    /* The hero is stacked on a phone — the photograph keeps its own
+       ratio and the copy sits under it — so neither the hero nor the
+       copy block is asked to fill the screen. */
     .hero {
-        min-height: 100dvh;
+        min-height: auto;
     }
 
     .hero__inner {
-        min-height: 100dvh;
-        padding-top: 4.5rem;
-        padding-bottom: 2.5rem;
+        min-height: auto;
+        padding-top: 0;
+        padding-bottom: 0;
         gap: 1rem;
     }
 

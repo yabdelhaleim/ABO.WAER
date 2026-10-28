@@ -29,20 +29,26 @@ class CampaignDeliveryService
      * Called once per customer per chunk by SendCampaignJob, so it must stay
      * cheap and must never assume a batch context.
      */
-    public function deliverToCustomer(Campaign $campaign, Customer $customer): void
+    public function deliverToCustomer(Campaign $campaign, Customer $customer): bool
     {
         try {
             Notification::send($customer, new CampaignNotification($campaign));
+
+            return true;
         } catch (\Throwable $e) {
             // A failure on one customer must not abort the whole chunk — the
             // outer SendCampaignJob is the unit of retry, and even within
             // one chunk the counters should reflect the customer's that
             // actually went out.
-            Log::channel('stack')->warning('Campaign delivery failed for customer.', [
+            Log::channel('stack')->error('Campaign delivery failed for customer.', [
                 'campaign_id' => $campaign->id,
                 'customer_id' => $customer->id,
+                'customer_email' => $customer->email,
+                'campaign_type' => $campaign->type->value,
                 'exception' => $e->getMessage(),
             ]);
+
+            return false;
         }
     }
 }

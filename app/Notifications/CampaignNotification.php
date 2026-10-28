@@ -4,8 +4,6 @@ namespace App\Notifications;
 
 use App\Enums\CampaignType;
 use App\Models\Campaign;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
@@ -32,10 +30,8 @@ use NotificationChannels\WebPush\WebPushMessage;
  * so inflating each individual send with another queue hop would just make
  * a 50,000-recipient run slower without giving us any extra resilience.
  */
-class CampaignNotification extends Notification implements ShouldQueue
+class CampaignNotification extends Notification
 {
-    use Queueable;
-
     public function __construct(public Campaign $campaign) {}
 
     /**
