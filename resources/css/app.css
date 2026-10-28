@@ -2492,7 +2492,7 @@ html.abo-intro-lock body {
     .hero__container {
         min-height: 92dvh;
         align-items: flex-end;
-        padding-bottom: 3rem;
+        padding-bottom: 2.5rem;
     }
     .hero__inner {
         max-width: 100%;
@@ -2503,19 +2503,20 @@ html.abo-intro-lock body {
     }
     .hero__photo {
         width: 100%;
-        object-position: center 15%;
+        /* Shift right to frame the model's face, not the back of the head */
+        object-position: 68% 22%;
         opacity: 1;
     }
     .hero__photo-wrap::after {
-        /* Neon glow at top-right where the model is, strong dark
-           fade at bottom so the text is readable. */
+        /* Soft neon glow where the ABO wall logo lives (top-left),
+           strong dark scrim at the bottom 40% so text is readable. */
         background:
-            radial-gradient(ellipse 60% 45% at 65% 20%, rgba(198, 255, 0, 0.07) 0%, transparent 70%),
+            radial-gradient(ellipse 55% 40% at 20% 15%, rgba(198, 255, 0, 0.09) 0%, transparent 65%),
             linear-gradient(180deg,
-                rgba(5, 6, 7, 0.18) 0%,
-                rgba(5, 6, 7, 0.12) 35%,
-                rgba(5, 6, 7, 0.65) 62%,
-                var(--abo-black) 88%);
+                rgba(5, 6, 7, 0.10) 0%,
+                rgba(5, 6, 7, 0.08) 30%,
+                rgba(5, 6, 7, 0.60) 58%,
+                var(--abo-black) 85%);
     }
     .hero__headline {
         font-size: clamp(36px, 11vw, 60px);
