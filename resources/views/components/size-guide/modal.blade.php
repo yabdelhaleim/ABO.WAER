@@ -15,6 +15,10 @@
     ----------------------------------------------------
     [
         'unit'  => 'cm',
+        'note'  => 'Measurements are in cm. If you are between sizes, choose the larger one.',
+        'noteAr' => '',
+        'howTo' => 'Lay the garment flat and measure the chest 1 cm below the armhole.',
+        'howToAr' => '',
         'types' => [
             '<category-slug>' => [
                 // The column names are the ones the admin gave the
@@ -41,6 +45,9 @@
     - No cross-type fallback: if the product's category isn't a key in
       $chart['types'], we render the empty state — never another type.
     - Single source for labels: the column names drive the headers.
+    - The admin's copy wins: the guide's note and how-to are printed
+      when it has them; the generic guidance is only a fallback for a
+      guide that was written without any.
     - Selected-size highlight is NOT done in Blade. The JS reads
       [data-product-size] from the page when the modal opens and adds
       .is-active to the matching row. With no attribute on the page
@@ -56,7 +63,6 @@
 @php
     $id = $id ?: 'size-guide-'.($product['slug'] ?? 'default');
 
-    // Source of truth: column KEY → human label. Adding a new column
     // The column names are the admin's own: a pair of pants is
     // measured by waist and hip, a hoodie by chest and sleeve. They
     // are printed as they are named.
@@ -66,6 +72,22 @@
     $showEmpty = !$hasTypeForProduct;
     $type = $hasTypeForProduct ? $chart['types'][$productType] : null;
     $unit = $chart['unit'] ?? 'cm';
+
+    // The guide's own copy: the note under the title and the how-to
+    // under the table. The Arabic copy is used when the English one
+    // is empty, so a guide written in Arabic still reaches the shop.
+    $note = trim((string) ($chart['note'] ?? ''));
+    if ($note === '') {
+        $note = trim((string) ($chart['noteAr'] ?? ''));
+    }
+    $noteIsArabic = $note !== '' && $note === trim((string) ($chart['noteAr'] ?? ''));
+
+    $howTo = trim((string) ($chart['howTo'] ?? ''));
+    if ($howTo === '') {
+        $howTo = trim((string) ($chart['howToAr'] ?? ''));
+    }
+    $howToIsArabic = $howTo !== '' && $howTo === trim((string) ($chart['howToAr'] ?? ''));
+
     $howToMeasure = $chart['howToMeasure'] ?? [];
 @endphp
 
@@ -106,8 +128,12 @@
                 <h2 class="size-guide__title" id="{{ $id }}-title">
                     FIND YOUR <span class="size-guide__title-accent">FIT.</span>
                 </h2>
-                <p class="size-guide__subtitle">
-                    Measurements are of the garment laid flat, in {{ $unit }}.
+                <p class="size-guide__subtitle" @if ($noteIsArabic) dir="rtl" @endif>
+                    @if ($note !== '')
+                        {{ $note }}
+                    @else
+                        Measurements are of the garment laid flat, in {{ $unit }}.
+                    @endif
                 </p>
             </div>
             <button
@@ -166,17 +192,21 @@
                     </table>
                 </div>
 
-                @if (!empty($howToMeasure))
+                @if ($howTo !== '' || !empty($howToMeasure))
                     <aside class="size-guide__howto" aria-label="How to measure">
                         <p class="size-guide__howto-title">HOW TO MEASURE</p>
-                        <ol class="size-guide__howto-list">
-                            @foreach ($howToMeasure as $hint)
-                                <li>
-                                    <strong>{{ $hint['label'] }}</strong>
-                                    <span>{{ $hint['hint'] }}</span>
-                                </li>
-                            @endforeach
-                        </ol>
+                        @if ($howTo !== '')
+                            <p class="size-guide__howto-text" @if ($howToIsArabic) dir="rtl" @endif>{{ $howTo }}</p>
+                        @else
+                            <ol class="size-guide__howto-list">
+                                @foreach ($howToMeasure as $hint)
+                                    <li>
+                                        <strong>{{ $hint['label'] }}</strong>
+                                        <span>{{ $hint['hint'] }}</span>
+                                    </li>
+                                @endforeach
+                            </ol>
+                        @endif
                     </aside>
                 @endif
             @endif

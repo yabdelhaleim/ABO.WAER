@@ -402,6 +402,60 @@ class PhaseAStorefrontTest extends TestCase
         $response->assertDontSee('data-size-row="M"', false);
     }
 
+    public function test_product_page_prints_the_note_and_the_how_to_the_admin_wrote(): void
+    {
+        $guide = SizeGuide::create([
+            'category_id' => $this->hoodies->id,
+            'name' => 'Hoodies guide',
+            'measurements' => ['Chest'],
+            'note' => 'Between two sizes? Take the larger one.',
+            'how_to' => 'Lay the hoodie flat and measure the chest under the armhole.',
+            'is_active' => true,
+        ]);
+
+        SizeGuideRow::create([
+            'size_guide_id' => $guide->id,
+            'size_name' => 'M',
+            'measurements' => ['Chest' => 54.0],
+            'sort_order' => 0,
+        ]);
+
+        $product = $this->makeProduct();
+
+        $response = $this->get(route('shop.show', ['slug' => $product->slug]));
+
+        $response->assertOk();
+        $response->assertSee('Between two sizes? Take the larger one.');
+        $response->assertSee('Lay the hoodie flat and measure the chest under the armhole.');
+
+        // The guide's own copy replaces the generic guidance.
+        $response->assertDontSee('Measured flat, 1 cm below the armhole.');
+    }
+
+    public function test_product_page_falls_back_to_the_generic_how_to_when_the_guide_has_none(): void
+    {
+        $guide = SizeGuide::create([
+            'category_id' => $this->hoodies->id,
+            'name' => 'Hoodies guide',
+            'measurements' => ['Chest'],
+            'is_active' => true,
+        ]);
+
+        SizeGuideRow::create([
+            'size_guide_id' => $guide->id,
+            'size_name' => 'M',
+            'measurements' => ['Chest' => 54.0],
+            'sort_order' => 0,
+        ]);
+
+        $product = $this->makeProduct();
+
+        $response = $this->get(route('shop.show', ['slug' => $product->slug]));
+
+        $response->assertOk();
+        $response->assertSee('Measured flat, 1 cm below the armhole.');
+    }
+
     public function test_product_page_does_not_show_another_categorys_measurements(): void
     {
         $other = Category::factory()->create([

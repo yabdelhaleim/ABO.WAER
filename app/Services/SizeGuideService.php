@@ -136,7 +136,7 @@ class SizeGuideService
      * render an empty table. Null is returned instead so the modal shows
      * its "measurements coming soon" state rather than an empty grid.
      *
-     * @return array{unit: string, types: array<string, array{columns: array<int, string>, rows: array<int, array{size: string, measurements: array<string, float>}>}>, howToMeasure: array<int, array{label: string, hint: string}>}|null
+     * @return array{unit: string, note: string, noteAr: string, howTo: string, howToAr: string, types: array<string, array{columns: array<int, string>, rows: array<int, array{size: string, measurements: array<string, float>}>}>, howToMeasure: array<int, array{label: string, hint: string}>}|null
      */
     public function chartForCategory(?Category $category): ?array
     {
@@ -171,6 +171,13 @@ class SizeGuideService
 
         return [
             'unit' => $guide->unit ?: 'cm',
+            // The admin's own copy travels with the chart: the note is
+            // printed under the title and the how-to replaces the
+            // generic guidance when the guide has one.
+            'note' => (string) ($guide->note ?? ''),
+            'noteAr' => (string) ($guide->note_ar ?? ''),
+            'howTo' => (string) ($guide->how_to ?? ''),
+            'howToAr' => (string) ($guide->how_to_ar ?? ''),
             'types' => [
                 $category->slug => [
                     'columns' => $columns,

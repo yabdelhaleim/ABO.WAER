@@ -4267,6 +4267,12 @@ html.size-guide-open body {
 .size-guide__howto-list li span {
     color: var(--abo-gray);
 }
+.size-guide__howto-text {
+    margin: 0;
+    color: var(--abo-gray);
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
 
 /* ─── Empty state (no data for this product) ──────────────── */
 .size-guide__empty {
