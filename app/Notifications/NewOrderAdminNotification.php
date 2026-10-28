@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\Order;
 use Illuminate\Bus\Queueable;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use NotificationChannels\WebPush\WebPushChannel;
 use NotificationChannels\WebPush\WebPushMessage;
@@ -40,13 +41,31 @@ class NewOrderAdminNotification extends Notification
     public function __construct(public Order $order) {}
 
     /**
-     * Database channel for dashboard topbar bell + WebPush for mobile and desktop browser alerts.
+     * Database channel for dashboard topbar bell + WebPush for mobile alerts + Mail to admin email.
      *
      * @return array<int, string|class-string>
      */
     public function via(mixed $notifiable): array
     {
-        return ['database', WebPushChannel::class];
+        return ['database', 'mail', WebPushChannel::class];
+    }
+
+    /**
+     * Build the Mail message for admin email notification.
+     */
+    public function toMail(mixed $notifiable): MailMessage
+    {
+        $url = route('admin.orders.index', ['search' => $this->order->order_number]);
+
+        return (new MailMessage)
+            ->subject('🔥 New Order #'.$this->order->order_number.' — ABO Store')
+            ->greeting('Hello, Admin!')
+            ->line('A new order has just been placed on ABO Store.')
+            ->line('Order Number: #'.$this->order->order_number)
+            ->line('Customer Name: '.($this->order->customer_name ?? $this->order->shipping_name ?? 'Guest'))
+            ->line('Total Amount: '.number_format($this->order->total).' EGP')
+            ->action('View Order in Admin Panel', $url)
+            ->line('Thank you for managing ABO Store.');
     }
 
     /**

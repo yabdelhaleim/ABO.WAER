@@ -186,6 +186,7 @@ class AdminOrderNotificationTest extends TestCase
             NewOrderAdminNotification::class,
             function (NewOrderAdminNotification $notification, array $channels, object $notifiable): bool {
                 $this->assertContains('database', $channels);
+                $this->assertContains('mail', $channels);
                 $this->assertContains(WebPushChannel::class, $channels);
 
                 $data = $notification->toArray($notifiable);
