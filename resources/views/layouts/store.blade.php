@@ -87,10 +87,16 @@
     @auth
         <script>
             (function () {
-                if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+                const statusEl = document.getElementById('account-push-status');
+                const btnEl = document.getElementById('account-push-btn');
+
+                if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                    if (statusEl) statusEl.textContent = 'Not supported by this browser';
+                    return;
+                }
+
                 const vapidKey = @json(config('webpush.vapid.public_key'));
                 const subscribeUrl = @json(route('store.push.subscriptions.update'));
-                if (!vapidKey || !subscribeUrl) return;
 
                 function urlBase64ToUint8Array(base64String) {
                     const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -103,39 +109,84 @@
                     return outputArray;
                 }
 
-                function subscribeUser(reg) {
-                    reg.pushManager.getSubscription().then(function (sub) {
-                        if (!sub) {
-                            reg.pushManager.subscribe({
-                                userVisibleOnly: true,
-                                applicationServerKey: urlBase64ToUint8Array(vapidKey)
-                            }).then(function (newSub) {
-                                fetch(subscribeUrl, {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                                        'Accept': 'application/json'
-                                    },
-                                    body: JSON.stringify(newSub)
-                                });
-                            });
+                function updateUI() {
+                    if (!statusEl) return;
+                    if (Notification.permission === 'granted') {
+                        statusEl.textContent = 'Active ✓';
+                        statusEl.style.color = 'var(--abo-lime)';
+                        if (btnEl) btnEl.style.display = 'none';
+                    } else if (Notification.permission === 'denied') {
+                        statusEl.textContent = 'Blocked (allow in browser site settings)';
+                        statusEl.style.color = '#ff5c5c';
+                        if (btnEl) btnEl.style.display = 'none';
+                    } else {
+                        statusEl.textContent = 'Not enabled';
+                        statusEl.style.color = 'var(--abo-gray)';
+                        if (btnEl) {
+                            btnEl.style.display = 'inline-flex';
+                            btnEl.textContent = 'Enable Notifications';
                         }
+                    }
+                }
+
+                function subscribeUser(reg) {
+                    if (!vapidKey || !subscribeUrl) {
+                        console.warn('VAPID public key or subscribe route missing.');
+                        return Promise.resolve();
+                    }
+                    return reg.pushManager.getSubscription().then(function (sub) {
+                        if (sub) {
+                            updateUI();
+                            return;
+                        }
+                        return reg.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: urlBase64ToUint8Array(vapidKey)
+                        }).then(function (newSub) {
+                            return fetch(subscribeUrl, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                                    'Accept': 'application/json'
+                                },
+                                body: JSON.stringify(newSub)
+                            }).then(function () {
+                                updateUI();
+                            });
+                        });
                     });
                 }
 
+                // If already granted, register & ensure subscribed
                 navigator.serviceWorker.register('/sw.js').then(function (reg) {
+                    updateUI();
                     if (Notification.permission === 'granted') {
                         subscribeUser(reg);
-                    } else if (Notification.permission === 'default') {
-                        // Request push notification permission for logged in customer
-                        Notification.requestPermission().then(function (perm) {
-                            if (perm === 'granted') {
-                                subscribeUser(reg);
-                            }
-                        });
                     }
-                }).catch(function (e) {});
+                }).catch(function (e) {
+                    console.warn('SW registration failed:', e);
+                });
+
+                // User gesture click handler: 100% compliant with browser permission policies
+                if (btnEl) {
+                    btnEl.addEventListener('click', function () {
+                        btnEl.disabled = true;
+                        btnEl.textContent = 'Requesting…';
+                        Notification.requestPermission().then(function (perm) {
+                            btnEl.disabled = false;
+                            updateUI();
+                            if (perm === 'granted') {
+                                navigator.serviceWorker.ready.then(function (reg) {
+                                    subscribeUser(reg);
+                                });
+                            }
+                        }).catch(function () {
+                            btnEl.disabled = false;
+                            updateUI();
+                        });
+                    });
+                }
             })();
         </script>
     @endauth

@@ -134,6 +134,16 @@
                             @endif
                         </dd>
                     </div>
+
+                    <div class="account__detail" id="account-push-section">
+                        <dt class="account__detail-label">Push Notifications</dt>
+                        <dd class="account__detail-value" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-top:0.4rem;flex-wrap:wrap;">
+                            <span id="account-push-status" style="color:var(--abo-gray);font-size:0.85rem;">Checking…</span>
+                            <button type="button" id="account-push-btn" class="store-btn store-btn--secondary" style="padding:0.4rem 1.1rem;font-size:0.75rem;min-height:36px;display:none;">
+                                Enable Notifications
+                            </button>
+                        </dd>
+                    </div>
                 </dl>
 
                 {{-- ─── F. Sign Out ─────────────────────────────────────
