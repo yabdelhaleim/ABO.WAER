@@ -52,6 +52,23 @@ class CouponService
     }
 
     /**
+     * One coupon, in the shape coupons.js walks.
+     *
+     * The screen reads the coupon the server sends back, so a save
+     * replaces the row with the row the database holds.
+     *
+     * @return array<string, mixed>
+     */
+    public function payload(Coupon $coupon): array
+    {
+        $discountGiven = (float) Order::query()
+            ->where('coupon_id', $coupon->id)
+            ->sum('discount_amount');
+
+        return $this->serializeCoupon($coupon, $discountGiven);
+    }
+
+    /**
      * Serialise one coupon row into the object coupons.js walks.
      *
      * @return array<string, mixed>
@@ -72,13 +89,8 @@ class CouponService
             'uses' => (int) $coupon->used_count,
             'startsAt' => $coupon->starts_at ? $coupon->starts_at->format('Y-m-d') : '',
             'endsAt' => $coupon->expires_at ? $coupon->expires_at->format('Y-m-d') : '',
-            'scope' => 'all',
-            'scopeIds' => [],
-            'firstOrderOnly' => false,
-            'excludeSale' => false,
             'active' => (bool) $coupon->is_active,
             'discountGiven' => (int) $discountGiven,
-            'categoryLabel' => '',
         ];
     }
 

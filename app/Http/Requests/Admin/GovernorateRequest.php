@@ -36,9 +36,13 @@ class GovernorateRequest extends FormRequest
      */
     public function rules(): array
     {
+        // A new governorate needs the whole row; an update may carry
+        // the one field that changed.
+        $isUpdate = $this->isMethod('PUT') || $this->isMethod('PATCH');
+
         return [
-            'shipping_zone_id' => ['required', 'exists:shipping_zones,id'],
-            'name' => ['required', 'string', 'max:150'],
+            'shipping_zone_id' => [$isUpdate ? 'sometimes' : 'required', 'exists:shipping_zones,id'],
+            'name' => [$isUpdate ? 'sometimes' : 'required', 'string', 'max:150'],
             'name_ar' => ['nullable', 'string', 'max:150'],
             'fee' => ['nullable', 'numeric', 'min:0'],
             'time_from' => ['nullable', 'integer', 'min:1'],

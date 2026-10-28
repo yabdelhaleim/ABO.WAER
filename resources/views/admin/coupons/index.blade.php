@@ -424,103 +424,8 @@
                         </div>
                     </div>
 
-                    {{-- Applies to --}}
-                    <div class="abo-admin-coupons__field">
-                        <span class="abo-admin-coupons__field-label">Applies to</span>
-                        <div class="abo-admin-coupons__chips abo-admin-coupons__chips--segmented"
-                             role="radiogroup"
-                             aria-label="Applies to"
-                             data-abo-admin-coupons-scope-chips>
-                            <button type="button"
-                                    class="abo-admin-coupons__chip is-active"
-                                    role="radio"
-                                    aria-checked="true"
-                                    data-abo-admin-coupons-scope="all">
-                                WHOLE STORE
-                            </button>
-                            <button type="button"
-                                    class="abo-admin-coupons__chip"
-                                    role="radio"
-                                    aria-checked="false"
-                                    data-abo-admin-coupons-scope="categories">
-                                SPECIFIC CATEGORIES
-                            </button>
-                            <button type="button"
-                                    class="abo-admin-coupons__chip"
-                                    role="radio"
-                                    aria-checked="false"
-                                    data-abo-admin-coupons-scope="products">
-                                SPECIFIC PRODUCTS
-                            </button>
-                        </div>
-                    </div>
-
-                    {{-- Multi-select for categories / products --}}
-                    <div class="abo-admin-coupons__field abo-admin-coupons__scope-list"
-                         data-abo-admin-coupons-scope-list
-                         hidden>
-                        <div class="abo-admin-coupons__select-wrap"
-                             data-abo-admin-coupons-scope-categories
-                             hidden>
-                            <label for="abo-admin-coupons-categories">Categories</label>
-                            <label class="sr-only" for="abo-admin-coupons-categories">Categories</label>
-                            <select id="abo-admin-coupons-categories"
-                                    class="abo-admin-coupons__multiselect"
-                                    multiple
-                                    size="6"
-                                    data-abo-admin-coupons-categories>
-                                {{-- Options injected by coupons.js. --}}
-                            </select>
-                        </div>
-                        <div class="abo-admin-coupons__select-wrap"
-                             data-abo-admin-coupons-scope-products
-                             hidden>
-                            <label for="abo-admin-coupons-products">Products</label>
-                            <label class="sr-only" for="abo-admin-coupons-products">Products</label>
-                            <select id="abo-admin-coupons-products"
-                                    class="abo-admin-coupons__multiselect"
-                                    multiple
-                                    size="6"
-                                    data-abo-admin-coupons-products>
-                                {{-- Options injected by coupons.js. --}}
-                            </select>
-                        </div>
-                        <div class="abo-admin-coupons__chips-selected"
-                             aria-label="Selected items"
-                             data-abo-admin-coupons-scope-selected></div>
-                    </div>
-
-                    {{-- Switches --}}
-                    <div class="abo-admin-coupons__switch">
-                        <div>
-                            <span class="abo-admin-coupons__switch-label">First order only</span>
-                            <p class="abo-admin-coupons__switch-hint">Only customers with no previous orders can use this coupon.</p>
-                        </div>
-                        <label class="abo-admin-coupons__toggle"
-                               aria-label="First order only">
-                            <input type="checkbox"
-                                   aria-checked="false"
-                                   data-abo-admin-coupons-first-order>
-                            <span class="abo-admin-coupons__toggle-track"></span>
-                            <span class="abo-admin-coupons__toggle-thumb"></span>
-                        </label>
-                    </div>
-
-                    <div class="abo-admin-coupons__switch">
-                        <div>
-                            <span class="abo-admin-coupons__switch-label">Exclude already discounted items</span>
-                            <p class="abo-admin-coupons__switch-hint">Skip products that are already on sale.</p>
-                        </div>
-                        <label class="abo-admin-coupons__toggle"
-                               aria-label="Exclude already discounted items">
-                            <input type="checkbox"
-                                   aria-checked="false"
-                                   data-abo-admin-coupons-exclude-sale>
-                            <span class="abo-admin-coupons__toggle-track"></span>
-                            <span class="abo-admin-coupons__toggle-thumb"></span>
-                        </label>
-                    </div>
-
+                    {{-- The active switch. Every other control on this
+                         panel maps to a column of the coupons table. --}}
                     <div class="abo-admin-coupons__switch">
                         <div>
                             <span class="abo-admin-coupons__switch-label">Active</span>
@@ -612,6 +517,7 @@
          COUPONS array. --}}
     <script>
         window.__COUPONS_DATA__ = {!! $couponsJson !!};
+        window.__COUPON_ROUTES__ = {!! $routesJson !!};
     </script>
     <script src="{{ asset('admin/js/coupons.js') }}" defer></script>
 @endpush

@@ -15,37 +15,50 @@ class BannerController extends Controller
 
     /**
      * Show the admin banners index page with the banner list as JSON.
+     *
+     * The payload is built by the service in the shape the screen
+     * reads — placement, schedule, look and link already resolved — so
+     * the browser never has to guess a field the server owns.
      */
     public function index(): View
     {
-        $bannersJson = $this->service->getAll()->map(fn (Banner $b) => [
-            'id' => $b->id,
-            'title' => $b->title,
-            'title_ar' => $b->title_ar,
-            'subtitle' => $b->subtitle,
-            'subtitle_ar' => $b->subtitle_ar,
-            'button_text' => $b->button_text,
-            'button_text_ar' => $b->button_text_ar,
-            'button_url' => $b->button_url,
-            'image_url' => $b->image_url,
-            'is_active' => (bool) $b->is_active,
-            'sort_order' => $b->sort_order,
-        ])->toJson();
+        $bannersJson = json_encode(
+            $this->service->getAdminPayload(),
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
 
-        return view('admin.banners.index', compact('bannersJson'));
+        $targets = $this->service->getLinkTargets();
+
+        $categoriesJson = json_encode($targets['categories'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $productsJson = json_encode($targets['products'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        $routesJson = json_encode([
+            'store' => route('admin.banners.store'),
+            'update' => route('admin.banners.update', ['banner' => '__BANNER__']),
+            'duplicate' => route('admin.banners.duplicate', ['banner' => '__BANNER__']),
+            'destroy' => route('admin.banners.destroy', ['banner' => '__BANNER__']),
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        return view('admin.banners.index', compact(
+            'bannersJson',
+            'categoriesJson',
+            'productsJson',
+            'routesJson'
+        ));
     }
 
     public function store(BannerRequest $request): JsonResponse
     {
         $banner = $this->service->create(
             $request->validated(),
-            $request->file('image')
+            $request->file('image'),
+            $request->file('mobile_image')
         );
 
         return response()->json([
             'success' => true,
-            'banner' => $banner,
-            'image_url' => $banner->image_url,
+            'message' => 'Banner created.',
+            'banner' => $this->service->payload($banner),
         ], 201);
     }
 
@@ -54,20 +67,38 @@ class BannerController extends Controller
         $banner = $this->service->update(
             $banner,
             $request->validated(),
-            $request->file('image')
+            $request->file('image'),
+            $request->file('mobile_image')
         );
 
         return response()->json([
             'success' => true,
-            'banner' => $banner,
-            'image_url' => $banner->image_url,
+            'message' => 'Banner saved.',
+            'banner' => $this->service->payload($banner),
         ]);
+    }
+
+    /**
+     * Copy a banner — same copy, same picture, switched off.
+     */
+    public function duplicate(Banner $banner): JsonResponse
+    {
+        $copy = $this->service->duplicate($banner);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Banner duplicated.',
+            'banner' => $this->service->payload($copy),
+        ], 201);
     }
 
     public function destroy(Banner $banner): JsonResponse
     {
         $this->service->delete($banner);
 
-        return response()->json(['success' => true]);
+        return response()->json([
+            'success' => true,
+            'message' => 'Banner deleted.',
+        ]);
     }
 }

@@ -25,17 +25,22 @@
             @if ($loop->first)
                 <section class="hero" data-home-hero data-home-banner aria-label="ABO hero — Banner">
                     <div class="hero__photo-wrap" data-home-photo-wrap>
-                        <img
-                            class="hero__photo"
-                            data-home-photo
-                            src="{{ $banner->image_url }}"
-                            alt="{{ $banner->title_ar ?? $banner->title ?? '' }}"
-                            width="800"
-                            height="450"
-                            fetchpriority="high"
-                            loading="eager"
-                            decoding="async"
-                        >
+                        <picture>
+                            @if ($banner->mobile_image_url)
+                                <source media="(max-width: 767px)" srcset="{{ $banner->mobile_image_url }}">
+                            @endif
+                            <img
+                                class="hero__photo"
+                                data-home-photo
+                                src="{{ $banner->image_url }}"
+                                alt="{{ $banner->alt_ar ?: $banner->alt ?: $banner->title_ar ?: $banner->title }}"
+                                width="800"
+                                height="450"
+                                fetchpriority="high"
+                                loading="eager"
+                                decoding="async"
+                            >
+                        </picture>
                         {{-- Lime light sweep — thin line travels L→R across the hero once. --}}
                         <span class="hero__sweep" data-home-sweep aria-hidden="true"></span>
                     </div>

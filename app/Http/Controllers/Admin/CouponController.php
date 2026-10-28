@@ -22,7 +22,16 @@ class CouponController extends Controller
         $couponsPayload = $this->couponService->getCouponsPayload();
         $couponsJson = json_encode($couponsPayload, JSON_UNESCAPED_UNICODE);
 
-        return view('admin.coupons.index', compact('couponsJson'));
+        // The endpoints the screen talks to. The placeholders are
+        // filled in by coupons.js with the coupon id.
+        $routesJson = json_encode([
+            'store' => route('admin.coupons.store'),
+            'update' => route('admin.coupons.update', ['coupon' => '__COUPON__']),
+            'toggle' => route('admin.coupons.toggle', ['coupon' => '__COUPON__']),
+            'destroy' => route('admin.coupons.destroy', ['coupon' => '__COUPON__']),
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        return view('admin.coupons.index', compact('couponsJson', 'routesJson'));
     }
 
     /**
@@ -35,7 +44,7 @@ class CouponController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Coupon created successfully.',
-            'coupon' => $coupon,
+            'coupon' => $this->couponService->payload($coupon),
         ], 201);
     }
 
@@ -49,7 +58,7 @@ class CouponController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Coupon updated successfully.',
-            'coupon' => $updated,
+            'coupon' => $this->couponService->payload($updated),
         ]);
     }
 
@@ -64,6 +73,7 @@ class CouponController extends Controller
             'success' => true,
             'message' => 'Coupon status updated.',
             'is_active' => (bool) $updated->is_active,
+            'coupon' => $this->couponService->payload($updated),
         ]);
     }
 

@@ -80,6 +80,26 @@ class ShippingService
     }
 
     /**
+     * Write the order of the governorates inside a zone.
+     *
+     * The list holds the governorate ids in the order the admin left
+     * them; the sort order of each one is written from that list.
+     *
+     * @param  array<int, int>  $governorateIds
+     */
+    public function reorderGovernorates(ShippingZone $zone, array $governorateIds): void
+    {
+        DB::transaction(function () use ($zone, $governorateIds): void {
+            foreach (array_values($governorateIds) as $index => $governorateId) {
+                Governorate::query()
+                    ->where('shipping_zone_id', $zone->id)
+                    ->where('id', $governorateId)
+                    ->update(['sort_order' => $index]);
+            }
+        });
+    }
+
+    /**
      * Delete a zone together with all of its governorates.
      */
     public function deleteZone(ShippingZone $zone): void

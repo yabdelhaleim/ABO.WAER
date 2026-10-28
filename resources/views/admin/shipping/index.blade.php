@@ -625,6 +625,7 @@
     <script>
         window.__SHIPPING_ZONES__ = {!! $zonesJson !!};
         window.__SHIPPING_SETTINGS__ = {!! $settingsJson !!};
+        window.__SHIPPING_ROUTES__ = {!! $routesJson !!};
     </script>
 
     {{-- Page-local script. Loaded only on the shipping page. --}}

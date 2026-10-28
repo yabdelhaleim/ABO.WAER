@@ -27,9 +27,11 @@ class HomeController extends Controller
         // because those sections are pure presentation with no DB backing.
         $data = require resource_path('views/store/data/home.php');
 
-        // 2. Active banners ordered by priority, then most recent.
+        // 2. Banners the admin put in the hero slot, switched on and
+        //    inside their schedule window, ordered by priority.
         $data['banners'] = Banner::query()
-            ->where('is_active', true)
+            ->live()
+            ->where('placement', 'hero')
             ->orderBy('sort_order')
             ->orderByDesc('id')
             ->get();

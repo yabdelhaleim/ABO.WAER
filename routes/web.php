@@ -422,6 +422,7 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::get('/banners', [BannerController::class, 'index'])->name('banners.index');
         Route::post('/banners', [BannerController::class, 'store'])->name('banners.store');
         Route::match(['put', 'patch'], '/banners/{banner}', [BannerController::class, 'update'])->name('banners.update');
+        Route::post('/banners/{banner}/duplicate', [BannerController::class, 'duplicate'])->name('banners.duplicate');
         Route::delete('/banners/{banner}', [BannerController::class, 'destroy'])->name('banners.destroy');
     });
 
@@ -467,6 +468,7 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::post('/shipping/settings', [ShippingController::class, 'updateSettings'])->name('shipping.settings.update');
         Route::post('/shipping/zones', [ShippingController::class, 'storeZone'])->name('shipping.zones.store');
         Route::match(['put', 'patch'], '/shipping/zones/{shippingZone}', [ShippingController::class, 'updateZone'])->name('shipping.zones.update');
+        Route::post('/shipping/zones/{shippingZone}/reorder', [ShippingController::class, 'reorderGovernorates'])->name('shipping.zones.reorder');
         Route::delete('/shipping/zones/{shippingZone}', [ShippingController::class, 'destroyZone'])->name('shipping.zones.destroy');
         Route::post('/shipping/governorates', [ShippingController::class, 'storeGovernorate'])->name('shipping.governorates.store');
         Route::match(['put', 'patch'], '/shipping/governorates/{governorate}', [ShippingController::class, 'updateGovernorate'])->name('shipping.governorates.update');

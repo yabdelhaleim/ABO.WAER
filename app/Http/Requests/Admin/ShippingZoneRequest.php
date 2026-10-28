@@ -34,12 +34,16 @@ class ShippingZoneRequest extends FormRequest
      */
     public function rules(): array
     {
+        // A new zone needs the whole row; an update may carry the one
+        // field that changed — the switch on a row, for instance.
+        $isUpdate = $this->isMethod('PUT') || $this->isMethod('PATCH');
+
         return [
-            'name' => ['required', 'string', 'max:150'],
+            'name' => [$isUpdate ? 'sometimes' : 'required', 'string', 'max:150'],
             'name_ar' => ['nullable', 'string', 'max:150'],
-            'fee' => ['required', 'numeric', 'min:0'],
-            'time_from' => ['required', 'integer', 'min:1', 'max:30'],
-            'time_to' => ['required', 'integer', 'gte:time_from', 'max:60'],
+            'fee' => [$isUpdate ? 'sometimes' : 'required', 'numeric', 'min:0'],
+            'time_from' => [$isUpdate ? 'sometimes' : 'required', 'integer', 'min:1', 'max:30'],
+            'time_to' => [$isUpdate ? 'sometimes' : 'required', 'integer', 'gte:time_from', 'max:60'],
             'is_active' => ['sometimes', 'boolean'],
             'sort_order' => ['sometimes', 'integer', 'min:0'],
         ];

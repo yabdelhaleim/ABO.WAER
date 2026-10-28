@@ -1,10 +1,10 @@
 /*
- * ABO Admin · Banners — page-local script (front-end only).
+ * ABO Admin · Banners — page-local script.
  *
- * Pure DOM behaviour for the static banners demo:
+ * DOM behaviour for the admin banner manager:
  *   - renders the list per placement (hero / promo / announcement)
- *     from a static BANNERS array below
- *   - tab switching with live counts and a sample "today" date
+ *     from the server-supplied window.__BANNERS__ list
+ *   - tab switching with live counts and today's date
  *   - status badges derived from the active toggle + schedule
  *     (Live / Scheduled / Expired / Hidden)
  *   - HTML5 drag-to-reorder inside a single tab (with a lime drop
@@ -17,12 +17,14 @@
  *     position / overlay as segmented controls), a Starts / Ends
  *     schedule pair, a live preview (Desktop / Mobile frames), and
  *     Save / Duplicate / Delete buttons
- *   - local image previews via URL.createObjectURL (no upload,
- *     no fetch / XHR / storage)
+ *   - local image previews via URL.createObjectURL; the picked files
+ *     are uploaded with the save
  *   - one shared delete-confirm modal + toast
  *
- * No fetch / XHR / storage. The only persistence is the `state`
- * object — it is reset on every page load.
+ * The database owns the list. Every change — save, duplicate, delete,
+ * the on/off switch and the order — is a request to
+ * Admin\BannerController, and the row on screen is only replaced once
+ * the server has answered.
  *
  * Markup anchor points (every selector uses data-* attributes):
  *   [data-abo-admin-banners]                — page root
@@ -56,218 +58,67 @@
      *   - Scheduled : active && starts in the future
      *   - Expired   : active && ends in the past
      */
-    const SAMPLE_TODAY = '2026-10-16';
+    // Today's date — the schedule badges are counted against it.
+    const TODAY = new Date().toISOString().slice(0, 10);
 
-    const CATEGORIES = [
-        { slug: 'hoodies',     name: 'Hoodies' },
-        { slug: 'pants',       name: 'Pants' },
-        { slug: 't-shirts',    name: 'T-Shirts' },
-        { slug: 'jackets',     name: 'Jackets' },
-        { slug: 'accessories', name: 'Accessories' },
-    ];
+    // The link pickers list what the catalog actually holds. The
+    // server sends both lists with the page; nothing here is invented.
+    const CATEGORIES = window.__BANNER_CATEGORIES__ ?? [];
+    const PRODUCTS = window.__BANNER_PRODUCTS__ ?? [];
 
-    const PRODUCTS = [
-        { id: 'p-1', name: 'Oversize Heavyweight Hoodie' },
-        { id: 'p-2', name: 'Slim Tapered Carpenter Pants' },
-        { id: 'p-3', name: 'Boxy Pocket Tee' },
-        { id: 'p-4', name: 'Sherpa Lined Bomber Jacket' },
-        { id: 'p-5', name: 'Ribbed Beanie' },
-        { id: 'p-6', name: 'Wide-strap Canvas Tote' },
-    ];
-
-    // Banners list is hydrated server-side from the admin banners table.
+    // The banner list is hydrated server-side from the banners table.
     // When the table is empty, the controller injects `[]` and the
-    // page simply renders the empty state. The detailed static sample
-    // that used to live here was a front-end demo only — see the
-    // TODO(backend) note above.
-    const BANNERS = window.__BANNERS__ ?? [];
+    // page simply renders the empty state.
+    //
+    // The ids are strings: the DOM hands an id back as a string, and
+    // a row is only the same row when the two say the same.
+    const normalize = (banner) => ({ ...banner, id: String(banner.id) });
 
-    /*
-    const BANNERS = [
-        // ─── Hero slider (3) ───
-        {
-            id: 'b-hero-1',
-            placement: 'hero',
-            active: true,
-            starts: null,
-            ends: null,
-            title: 'Mid-season drop is here',
-            titleAr: 'الكولكشن الجديد وصل',
-            subtitle: 'Heavyweight cotton, locally cut.',
-            subtitleAr: 'قطن سميك، مقصوص محلياً.',
-            buttonLabel: 'Shop now',
-            alt: 'Models wearing the mid-season hoodie collection in a bright studio.',
-            altAr: 'عارضو أزياء يرتدون مجموعة هوديز الموسم في استوديو مشرق.',
-            desktopImage: null,
-            mobileImage: null,
-            textColor: 'light',
-            textPosition: 'left',
-            overlay: 'dark',
-            linkType: 'category',
-            linkCategory: 'hoodies',
-            linkProduct: null,
-            linkUrl: null,
-        },
-        {
-            id: 'b-hero-2',
-            placement: 'hero',
-            active: true,
-            starts: null,
-            ends: '2026-12-31',
-            title: 'Free shipping on orders over EGP 1,500',
-            titleAr: 'شحن مجاني للطلبات فوق ١٥٠٠ جنيه',
-            subtitle: '',
-            subtitleAr: '',
-            buttonLabel: 'Learn more',
-            alt: 'Wide landscape banner showing the free-shipping offer.',
-            altAr: 'بانر عرضي يوضح عرض الشحن المجاني.',
-            desktopImage: null,
-            mobileImage: null,
-            textColor: 'dark',
-            textPosition: 'center',
-            overlay: 'light',
-            linkType: 'url',
-            linkCategory: null,
-            linkProduct: null,
-            linkUrl: '/help/shipping',
-        },
-        {
-            id: 'b-hero-3',
-            placement: 'hero',
-            active: true,
-            starts: '2026-11-27',
-            ends: null,
-            title: 'Black Friday — up to 40% off sets',
-            titleAr: 'الجمعة السوداء — خصم يصل ٤٠٪ على الأطقم',
-            subtitle: 'Starts 27 Nov, in-store and online.',
-            subtitleAr: 'يبدأ ٢٧ نوفمبر، في المعرض وأونلاين.',
-            buttonLabel: 'See sets',
-            alt: 'Black Friday pre-launch teaser on a dark background.',
-            altAr: 'إعلان تشويقي للبلاك فرايداي على خلفية داكنة.',
-            desktopImage: null,
-            mobileImage: null,
-            textColor: 'light',
-            textPosition: 'center',
-            overlay: 'dark',
-            linkType: 'product',
-            linkCategory: null,
-            linkProduct: 'p-1',
-            linkUrl: null,
-        },
-        // ─── Promo banners (2) ───
-        {
-            id: 'b-promo-1',
-            placement: 'promo',
-            active: true,
-            starts: null,
-            ends: null,
-            title: 'New jackets',
-            titleAr: 'الجاكتات الجديدة',
-            subtitle: '',
-            subtitleAr: '',
-            buttonLabel: '',
-            alt: 'Two-up promo banner: jackets and accessories.',
-            altAr: 'بانر ترويجي مزدوج: جاكتات وإكسسوارات.',
-            desktopImage: null,
-            mobileImage: null,
-            textColor: 'light',
-            textPosition: 'left',
-            overlay: 'dark',
-            linkType: 'category',
-            linkCategory: 'jackets',
-            linkProduct: null,
-            linkUrl: null,
-        },
-        {
-            id: 'b-promo-2',
-            placement: 'promo',
-            active: true,
-            starts: null,
-            ends: '2026-10-10',
-            title: 'Summer tees — last few',
-            titleAr: 'تيشيرتات الصيف — آخر قطعة',
-            subtitle: '',
-            subtitleAr: '',
-            buttonLabel: '',
-            alt: 'Two-up promo banner: summer tees sale.',
-            altAr: 'بانر ترويجي: تخفيضات تيشيرتات الصيف.',
-            desktopImage: null,
-            mobileImage: null,
-            textColor: 'dark',
-            textPosition: 'right',
-            overlay: 'light',
-            linkType: 'category',
-            linkCategory: 't-shirts',
-            linkProduct: null,
-            linkUrl: null,
-        },
-        // ─── Announcement bar (2) ───
-        {
-            id: 'b-anno-1',
-            placement: 'announcement',
-            active: true,
-            starts: null,
-            ends: null,
-            title: 'Free shipping on orders above EGP 1,500',
-            titleAr: 'شحن مجاني للطلبات فوق ١٥٠٠ جنيه',
-            subtitle: '',
-            subtitleAr: '',
-            buttonLabel: '',
-            alt: '',
-            altAr: '',
-            desktopImage: null,
-            mobileImage: null,
-            textColor: 'light',
-            textPosition: 'left',
-            overlay: 'none',
-            linkType: 'url',
-            linkCategory: null,
-            linkProduct: null,
-            linkUrl: '/help/shipping',
-        },
-        {
-            id: 'b-anno-2',
-            placement: 'announcement',
-            active: true,
-            starts: '2026-11-20',
-            ends: '2026-11-30',
-            title: 'Black Friday: extra 10% off with code BF10',
-            titleAr: 'الجمعة السوداء: خصم إضافي ١٠٪ بكود BF10',
-            subtitle: '',
-            subtitleAr: '',
-            buttonLabel: '',
-            alt: '',
-            altAr: '',
-            desktopImage: null,
-            mobileImage: null,
-            textColor: 'light',
-            textPosition: 'left',
-            overlay: 'none',
-            linkType: 'coupon',
-            linkCategory: null,
-            linkProduct: null,
-            linkUrl: null,
-        },
-    ];
-    */
+    const BANNERS = (window.__BANNERS__ ?? []).map(normalize);
 
-    /* ─── Local UI state (never persisted) ────────────────────── */
+    // The endpoints this page talks to.
+    const ROUTES = window.__BANNER_ROUTES__ ?? {};
+
+
+    /* ─── Local UI state ───────────────────────────────────────── */
+
+    const PLACEMENTS = ['hero', 'promo', 'announcement'];
 
     const state = {
         placement: 'hero',          // active tab
         selectedId: null,
         filterIdsByPlacement: {     // ordered lists per placement
-            hero: ['b-hero-1', 'b-hero-2', 'b-hero-3'],
-            promo: ['b-promo-1', 'b-promo-2'],
-            announcement: ['b-anno-1', 'b-anno-2'],
+            hero: [],
+            promo: [],
+            announcement: [],
         },
         editing: null,              // working copy of the row being edited
         isNew: false,               // true when in "+ ADD BANNER" mode
         langTabs: { alt: 'en', title: 'en', subtitle: 'en' },
         imageObjectUrls: { desktop: null, mobile: null },
+        imageFiles: { desktop: null, mobile: null },
+        removedImages: { desktop: false, mobile: false },
+        imageFiles: { desktop: null, mobile: null },
         dirty: false,
         devicePreview: 'desktop',   // 'desktop' | 'mobile'
         deleteTarget: null,
+        busy: false,                // a request is in flight
+    };
+
+    /**
+     * Group the banner list by placement, keeping the order the server
+     * sent. The server owns the order — it is the order the storefront
+     * shows — so the list and the shop never disagree.
+     */
+    const groupByPlacement = () => {
+        const groups = { hero: [], promo: [], announcement: [] };
+
+        for (const b of BANNERS) {
+            const key = PLACEMENTS.includes(b.placement) ? b.placement : 'hero';
+            groups[key].push(b.id);
+        }
+
+        return groups;
     };
 
     /* ─── Tiny helpers ─────────────────────────────────────────── */
@@ -313,7 +164,7 @@
         return iso.replaceAll('-', '');
     };
 
-    const todayInt = () => compareDate(SAMPLE_TODAY);
+    const todayInt = () => compareDate(TODAY);
 
     const deriveStatus = (banner) => {
         if (!banner.active) return 'hidden';
@@ -369,6 +220,71 @@
         toastTimer = setTimeout(() => { t.wrap.hidden = true; }, 2400);
     };
 
+    /* ─── Server requests ──────────────────────────────────────── */
+
+    const csrfToken = () => {
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        return meta ? meta.getAttribute('content') : '';
+    };
+
+    /** The endpoint for a banner, with the placeholder filled in. */
+    const urlFor = (key, bannerId) => {
+        const url = ROUTES[key] || '';
+        return url.replace('__BANNER__', encodeURIComponent(bannerId));
+    };
+
+    /** The message the server sent, or a readable stand-in. */
+    const errorMessage = (payload, status) => {
+        if (payload && typeof payload.message === 'string' && payload.message.trim()) {
+            return payload.message;
+        }
+
+        if (payload && payload.errors) {
+            const first = Object.values(payload.errors)[0];
+            if (Array.isArray(first) && first.length) return first[0];
+        }
+
+        return 'The server refused the change (HTTP ' + status + ').';
+    };
+
+    /**
+     * Send a request to the banner endpoints.
+     *
+     * `body` is a plain object (sent as JSON) or a FormData (used when
+     * an image travels with the fields).
+     */
+    const request = async (method, url, body) => {
+        const headers = {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': csrfToken(),
+        };
+
+        const options = { method, headers, credentials: 'same-origin' };
+
+        if (typeof FormData !== 'undefined' && body instanceof FormData) {
+            options.body = body;
+        } else if (body !== undefined && body !== null) {
+            headers['Content-Type'] = 'application/json';
+            options.body = JSON.stringify(body);
+        }
+
+        const response = await fetch(url, options);
+
+        let payload = null;
+        try {
+            payload = await response.json();
+        } catch (_) {
+            payload = null;
+        }
+
+        if (!response.ok || (payload && payload.success === false)) {
+            throw new Error(errorMessage(payload, response.status));
+        }
+
+        return payload || {};
+    };
+
     /* ─── Render the list ──────────────────────────────────────── */
 
     const root = $('[data-abo-admin-banners]');
@@ -382,7 +298,7 @@
     const dateLabelEl   = $('#abo-admin-banners-today-date');
 
     if (dateLabelEl) {
-        const d = new Date(SAMPLE_TODAY + 'T00:00:00');
+        const d = new Date(TODAY + 'T00:00:00');
         dateLabelEl.textContent = 'Today · ' + d.toLocaleDateString('en-GB', {
             day: 'numeric', month: 'long', year: 'numeric',
         });
@@ -392,7 +308,7 @@
         .map((id) => BANNERS.find((b) => b.id === id))
         .filter(Boolean);
 
-    const getBanner = (id) => BANNERS.find((b) => b.id === id);
+    const getBanner = (id) => BANNERS.find((b) => String(b.id) === String(id));
 
     /* Build the schedule sub-line safely (text only). */
     const renderSchedule = (b) => {
@@ -605,20 +521,41 @@
         }
     });
 
-    listEl.addEventListener('change', (e) => {
+    listEl.addEventListener('change', async (e) => {
         const t = e.target;
         if (!t.matches('[data-abo-admin-banners-toggle]')) return;
         const id = t.dataset.aboAdminBannersToggle;
         const b = getBanner(id);
         if (!b) return;
-        b.active = t.checked;
-        renderList();
-        // If the row is also the currently edited one, sync the switch.
-        if (state.selectedId === id && state.editing) {
-            state.editing.active = b.active;
-            setSwitch('active', b.active);
+
+        const next = t.checked;
+
+        try {
+            const result = await request('PUT', urlFor('update', id), { is_active: next });
+            const saved = result.banner ? normalize(result.banner) : null;
+
+            if (saved) {
+                const idx = BANNERS.findIndex((x) => x.id === id);
+                if (idx > -1) BANNERS[idx] = saved;
+            } else {
+                b.active = next;
+            }
+
+            renderList();
+
+            // If the row is also the currently edited one, sync the switch.
+            const current = getBanner(id);
+            if (state.selectedId === id && state.editing && current) {
+                state.editing.active = current.active;
+                setSwitch('active', current.active);
+            }
+
+            showToast(next ? 'Banner turned on' : 'Banner hidden');
+        } catch (err) {
+            // The server refused — the row keeps the state it has there.
+            renderList();
+            showToast(err.message, 'coral');
         }
-        showToast(t.checked ? 'Banner turned on' : 'Banner hidden');
     });
 
     /* ─── Drag and drop ────────────────────────────────────────── */
@@ -665,8 +602,8 @@
         const before = row.classList.contains('is-drop-before');
         reorderWithin(state.placement, dragId, row.dataset.id, before);
         renderList();
-        showToast('Order updated (demo)');
         dragId = null;
+        persistOrder(state.placement);
     });
 
     const reorderWithin = (placement, draggedId, targetId, before) => {
@@ -679,6 +616,48 @@
         arr.splice(before ? to : to + 1, 0, draggedId);
     };
 
+    /**
+     * Write the order of a placement back to the server.
+     *
+     * The sort order is the position inside the placement, so the
+     * storefront — which reads the banners of one placement — shows
+     * them in the order the admin left them.
+     */
+    const persistOrder = async (placement) => {
+        const ids = state.filterIdsByPlacement[placement] || [];
+
+        const results = await Promise.allSettled(ids.map((id, index) => {
+            const banner = getBanner(id);
+            if (!banner) return Promise.resolve(null);
+
+            return request('PUT', urlFor('update', id), { sort_order: index });
+        }));
+
+        let failure = null;
+
+        for (const result of results) {
+            if (result.status === 'rejected') {
+                failure = result.reason;
+                continue;
+            }
+
+            const saved = result.value && result.value.banner
+                ? normalize(result.value.banner)
+                : null;
+            if (!saved) continue;
+
+            const idx = BANNERS.findIndex((x) => x.id === saved.id);
+            if (idx > -1) BANNERS[idx] = saved;
+        }
+
+        if (failure) {
+            showToast(failure.message || 'The new order could not be saved.', 'coral');
+            return;
+        }
+
+        showToast('Order updated');
+    };
+
     const moveRow = (id, direction) => {
         const arr = state.filterIdsByPlacement[state.placement];
         const idx = arr.indexOf(id);
@@ -689,7 +668,7 @@
         // Restore focus
         const newRow = listEl.querySelector(`[data-id="${CSS.escape(id)}"]`);
         if (newRow) newRow.focus();
-        showToast('Order updated (demo)');
+        persistOrder(state.placement);
     };
 
     /* ─── Selection + edit panel open/close ───────────────────── */
@@ -703,6 +682,10 @@
         state.editing = JSON.parse(JSON.stringify(b));
         // Clear any object URLs from previous edit session.
         releaseObjectUrls();
+        state.imageFiles.desktop = null;
+        state.imageFiles.mobile = null;
+        state.removedImages.desktop = false;
+        state.removedImages.mobile = false;
         renderList();
         openPanel();
         hydrateEditPanel();
@@ -722,10 +705,13 @@
         // Make sure we're on the right tab (always true since the
         // button is in the header, but be defensive).
         setPlacement(placement);
-        // Generate a temporary id; the backend would assign the real one.
-        const id = 'b-' + placement + '-new-' + Date.now();
-        const blank = {
-            id,
+
+        // The row joins the list once the server has it — until then it
+        // only lives in the edit panel.
+        state.isNew = true;
+        state.selectedId = null;
+        state.editing = {
+            id: null,
             placement,
             active: false,            // starts hidden
             starts: null,
@@ -742,16 +728,16 @@
             textColor: 'light',
             textPosition: 'left',
             overlay: 'none',
-            linkType: 'category',
-            linkCategory: CATEGORIES[0].slug,
-            linkProduct: PRODUCTS[0].id,
+            linkType: CATEGORIES.length ? 'category' : 'url',
+            linkCategory: CATEGORIES.length ? CATEGORIES[0].slug : null,
+            linkProduct: PRODUCTS.length ? PRODUCTS[0].slug : null,
             linkUrl: '',
         };
-        BANNERS.push(blank);
-        state.filterIdsByPlacement[placement].push(id);
-        state.selectedId = id;
-        state.isNew = true;
-        state.editing = JSON.parse(JSON.stringify(blank));
+        state.imageFiles.desktop = null;
+        state.imageFiles.mobile = null;
+        state.removedImages.desktop = false;
+        state.removedImages.mobile = false;
+
         renderList();
         openPanel();
         hydrateEditPanel();
@@ -842,7 +828,7 @@
         }
         linkProductSel.replaceChildren();
         for (const p of PRODUCTS) {
-            const opt = ce('option', { value: p.id }, p.name);
+            const opt = ce('option', { value: p.slug }, p.name);
             linkProductSel.appendChild(opt);
         }
     };
@@ -1077,11 +1063,11 @@
         if (buttonInput)   buttonInput.value   = b.buttonLabel || '';
 
         // Link
-        if (linkTypeSel)     linkTypeSel.value = b.linkType || 'category';
-        if (linkCategorySel) linkCategorySel.value = b.linkCategory || CATEGORIES[0].slug;
-        if (linkProductSel)  linkProductSel.value  = b.linkProduct  || PRODUCTS[0].id;
+        if (linkTypeSel)     linkTypeSel.value = b.linkType || (CATEGORIES.length ? 'category' : 'url');
+        if (linkCategorySel) linkCategorySel.value = b.linkCategory || (CATEGORIES.length ? CATEGORIES[0].slug : '');
+        if (linkProductSel)  linkProductSel.value  = b.linkProduct  || (PRODUCTS.length ? PRODUCTS[0].slug : '');
         if (linkUrlInput)    linkUrlInput.value    = b.linkUrl      || '';
-        setLinkType(b.linkType || 'category');
+        setLinkType(b.linkType || (CATEGORIES.length ? 'category' : 'url'));
 
         // Look segmented controls
         setSegmented('[data-abo-admin-banners-text-color]',     b.textColor    || 'light');
@@ -1114,10 +1100,13 @@
         if (prev === next) return;
         state.editing.placement = next;
         // Update the order list — move the id from old to new placement.
-        const idx = state.filterIdsByPlacement[prev].indexOf(state.editing.id);
-        if (idx >= 0) state.filterIdsByPlacement[prev].splice(idx, 1);
-        state.filterIdsByPlacement[next] = state.filterIdsByPlacement[next] || [];
-        state.filterIdsByPlacement[next].push(state.editing.id);
+        // A banner that was never saved has no place in a list yet.
+        if (state.editing.id) {
+            const idx = state.filterIdsByPlacement[prev].indexOf(state.editing.id);
+            if (idx >= 0) state.filterIdsByPlacement[prev].splice(idx, 1);
+            state.filterIdsByPlacement[next] = state.filterIdsByPlacement[next] || [];
+            state.filterIdsByPlacement[next].push(state.editing.id);
+        }
         setPlacement(next);
         applyPlacementVisibility(next);
         renderPreview();
@@ -1135,17 +1124,16 @@
         });
     });
 
-    // Input listeners — commit to state.editing and refresh live bits
+    // Input listeners — commit to state.editing and refresh live bits.
+    // The same input serves the English and the Arabic copy, so the
+    // language tab decides which field the typing goes into.
     const fieldForKey = {
-        'abo-admin-banners-alt':         { key: 'alt',           en: 'alt' },
-        'abo-admin-banners-alt-ar':      { key: 'altAr',         en: 'altAr' },
-        'abo-admin-banners-title':       { key: 'title',         en: 'title' },
-        'abo-admin-banners-title-ar':    { key: 'titleAr',       en: 'titleAr' },
-        'abo-admin-banners-subtitle':    { key: 'subtitle',      en: 'subtitle' },
-        'abo-admin-banners-subtitle-ar': { key: 'subtitleAr',    en: 'subtitleAr' },
-        'abo-admin-banners-button':      { key: 'buttonLabel',   en: 'buttonLabel' },
-        'abo-admin-banners-starts':      { key: 'starts',        en: 'starts' },
-        'abo-admin-banners-ends':        { key: 'ends',          en: 'ends' },
+        'abo-admin-banners-alt':      { key: 'alt',        arKey: 'altAr',      lang: 'alt' },
+        'abo-admin-banners-title':    { key: 'title',      arKey: 'titleAr',    lang: 'title' },
+        'abo-admin-banners-subtitle': { key: 'subtitle',   arKey: 'subtitleAr', lang: 'subtitle' },
+        'abo-admin-banners-button':   { key: 'buttonLabel', arKey: null,         lang: null },
+        'abo-admin-banners-starts':   { key: 'starts',     arKey: null,         lang: null },
+        'abo-admin-banners-ends':     { key: 'ends',       arKey: null,         lang: null },
     };
 
     Object.entries(fieldForKey).forEach(([dataKey, cfg]) => {
@@ -1153,10 +1141,12 @@
         if (!el) return;
         el.addEventListener('input', () => {
             if (!state.editing) return;
-            state.editing[cfg.key] = el.value;
+            const language = cfg.lang ? state.langTabs[cfg.lang] : 'en';
+            const key = (cfg.arKey && language === 'ar') ? cfg.arKey : cfg.key;
+            state.editing[key] = el.value;
             markDirty();
-            if (cfg.key === 'alt' || cfg.key === 'altAr') showLangErrors();
-            if (cfg.key === 'starts' || cfg.key === 'ends') showLangErrors();
+            if (key === 'alt' || key === 'altAr') showLangErrors();
+            if (key === 'starts' || key === 'ends') showLangErrors();
             // Re-render just the bits of preview that depend on these fields
             renderPreview();
         });
@@ -1247,6 +1237,8 @@
                 if (prev) URL.revokeObjectURL(prev);
                 const url = URL.createObjectURL(f);
                 state.imageObjectUrls[which] = url;
+                state.imageFiles[which] = f;
+                state.removedImages[which] = false;
                 if (state.editing) {
                     state.editing[which === 'desktop' ? 'desktopImage' : 'mobileImage'] = url;
                 }
@@ -1263,6 +1255,8 @@
                 const prev = state.imageObjectUrls[which];
                 if (prev) URL.revokeObjectURL(prev);
                 state.imageObjectUrls[which] = null;
+                state.imageFiles[which] = null;
+                state.removedImages[which] = true;
                 if (state.editing) {
                     state.editing[which === 'desktop' ? 'desktopImage' : 'mobileImage'] = null;
                 }
@@ -1300,8 +1294,71 @@
     const deleteBtn      = $('[data-abo-admin-banners-delete]');
     const deleteNote     = $('[data-abo-admin-banners-delete-note]');
 
-    if (saveBtn) saveBtn.addEventListener('click', () => {
-        if (!state.editing) return;
+    /** The position of a banner inside its placement. */
+    const sortOrderFor = (banner) => {
+        const ids = state.filterIdsByPlacement[banner.placement] || [];
+        const idx = ids.indexOf(banner.id);
+
+        return idx < 0 ? ids.length : idx;
+    };
+
+    /** Drop a banner from every placement list. */
+    const removeFromGroups = (id) => {
+        for (const placement of PLACEMENTS) {
+            const ids = state.filterIdsByPlacement[placement];
+            const idx = ids.indexOf(id);
+            if (idx > -1) ids.splice(idx, 1);
+        }
+    };
+
+    /**
+     * The fields of a banner, in the names the server stores them in.
+     *
+     * Only what the banners table holds is sent: the placement, the
+     * copy in both languages, the look, the schedule, the link and the
+     * two pictures.
+     */
+    const buildPayload = (b) => {
+        const payload = new FormData();
+
+        payload.append('placement', b.placement || 'hero');
+        payload.append('title', b.title || '');
+        payload.append('title_ar', b.titleAr || '');
+        payload.append('subtitle', b.subtitle || '');
+        payload.append('subtitle_ar', b.subtitleAr || '');
+        payload.append('button_text', b.buttonLabel || '');
+        payload.append('alt', b.alt || '');
+        payload.append('alt_ar', b.altAr || '');
+        payload.append('text_color', b.textColor || 'light');
+        payload.append('text_position', b.textPosition || 'left');
+        payload.append('overlay', b.overlay || 'none');
+        payload.append('link_type', b.linkType || 'none');
+        payload.append('link_target', b.linkType === 'category'
+            ? (b.linkCategory || '')
+            : b.linkType === 'product' ? (b.linkProduct || '') : '');
+        payload.append('link_url', b.linkType === 'url' ? (b.linkUrl || '') : '');
+        payload.append('starts_at', b.starts || '');
+        payload.append('ends_at', b.ends || '');
+        payload.append('is_active', b.active ? '1' : '0');
+        payload.append('sort_order', String(sortOrderFor(b)));
+
+        if (state.imageFiles.desktop) {
+            payload.append('image', state.imageFiles.desktop);
+        } else if (state.removedImages.desktop) {
+            payload.append('remove_image', '1');
+        }
+
+        if (state.imageFiles.mobile) {
+            payload.append('mobile_image', state.imageFiles.mobile);
+        } else if (state.removedImages.mobile) {
+            payload.append('remove_mobile_image', '1');
+        }
+
+        return payload;
+    };
+
+    if (saveBtn) saveBtn.addEventListener('click', async () => {
+        if (!state.editing || state.busy) return;
         // Alt text is only required for placements that have an
         // image (hero / promo). Announcements have no image and no
         // alt field, so skip the check there.
@@ -1333,40 +1390,89 @@
             }
         }
 
-        // Commit back to BANNERS
-        const target = getBanner(state.editing.id);
-        if (target) Object.assign(target, state.editing);
-
-        // Title is required for the visible row label.
-        const updated = target || state.editing;
+        const editing = state.editing;
         const wasNew = state.isNew;
-        state.isNew = false;
-        if (panelTitle) panelTitle.textContent = 'EDIT BANNER';
 
-        renderList();
-        // Re-select to refresh the panel title.
-        state.selectedId = updated.id;
-        const dot = $('[data-abo-admin-banners-dirty-dot]');
-        if (dot) dot.classList.remove('is-visible');
-        state.dirty = false;
-        // Keep the panel open + populated
-        if (wasNew) hydrateEditPanel();
-        showToast('Saved (demo)');
+        state.busy = true;
+        saveBtn.disabled = true;
+
+        try {
+            const payload = buildPayload(editing);
+            let url = urlFor('store');
+
+            if (!wasNew) {
+                url = urlFor('update', editing.id);
+                // The update route is a PUT, but a body that carries a
+                // picture travels as a POST with the method spoofed.
+                payload.append('_method', 'PUT');
+            }
+
+            const result = await request('POST', url, payload);
+            const saved = result.banner ? normalize(result.banner) : null;
+
+            if (!saved) {
+                throw new Error('The server did not return the banner.');
+            }
+
+            if (wasNew) {
+                BANNERS.push(saved);
+                const group = state.filterIdsByPlacement[saved.placement]
+                    || (state.filterIdsByPlacement[saved.placement] = []);
+                group.push(saved.id);
+            } else {
+                const idx = BANNERS.findIndex((b) => b.id === editing.id);
+                if (idx > -1) BANNERS[idx] = saved;
+            }
+
+            state.isNew = false;
+            state.selectedId = saved.id;
+            state.editing = JSON.parse(JSON.stringify(saved));
+            state.imageFiles.desktop = null;
+            state.imageFiles.mobile = null;
+            state.removedImages.desktop = false;
+            state.removedImages.mobile = false;
+            releaseObjectUrls();
+
+            renderList();
+            hydrateEditPanel();
+            showToast(result.message || 'Saved');
+        } catch (err) {
+            showToast(err.message || 'The banner could not be saved.', 'coral');
+        } finally {
+            state.busy = false;
+            saveBtn.disabled = false;
+        }
     });
 
-    if (duplicateBtn) duplicateBtn.addEventListener('click', () => {
-        if (!state.editing) return;
-        const src = state.editing;
-        const id  = 'b-' + src.placement + '-dup-' + Date.now();
-        const copy = JSON.parse(JSON.stringify(src));
-        copy.id = id;
-        copy.title = (src.title || 'Untitled') + ' (copy)';
-        copy.titleAr = src.titleAr ? src.titleAr + ' (نسخة)' : '';
-        copy.active = false; // copies start hidden
-        BANNERS.push(copy);
-        state.filterIdsByPlacement[src.placement].push(id);
-        renderList();
-        showToast('Duplicated (demo)');
+    if (duplicateBtn) duplicateBtn.addEventListener('click', async () => {
+        if (!state.editing || state.isNew || state.busy) return;
+
+        const id = state.editing.id;
+
+        state.busy = true;
+        duplicateBtn.disabled = true;
+
+        try {
+            const result = await request('POST', urlFor('duplicate', id), null);
+            const copy = result.banner ? normalize(result.banner) : null;
+
+            if (!copy) {
+                throw new Error('The server did not return the copy.');
+            }
+
+            BANNERS.push(copy);
+            const group = state.filterIdsByPlacement[copy.placement]
+                || (state.filterIdsByPlacement[copy.placement] = []);
+            group.push(copy.id);
+
+            renderList();
+            showToast(result.message || 'Duplicated');
+        } catch (err) {
+            showToast(err.message || 'The banner could not be duplicated.', 'coral');
+        } finally {
+            state.busy = false;
+            duplicateBtn.disabled = false;
+        }
     });
 
     if (deleteBtn) deleteBtn.addEventListener('click', () => {
@@ -1407,26 +1513,35 @@
 
     if (modalCloseEl)  modalCloseEl.addEventListener('click', closeDeleteModal);
     if (modalCancelEl) modalCancelEl.addEventListener('click', closeDeleteModal);
-    if (modalConfirmEl) modalConfirmEl.addEventListener('click', () => {
+    if (modalConfirmEl) modalConfirmEl.addEventListener('click', async () => {
         if (!state.editing) { closeDeleteModal(); return; }
         const id = state.editing.id;
-        // Remove from BANNERS
-        const idx = BANNERS.findIndex((b) => b.id === id);
-        if (idx >= 0) BANNERS.splice(idx, 1);
-        // Remove from placement order
-        const placement = state.placement;
-        const arr = state.filterIdsByPlacement[placement];
-        const i = arr.indexOf(id);
-        if (i >= 0) arr.splice(i, 1);
-        state.editing = null;
-        state.selectedId = null;
-        renderList();
-        if (isMobile()) closePanel(); else {
-            panelForm.hidden = true;
-            panelEmpty.hidden = false;
+
+        state.busy = true;
+
+        try {
+            const result = await request('DELETE', urlFor('destroy', id), null);
+
+            const idx = BANNERS.findIndex((b) => b.id === id);
+            if (idx >= 0) BANNERS.splice(idx, 1);
+            removeFromGroups(id);
+
+            state.editing = null;
+            state.selectedId = null;
+            state.isNew = false;
+
+            renderList();
+            if (isMobile()) closePanel(); else {
+                panelForm.hidden = true;
+                panelEmpty.hidden = false;
+            }
+            modalEl.hidden = true;
+            showToast(result.message || 'Banner deleted');
+        } catch (err) {
+            showToast(err.message || 'The banner could not be deleted.', 'coral');
+        } finally {
+            state.busy = false;
         }
-        modalEl.hidden = true;
-        showToast('Banner deleted (demo)');
     });
 
     /* ─── Helpers + initial render ────────────────────────────── */
@@ -1445,6 +1560,9 @@
 
     // Expose a tiny helper for tests / browser console.
     window.__aboAdminBanners = { BANNERS, state, renderList };
+
+    // The list starts in the order the server sent.
+    state.filterIdsByPlacement = groupByPlacement();
 
     // Initial paint
     renderList();

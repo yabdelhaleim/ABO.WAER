@@ -16,9 +16,12 @@
  * The zone tree and global settings are serialised by
  * Admin\ShippingController into window.__SHIPPING_ZONES__ /
  * window.__SHIPPING_SETTINGS__ before this (deferred) script runs.
- * Mutations are still local to the page — mirroring the banners page,
- * the save/delete/toggle handlers update in-memory state only; wiring
- * them to the shipping endpoints is the next step.
+ *
+ * The database owns the tree. Every change — saving a zone or a
+ * governorate, moving one between zones, switching one on or off,
+ * deleting one and saving the global settings — is a request to
+ * Admin\ShippingController, and the tree on screen is only redrawn
+ * once the server has answered.
  *
  * Markup anchor points (every selector uses data-* attributes):
  *   [data-abo-admin-shipping]                       — page root
@@ -58,6 +61,71 @@
      */
     const ZONES = window.__SHIPPING_ZONES__ ?? [];
 
+    // The endpoints this page talks to.
+    const ROUTES = window.__SHIPPING_ROUTES__ ?? {};
+
+    /* ─── Server requests ──────────────────────────────────────── */
+
+    const csrfToken = () => {
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        return meta ? meta.getAttribute('content') : '';
+    };
+
+    /** The endpoint for a row, with the placeholder filled in. */
+    const urlFor = (key, id) => {
+        const url = ROUTES[key] || '';
+        return url
+            .replace('__ZONE__', encodeURIComponent(id))
+            .replace('__GOVERNORATE__', encodeURIComponent(id));
+    };
+
+    /** The message the server sent, or a readable stand-in. */
+    const errorMessage = (payload, status) => {
+        if (payload && typeof payload.message === 'string' && payload.message.trim()) {
+            return payload.message;
+        }
+
+        if (payload && payload.errors) {
+            const first = Object.values(payload.errors)[0];
+            if (Array.isArray(first) && first.length) return first[0];
+        }
+
+        return 'The server refused the change (HTTP ' + status + ').';
+    };
+
+    /**
+     * Send a request to the shipping endpoints.
+     */
+    const request = async (method, url, body) => {
+        const headers = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': csrfToken(),
+        };
+
+        const options = { method, headers, credentials: 'same-origin' };
+
+        if (body !== undefined && body !== null) {
+            options.body = JSON.stringify(body);
+        }
+
+        const response = await fetch(url, options);
+
+        let payload = null;
+        try {
+            payload = await response.json();
+        } catch (_) {
+            payload = null;
+        }
+
+        if (!response.ok || (payload && payload.success === false)) {
+            throw new Error(errorMessage(payload, response.status));
+        }
+
+        return payload || {};
+    };
+
     /* ─── Local UI state (never persisted) ────────────────────── */
 
     const state = {
@@ -72,6 +140,7 @@
         allExpanded: false,
         deleteTarget: null,
         feeMode: 'inherit',      // governorate fee mode (zone panel doesn't use this)
+        busy: false,             // a request is in flight
     };
 
     /* ─── Tiny helpers ─────────────────────────────────────────── */
@@ -382,6 +451,7 @@
 
     const snapshotZone = (zone) => ({
         id: zone.id,
+        dbId: zone.dbId,
         name: zone.name,
         nameAr: zone.nameAr || '',
         fee: zone.fee,
@@ -392,8 +462,10 @@
 
     const snapshotGov = (zone, gov) => ({
         id: gov.id,
+        dbId: gov.dbId,
         zoneId: zone.id,
         name: gov.name,
+        nameAr: gov.nameAr || '',
         fee: gov.fee,
         timeFrom: gov.timeFrom,
         timeTo: gov.timeTo,
@@ -412,6 +484,13 @@
                 + '[data-abo-admin-shipping-zone-toggle], '
                 + '[data-abo-admin-shipping-gov-toggle], '
                 + 'label, input, button')) return;
+
+            // A governorate row lives inside its zone row, so the
+            // click bubbles up to the zone as well. The zone must
+            // not steal it — the governorate is the row the admin
+            // pointed at.
+            if (isZone && e.target.closest('li[data-kind="gov"]')) return;
+
             if (isZone) {
                 const zone = findZone(zoneId);
                 if (zone) onZoneActivate(zone);
@@ -497,7 +576,7 @@
             });
             renderTree();
             renderPanel();
-            showToast('Updated (demo)', 'lime');
+            moveGovernorate(found.gov, targetZone, srcZone, srcIdx);
         });
 
         li.addEventListener('keydown', (e) => onTreeKeydown(e, li, isZone));
@@ -610,6 +689,109 @@
         }
     };
 
+    /**
+     * Switch a zone on or off.
+     *
+     * The server owns the flag: the tree is redrawn from the zone the
+     * server answered with, and a refusal leaves it as it was.
+     */
+    const toggleZone = async (zone, next) => {
+        try {
+            const result = await request('PUT', urlFor('zoneUpdate', zone.dbId), { is_active: next });
+            const saved = result.zone;
+
+            if (saved) {
+                const idx = ZONES.findIndex((z) => z.id === saved.id);
+                if (idx > -1) ZONES[idx] = saved;
+            } else {
+                zone.active = next;
+            }
+
+            renderTree();
+            // If the toggled zone is the selected one, sync panel.
+            if (state.selected && state.selected.kind === 'zone' && state.selected.id === zone.id) {
+                const current = findZone(zone.id);
+                state.editing.active = current ? current.active : next;
+                renderPanel();
+            }
+            showToast(result.message || (next ? 'Zone activated' : 'Zone deactivated'), 'lime');
+        } catch (err) {
+            renderTree();
+            showToast(err.message || 'The zone could not be switched.', 'coral');
+        }
+    };
+
+    /**
+     * Switch a governorate on or off.
+     */
+    const toggleGovernorate = async (governorate, next) => {
+        try {
+            const result = await request('PUT', urlFor('governorateUpdate', governorate.dbId), {
+                is_active: next,
+            });
+            const saved = result.governorate;
+
+            if (saved) {
+                for (const z of ZONES) {
+                    const idx = z.governorates.findIndex((g) => g.id === saved.id);
+                    if (idx > -1) z.governorates[idx] = saved;
+                }
+            } else {
+                governorate.active = next;
+            }
+
+            renderTree();
+            if (state.selected && state.selected.kind === 'gov' && state.selected.id === governorate.id) {
+                const found = findGov(governorate.id);
+                state.editing.active = found ? found.gov.active : next;
+                renderPanel();
+            }
+            showToast(result.message || (next ? 'Activated' : 'Deactivated'), 'lime');
+        } catch (err) {
+            renderTree();
+            showToast(err.message || 'The governorate could not be switched.', 'coral');
+        }
+    };
+
+    /**
+     * Write a moved governorate back: the zone it belongs to, and the
+     * order of the governorates inside that zone.
+     */
+    const moveGovernorate = async (governorate, zone, sourceZone, sourceIndex) => {
+        try {
+            await request('PUT', urlFor('governorateUpdate', governorate.dbId), {
+                shipping_zone_id: zone.dbId,
+            });
+
+            const result = await request('POST', urlFor('zoneReorder', zone.dbId), {
+                governorates: zone.governorates.map((g) => g.dbId),
+            });
+
+            const saved = result.zone;
+            if (saved) {
+                const idx = ZONES.findIndex((z) => z.id === saved.id);
+                if (idx > -1) ZONES[idx] = saved;
+            }
+
+            renderTree();
+            renderPanel();
+            showToast(result.message || 'Updated', 'lime');
+        } catch (err) {
+            // Put the governorate back where it was.
+            const at = zone.governorates.findIndex((g) => g.id === governorate.id);
+            if (at > -1) zone.governorates.splice(at, 1);
+            sourceZone.governorates.splice(
+                sourceIndex < 0 ? sourceZone.governorates.length : sourceIndex,
+                0,
+                governorate,
+            );
+
+            renderTree();
+            renderPanel();
+            showToast(err.message || 'The move could not be saved.', 'coral');
+        }
+    };
+
     /* ─── Tree-level delegated events (caret / toggle) ────────── */
 
     const wireTreeGlobal = () => {
@@ -633,16 +815,8 @@
                 const id = zoneToggle.dataset.aboAdminShippingZoneToggle;
                 const zone = findZone(id);
                 if (zone) {
-                    zone.active = zoneToggle.checked;
-                    zoneToggle.setAttribute('aria-checked', String(zoneToggle.checked));
+                    toggleZone(zone, zoneToggle.checked);
                 }
-                renderTree();
-                // If the toggled zone is the selected one, sync panel.
-                if (state.selected && state.selected.kind === 'zone' && state.selected.id === id) {
-                    state.editing.active = zoneToggle.checked;
-                    renderPanel();
-                }
-                showToast(zoneToggle.checked ? 'Zone activated (demo)' : 'Zone deactivated (demo)', 'lime');
                 return;
             }
 
@@ -653,15 +827,8 @@
                 const id = govToggle.dataset.aboAdminShippingGovToggle;
                 const found = findGov(id);
                 if (found) {
-                    found.gov.active = govToggle.checked;
-                    govToggle.setAttribute('aria-checked', String(govToggle.checked));
+                    toggleGovernorate(found.gov, govToggle.checked);
                 }
-                renderTree();
-                if (state.selected && state.selected.kind === 'gov' && state.selected.id === id) {
-                    state.editing.active = govToggle.checked;
-                    renderPanel();
-                }
-                showToast(govToggle.checked ? 'Activated (demo)' : 'Deactivated (demo)', 'lime');
                 return;
             }
         });
@@ -840,7 +1007,7 @@
         // Save is always available.
         // Delete is only shown for existing zones (and not for governorates).
         if (deleteBtn) {
-            const showDelete = isZone && !isNew;
+            const showDelete = (isZone && !isNew) || isGov;
             deleteBtn.hidden = !showDelete;
 
             if (showDelete) {
@@ -1059,59 +1226,96 @@
 
         // Save.
         if (saveBtn) {
-            saveBtn.addEventListener('click', () => {
-                if (!state.editing) return;
+            saveBtn.addEventListener('click', async () => {
+                if (!state.editing || state.busy) return;
                 const e = state.editing;
                 const isZone = state.selected.kind === 'zone' || state.selected.kind === '__new';
-                if (isZone) {
-                    if (state.selected.kind === '__new') {
-                        const newId = 'z-new-' + Date.now();
-                        ZONES.push({
-                            id: newId,
-                            name: e.name || 'Untitled zone',
-                            nameAr: e.nameAr || '',
+                const isNew = state.selected.kind === '__new';
+
+                state.busy = true;
+                saveBtn.disabled = true;
+
+                try {
+                    if (isZone) {
+                        // Only the fields the shipping_zones table holds.
+                        const body = {
+                            name: e.name || '',
+                            name_ar: e.nameAr || null,
                             fee: e.fee || 0,
-                            timeFrom: e.timeFrom || 1,
-                            timeTo: e.timeTo || 1,
-                            active: e.active !== false,
-                            governorates: [],
-                        });
-                        state.selected = { kind: 'zone', id: newId };
+                            time_from: e.timeFrom || 1,
+                            time_to: e.timeTo || 1,
+                            is_active: e.active !== false,
+                        };
+
+                        const url = isNew ? urlFor('zoneStore') : urlFor('zoneUpdate', e.dbId);
+                        const method = isNew ? 'POST' : 'PUT';
+
+                        const result = await request(method, url, body);
+                        const zone = result.zone;
+
+                        if (!zone) {
+                            throw new Error('The server did not return the zone.');
+                        }
+
+                        if (isNew) {
+                            ZONES.push(zone);
+                        } else {
+                            const idx = ZONES.findIndex((z) => z.id === zone.id);
+                            if (idx > -1) ZONES[idx] = zone;
+                        }
+
+                        state.selected = { kind: 'zone', id: zone.id };
+                        state.editing = snapshotZone(zone);
                     } else {
-                        const z = findZone(e.id);
-                        if (z) {
-                            z.name = e.name || z.name;
-                            z.nameAr = e.nameAr || z.nameAr;
-                            z.fee = e.fee;
-                            z.timeFrom = e.timeFrom;
-                            z.timeTo = e.timeTo;
-                            z.active = e.active;
+                        const found = findGov(e.id);
+                        const zone = findZone(e.zoneId || (found ? found.zone.id : null));
+
+                        if (!zone) {
+                            throw new Error('The governorate has no zone.');
                         }
-                    }
-                } else {
-                    const found = findGov(e.id);
-                    if (found) {
-                        found.gov.fee = state.feeMode === 'custom' ? e.fee : null;
-                        found.gov.timeFrom = e.timeFrom;
-                        found.gov.timeTo = e.timeTo;
-                        found.gov.cod = e.cod;
-                        found.gov.active = e.active;
-                        // Move between zones if needed.
-                        if (e.zoneId && e.zoneId !== found.zone.id) {
-                            const dst = findZone(e.zoneId);
-                            if (dst) {
-                                const idx = found.zone.governorates.findIndex((g) => g.id === e.id);
-                                if (idx > -1) found.zone.governorates.splice(idx, 1);
-                                dst.governorates.push(found.gov);
-                            }
+
+                        const body = {
+                            shipping_zone_id: zone.dbId,
+                            name: e.name || '',
+                            name_ar: e.nameAr || null,
+                            fee: e.fee == null ? null : e.fee,
+                            time_from: e.timeFrom == null ? null : e.timeFrom,
+                            time_to: e.timeTo == null ? null : e.timeTo,
+                            allows_cod: !!e.cod,
+                            is_active: !!e.active,
+                        };
+
+                        const result = await request('PUT', urlFor('governorateUpdate', e.dbId), body);
+                        const governorate = result.governorate;
+
+                        if (!governorate) {
+                            throw new Error('The server did not return the governorate.');
                         }
+
+                        // Put the governorate where the server put it.
+                        for (const z of ZONES) {
+                            const idx = z.governorates.findIndex((g) => g.id === governorate.id);
+                            if (idx > -1) z.governorates.splice(idx, 1);
+                        }
+
+                        const target = findZone(governorate.parentId) || zone;
+                        target.governorates.push(governorate);
+
+                        state.selected = { kind: 'gov', id: governorate.id, parentId: target.id };
+                        state.editing = snapshotGov(target, governorate);
                     }
+
+                    state.dirty = false;
+                    if (dirtyDotEl) dirtyDotEl.classList.remove('is-visible');
+                    renderTree();
+                    renderPanel();
+                    showToast(result.message || 'Saved', 'lime');
+                } catch (err) {
+                    showToast(err.message || 'The change could not be saved.', 'coral');
+                } finally {
+                    state.busy = false;
+                    saveBtn.disabled = false;
                 }
-                state.dirty = false;
-                if (dirtyDotEl) dirtyDotEl.classList.remove('is-visible');
-                renderTree();
-                renderPanel();
-                showToast('Saved (demo)', 'lime');
             });
         }
 
@@ -1119,10 +1323,11 @@
         if (deleteBtn) {
             deleteBtn.addEventListener('click', () => {
                 if (deleteBtn.disabled) return;
-                if (state.selected.kind !== 'zone') return;
-                const z = findZone(state.editing.id);
-                if (!z) return;
-                if (z.governorates.length > 0) return;
+                if (state.selected.kind === 'zone') {
+                    const z = findZone(state.editing.id);
+                    if (!z) return;
+                    if (z.governorates.length > 0) return;
+                }
                 openDeleteModal();
             });
         }
@@ -1138,9 +1343,18 @@
 
     const openDeleteModal = () => {
         if (!modalEl || !state.editing) return;
-        const z = findZone(state.editing.id);
-        if (!z) return;
-        if (modalBody) modalBody.textContent = `Delete "${z.name}"? This action cannot be undone.`;
+
+        const isGovernorate = state.selected.kind === 'gov';
+        const name = isGovernorate
+            ? state.editing.name
+            : (state.editing.name || 'this zone');
+
+        if (modalBody) {
+            modalBody.textContent = isGovernorate
+                ? `Remove "${name}" from the zone? This action cannot be undone.`
+                : `Delete "${name}"? This action cannot be undone.`;
+        }
+
         modalEl.hidden = false;
         modalEl.setAttribute('aria-modal', 'true');
         if (modalConfirm) modalConfirm.focus();
@@ -1154,18 +1368,44 @@
     const wireModal = () => {
         for (const el of modalCloseEls()) el.addEventListener('click', closeDeleteModal);
         if (modalCancel) modalCancel.addEventListener('click', closeDeleteModal);
-        if (modalConfirm) modalConfirm.addEventListener('click', () => {
-            if (!state.editing) return;
+        if (modalConfirm) modalConfirm.addEventListener('click', async () => {
+            if (!state.editing || state.busy) return;
+
+            const isGovernorate = state.selected.kind === 'gov';
             const id = state.editing.id;
-            const idx = ZONES.findIndex((z) => z.id === id);
-            if (idx > -1) ZONES.splice(idx, 1);
-            state.selected = null;
-            state.editing = null;
-            state.dirty = false;
-            closeDeleteModal();
-            renderTree();
-            renderPanel();
-            showToast('Zone deleted (demo)', 'coral');
+            const dbId = state.editing.dbId;
+
+            state.busy = true;
+
+            try {
+                const url = isGovernorate
+                    ? urlFor('governorateDestroy', dbId)
+                    : urlFor('zoneDestroy', dbId);
+
+                const result = await request('DELETE', url, null);
+
+                if (isGovernorate) {
+                    for (const z of ZONES) {
+                        const idx = z.governorates.findIndex((g) => g.id === id);
+                        if (idx > -1) z.governorates.splice(idx, 1);
+                    }
+                } else {
+                    const idx = ZONES.findIndex((z) => z.id === id);
+                    if (idx > -1) ZONES.splice(idx, 1);
+                }
+
+                state.selected = null;
+                state.editing = null;
+                state.dirty = false;
+                closeDeleteModal();
+                renderTree();
+                renderPanel();
+                showToast(result.message || 'Deleted', 'coral');
+            } catch (err) {
+                showToast(err.message || 'The row could not be deleted.', 'coral');
+            } finally {
+                state.busy = false;
+            }
         });
 
         document.addEventListener('keydown', (e) => {
@@ -1278,7 +1518,7 @@
     const syncThresholdDisabled = () => {
         if (!sThreshold || !sFree) return;
         const disabled = !sFree.checked;
-        sThreshold.disabled = true;
+        sThreshold.disabled = disabled;
         sThreshold.setAttribute('aria-disabled', String(disabled));
         if (sThresholdWrap) sThresholdWrap.dataset.disabled = String(disabled);
         const cell = sThreshold.closest('.abo-admin-shipping__currency');
@@ -1330,16 +1570,36 @@
 
         // Save.
         if (settingsSave) {
-            settingsSave.addEventListener('click', () => {
+            settingsSave.addEventListener('click', async () => {
                 // Final validation: a hidden error means invalid.
                 const errs = [sThresholdErr, sCodErr, sDefaultErr];
                 for (const e of errs) {
                     if (e && !e.hidden) return; // don't save while invalid
                 }
                 if (sNote) settings.note[state.noteLang] = sNote.value;
-                state.settingsDirty = false;
-                if (settingsDirty) settingsDirty.classList.remove('is-visible');
-                showToast('Settings saved (demo)', 'lime');
+
+                state.busy = true;
+                settingsSave.disabled = true;
+
+                try {
+                    const result = await request('POST', urlFor('settings'), {
+                        free_shipping_enabled: settings.freeShipping,
+                        free_shipping_threshold: settings.threshold,
+                        cod_fee: settings.codFee,
+                        default_fee: settings.defaultFee,
+                        note_en: settings.note.en,
+                        note_ar: settings.note.ar,
+                    });
+
+                    state.settingsDirty = false;
+                    if (settingsDirty) settingsDirty.classList.remove('is-visible');
+                    showToast(result.message || 'Settings saved', 'lime');
+                } catch (err) {
+                    showToast(err.message || 'The settings could not be saved.', 'coral');
+                } finally {
+                    state.busy = false;
+                    settingsSave.disabled = false;
+                }
             });
         }
 

@@ -282,6 +282,44 @@ class ShippingTest extends TestCase
         $this->assertDatabaseHas('shipping_zones', ['id' => $zone->id]);
     }
 
+    public function test_admin_can_reorder_the_governorates_of_a_zone(): void
+    {
+        $zone = ShippingZone::factory()->create();
+        $first = Governorate::factory()->create(['shipping_zone_id' => $zone->id]);
+        $second = Governorate::factory()->create(['shipping_zone_id' => $zone->id]);
+
+        $this->actingAsAdmin()
+            ->postJson(route('admin.shipping.zones.reorder', $zone), [
+                'governorates' => [$second->id, $first->id],
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertSame(0, $second->fresh()->sort_order);
+        $this->assertSame(1, $first->fresh()->sort_order);
+    }
+
+    public function test_reordering_leaves_a_governorate_of_another_zone_alone(): void
+    {
+        $zone = ShippingZone::factory()->create();
+        $other = ShippingZone::factory()->create();
+        $stranger = Governorate::factory()->create([
+            'shipping_zone_id' => $other->id,
+            'sort_order' => 7,
+        ]);
+
+        $this->actingAsAdmin()
+            ->postJson(route('admin.shipping.zones.reorder', $zone), [
+                'governorates' => [$stranger->id],
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        // The governorate keeps its place in the zone it belongs to.
+        $this->assertSame($other->id, $stranger->fresh()->shipping_zone_id);
+        $this->assertSame(7, $stranger->fresh()->sort_order);
+    }
+
     public function test_guest_cannot_access_shipping(): void
     {
         $this->get(route('admin.shipping.index'))->assertRedirect(route('admin.login'));

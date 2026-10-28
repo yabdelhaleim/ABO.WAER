@@ -32,16 +32,11 @@
 @section('description', 'ABO — admin banner manager: hero slider, promo banners, announcement bar.')
 
 @php
-    // The view carries no banner data of its own; the static BANNERS
-    // array in public/admin/js/banners.js is the single source of
-    // truth (hero, promo, announcement groups). See that file for the
-    // shape of each record.
-    //
-    // TODO(backend): replace the static BANNERS array in
-    // public/admin/js/banners.js with real data fetched from a banners
-    // table (placement, title, subtitle, image urls, schedule,
-    // linkTarget, look, active, order, etc.). The view shape is final;
-    // only the data source changes.
+    // The banner list, the link pickers and the route map all come
+    // from the server. Admin\BannerService builds the list in the
+    // shape the screen reads (placement, schedule, look and link
+    // already resolved), and the view only serialises what it is
+    // given.
 @endphp
 
 @section('content')
@@ -675,10 +670,13 @@
 @endpush
 
 @push('scripts')
-    {{-- Server-supplied banner list, hydrated into the front-end
-         BANNERS array by banners.js. See resources/views/admin/banners/index.blade.php. --}}
+    {{-- Server-supplied banner list, the link pickers and the route
+         map, hydrated into the front-end globals by banners.js. --}}
     <script>
         window.__BANNERS__ = {!! $bannersJson !!};
+        window.__BANNER_CATEGORIES__ = {!! $categoriesJson !!};
+        window.__BANNER_PRODUCTS__ = {!! $productsJson !!};
+        window.__BANNER_ROUTES__ = {!! $routesJson !!};
     </script>
 
     {{-- Page-local script. Loaded only on /admin/banners. --}}

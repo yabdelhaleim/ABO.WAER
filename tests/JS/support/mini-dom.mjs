@@ -13,6 +13,40 @@
 const toDatasetKey = (name) =>
     name.replace(/^data-/, '').replace(/-([a-z])/g, (_, c) => c.toUpperCase());
 
+const toAttributeName = (key) =>
+    'data-' + String(key).replace(/[A-Z]/g, (c) => '-' + c.toLowerCase());
+
+/**
+ * The dataset of an element.
+ *
+ * A browser keeps the two in step: writing `el.dataset.foo = 'x'` puts
+ * a `data-foo` attribute on the element, and writing the attribute puts
+ * the value in the dataset. The scripts here rely on that — a handler
+ * that matches on `[data-…]` has to find an attribute that was written
+ * through the dataset.
+ */
+function createDataset(element) {
+    const store = {};
+
+    return new Proxy(store, {
+        get(target, key) {
+            return target[key];
+        },
+        set(target, key, value) {
+            target[key] = String(value);
+            element.attributes[toAttributeName(key)] = String(value);
+
+            return true;
+        },
+        deleteProperty(target, key) {
+            delete target[key];
+            delete element.attributes[toAttributeName(key)];
+
+            return true;
+        },
+    });
+}
+
 class FakeClassList {
     constructor(element) {
         this.element = element;
@@ -73,8 +107,8 @@ class FakeElement {
         this.tagName = String(tagName).toUpperCase();
         this.childNodes = [];
         this.parentNode = null;
-        this.dataset = {};
         this.attributes = {};
+        this.dataset = createDataset(this);
         this.className = '';
         this.hidden = false;
         this.text = '';

@@ -1,23 +1,23 @@
 /*
- * ABO Admin · Coupons — page-local script (front-end only).
+ * ABO Admin · Coupons — page-local script.
  *
- * Pure DOM behaviour for the static coupons demo:
- *   - renders the list from the COUPONS static array below
+ * DOM behaviour for the admin coupon manager:
+ *   - renders the list from the server-supplied window.__COUPONS_DATA__
  *   - status tabs (All / Active / Scheduled / Expired / Disabled)
  *   - search + type filters
  *   - 28x14 active toggle on each row (updates badge in the DOM)
  *   - clicking a row selects it + loads it into the edit panel
  *   - arrow keys / Enter / Space to navigate the list / toggle
  *   - full edit panel (code / type / value / caps / minimum / usage
- *     limits / dates / applies-to / switches / dirty dot / live
- *     summary / save / duplicate / delete with confirm modal)
+ *     limits / dates / switches / dirty dot / live summary / save /
+ *     duplicate / delete with confirm modal)
  *   - slide-over on tablet/mobile, toast, delete modal
- *   - status is derived from today (2026-10-16), the dates, the
- *     usage and the active toggle
+ *   - status is derived from today, the dates, the usage and the
+ *     active toggle
  *
- * No fetch / XHR / localStorage. The only persistence is the
- * optional `state` object that holds transient UI (selected id,
- * active tab, dirty flag, ...). It is reset on every page load.
+ * The database owns the list. Every change — save, duplicate, delete
+ * and the on/off switch — is a request to Admin\CouponController, and
+ * the row on screen is only replaced once the server has answered.
  *
  * Markup anchor points (every selector uses data-* attributes):
  *   [data-abo-admin-coupons]                       — page root (layout)
@@ -40,14 +40,11 @@
 (function () {
     'use strict';
 
-    /* ─── Static sample data ─────────────────────────────────
+    /* ─── Server-supplied data ─────────────────────────────────
      *
-     * TODO(backend): replace this array with real data fetched
-     * server-side from the coupons table (joined with orders for
-     * the redemptions / discount-given counters). The view shape
-     * is final; only the data source changes.
-     *
-     * Sample "today" date used for status computation: 2026-10-16.
+     * The coupon list comes from Admin\Admin\CouponService, in the
+     * shape this file walks. The status is derived at render time
+     * from today, the dates, the usage and the active toggle.
      *
      * Shape per coupon:
      *   id, code, type ('percentage'|'fixed'|'shipping'),
@@ -59,38 +56,18 @@
      *   uses (number)            — current redemption count
      *   startsAt (ISO date|'')
      *   endsAt   (ISO date|'')
-     *   scope ('all'|'categories'|'products')
-     *   scopeIds (string[])
-     *   firstOrderOnly (bool)
-     *   excludeSale (bool)
      *   active (bool)
      *   discountGiven (number)   — total EGP this coupon has given
-     *   categoryLabel (string)   — only for HOODIE15 (used in summary)
      */
-
-    /** Static catalog used by the "Applies to" multi-select. */
-    const CATEGORIES = [
-        { id: 'hoodies',     name: 'Hoodies' },
-        { id: 'pants',       name: 'Pants' },
-        { id: 't-shirts',    name: 'T-Shirts' },
-        { id: 'jackets',     name: 'Jackets' },
-        { id: 'accessories', name: 'Accessories' },
-    ];
-
-    const PRODUCTS = [
-        { id: 'p-1', name: 'Oversize hoodie' },
-        { id: 'p-2', name: 'Cargo pants' },
-        { id: 'p-3', name: 'Heavy tee' },
-        { id: 'p-4', name: 'Linen overshirt' },
-        { id: 'p-5', name: 'Bomber jacket' },
-        { id: 'p-6', name: 'Beanie' },
-    ];
-
     const COUPONS = window.__COUPONS_DATA__ ?? [];
 
-    /* ─── Local UI state (never persisted) ───────────────── */
+    // The endpoints this page talks to.
+    const ROUTES = window.__COUPON_ROUTES__ ?? {};
 
-    const TODAY = '2026-10-16';
+    /* ─── Local UI state ─────────────────────────────── */
+
+    // Today's date — the status badges are counted against it.
+    const TODAY = new Date().toISOString().slice(0, 10);
 
     const state = {
         selectedId: null,
@@ -100,6 +77,7 @@
         editing: null,        // snapshot used to drive the panel form
         dirty: false,
         deleteTarget: null,
+        busy: false,               // a request is in flight
     };
 
     /* ─── Tiny helpers ──────────────────────────────── */
@@ -208,6 +186,66 @@
             case 'limit':     return { cls: 'abo-admin-coupons__status--limit',     label: 'Limit reached' };
         }
         return { cls: '', label: '' };
+    };
+
+    /* ─── Server requests ──────────────────────────────────────── */
+
+    const csrfToken = () => {
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        return meta ? meta.getAttribute('content') : '';
+    };
+
+    /** The endpoint for a coupon, with the placeholder filled in. */
+    const urlFor = (key, couponId) => {
+        const url = ROUTES[key] || '';
+        return url.replace('__COUPON__', encodeURIComponent(couponId));
+    };
+
+    /** The message the server sent, or a readable stand-in. */
+    const errorMessage = (payload, status) => {
+        if (payload && typeof payload.message === 'string' && payload.message.trim()) {
+            return payload.message;
+        }
+
+        if (payload && payload.errors) {
+            const first = Object.values(payload.errors)[0];
+            if (Array.isArray(first) && first.length) return first[0];
+        }
+
+        return 'The server refused the change (HTTP ' + status + ').';
+    };
+
+    /**
+     * Send a request to the coupon endpoints.
+     */
+    const request = async (method, url, body) => {
+        const headers = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': csrfToken(),
+        };
+
+        const options = { method, headers, credentials: 'same-origin' };
+
+        if (body !== undefined && body !== null) {
+            options.body = JSON.stringify(body);
+        }
+
+        const response = await fetch(url, options);
+
+        let payload = null;
+        try {
+            payload = await response.json();
+        } catch (_) {
+            payload = null;
+        }
+
+        if (!response.ok || (payload && payload.success === false)) {
+            throw new Error(errorMessage(payload, response.status));
+        }
+
+        return payload || {};
     };
 
     /* ─── Toast (single shared instance) ─────────── */
@@ -532,6 +570,44 @@
         focus.tabIndex = 0;
     };
 
+    /**
+     * Switch a coupon on or off.
+     *
+     * The server owns the flag: the row is redrawn from the coupon the
+     * server answered with, and a refusal leaves it as it was.
+     */
+    const toggleCoupon = async (coupon, next) => {
+        try {
+            const result = await request('PATCH', urlFor('toggle', coupon.id), null);
+            const saved = result.coupon;
+
+            if (saved) {
+                const idx = COUPONS.findIndex((c) => c.id === saved.id);
+                if (idx > -1) COUPONS[idx] = saved;
+            } else {
+                coupon.active = next;
+            }
+
+            // Re-render the row so the badge updates in the DOM
+            // (Active ↔ Disabled).
+            renderList();
+            renderStats();
+            renderTabCounts();
+            // If the toggled row is also the one being edited,
+            // sync the panel switch.
+            if (state.editing && state.editing.id === coupon.id) {
+                const current = COUPONS.find((c) => c.id === coupon.id);
+                state.editing.active = current ? current.active : next;
+                state.editing._status = derivedStatus(current || coupon);
+                renderPanel({ skipSyncEditing: true });
+            }
+            showToast(result.message || (next ? 'Activated' : 'Deactivated'), 'lime');
+        } catch (err) {
+            renderList();
+            showToast(err.message || 'The coupon could not be switched.', 'coral');
+        }
+    };
+
     /* ─── Wire the list once (delegated) ───────────── */
 
     const wireList = () => {
@@ -546,21 +622,7 @@
                 const id = t.dataset.aboAdminCouponsRowToggle;
                 const c = COUPONS.find((x) => x.id === id);
                 if (!c) return;
-                c.active = t.checked;
-                t.setAttribute('aria-checked', String(t.checked));
-                // Re-render the row so the badge updates in the DOM
-                // (Active ↔ Disabled).
-                renderList();
-                renderStats();
-                renderTabCounts();
-                // If the toggled row is also the one being edited,
-                // sync the panel switch.
-                if (state.editing && state.editing.id === id) {
-                    state.editing.active = t.checked;
-                    state.editing._status = derivedStatus(c);
-                    renderPanel({ skipSyncEditing: true });
-                }
-                showToast(t.checked ? 'Activated (demo)' : 'Deactivated (demo)', 'lime');
+                toggleCoupon(c, t.checked);
                 return;
             }
 
@@ -646,10 +708,6 @@
             uses: c.uses || 0,
             startsAt: c.startsAt || '',
             endsAt: c.endsAt || '',
-            scope: c.scope || 'all',
-            scopeIds: Array.from(c.scopeIds || []),
-            firstOrderOnly: !!c.firstOrderOnly,
-            excludeSale: !!c.excludeSale,
             active: !!c.active,
             _status: derivedStatus(c),
         };
@@ -668,10 +726,6 @@
         uses: 0,
         startsAt: '',
         endsAt: '',
-        scope: 'all',
-        scopeIds: [],
-        firstOrderOnly: false,
-        excludeSale: false,
         active: true,
         _status: 'active',
     });
@@ -699,15 +753,6 @@
     const startsInput    = $('[data-abo-admin-coupons-starts]');
     const endsInput      = $('[data-abo-admin-coupons-ends]');
     const dateErrorEl    = $('[data-abo-admin-coupons-date-error]');
-    const scopeChips     = $$('[data-abo-admin-coupons-scope]');
-    const scopeList      = $('[data-abo-admin-coupons-scope-list]');
-    const scopeCatsWrap  = $('[data-abo-admin-coupons-scope-categories]');
-    const scopeProdWrap  = $('[data-abo-admin-coupons-scope-products]');
-    const catsSelect     = $('[data-abo-admin-coupons-categories]');
-    const prodSelect     = $('[data-abo-admin-coupons-products]');
-    const selectedWrap   = $('[data-abo-admin-coupons-scope-selected]');
-    const firstOrder     = $('[data-abo-admin-coupons-first-order]');
-    const excludeSale    = $('[data-abo-admin-coupons-exclude-sale]');
     const activeSwitch   = $('[data-abo-admin-coupons-active]');
     const saveBtn        = $('[data-abo-admin-coupons-save]');
     const duplicateBtn   = $('[data-abo-admin-coupons-duplicate]');
@@ -744,77 +789,6 @@
             chip.classList.toggle('is-active', active);
             chip.setAttribute('aria-checked', String(active));
         }
-    };
-
-    const syncScopeChips = () => {
-        for (const chip of scopeChips) {
-            const active = chip.dataset.aboAdminCouponsScope === state.editing.scope;
-            chip.classList.toggle('is-active', active);
-            chip.setAttribute('aria-checked', String(active));
-        }
-        // Show / hide the multi-select underneath.
-        if (scopeList) {
-            scopeList.hidden = state.editing.scope === 'all';
-        }
-        if (scopeCatsWrap) {
-            scopeCatsWrap.hidden = state.editing.scope !== 'categories';
-        }
-        if (scopeProdWrap) {
-            scopeProdWrap.hidden = state.editing.scope !== 'products';
-        }
-    };
-
-    /** Build the chips below the multi-select for already-selected items. */
-    const renderScopeSelected = () => {
-        if (!selectedWrap || !state.editing) return;
-        selectedWrap.innerHTML = '';
-        const source = state.editing.scope === 'categories' ? CATEGORIES : PRODUCTS;
-        for (const id of state.editing.scopeIds) {
-            const item = source.find((x) => x.id === id);
-            if (!item) continue;
-            const chip = ce('div', {
-                class: 'abo-admin-coupons__chip-selected',
-            },
-                ce('span', {}, item.name),
-                ce('button', {
-                    type: 'button',
-                    class: 'abo-admin-coupons__chip-remove',
-                    'aria-label': 'Remove ' + item.name,
-                    dataset: { id: id, aboAdminCouponsScopeRemove: id },
-                    html: '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
-                }),
-            );
-            selectedWrap.appendChild(chip);
-        }
-    };
-
-    const populateScopeOptions = () => {
-        if (catsSelect) {
-            catsSelect.innerHTML = '';
-            for (const c of CATEGORIES) {
-                const opt = ce('option', { value: c.id }, c.name);
-                catsSelect.appendChild(opt);
-            }
-        }
-        if (prodSelect) {
-            prodSelect.innerHTML = '';
-            for (const p of PRODUCTS) {
-                const opt = ce('option', { value: p.id }, p.name);
-                prodSelect.appendChild(opt);
-            }
-        }
-    };
-
-    const syncScopeSelections = () => {
-        if (catsSelect) {
-            const sel = new Set(state.editing.scope === 'categories' ? state.editing.scopeIds : []);
-            for (const opt of catsSelect.options) opt.selected = sel.has(opt.value);
-        }
-        if (prodSelect) {
-            const sel = new Set(state.editing.scope === 'products' ? state.editing.scopeIds : []);
-            for (const opt of prodSelect.options) opt.selected = sel.has(opt.value);
-        }
-        renderScopeSelected();
     };
 
     const renderPanel = (opts = {}) => {
@@ -858,19 +832,7 @@
         if (endsInput)   endsInput.value   = e.endsAt   || '';
         if (dateErrorEl) dateErrorEl.hidden = true;
 
-        // Scope chips + multi-select.
-        syncScopeChips();
-        syncScopeSelections();
-
-        // Switches.
-        if (firstOrder) {
-            firstOrder.checked = !!e.firstOrderOnly;
-            firstOrder.setAttribute('aria-checked', String(firstOrder.checked));
-        }
-        if (excludeSale) {
-            excludeSale.checked = !!e.excludeSale;
-            excludeSale.setAttribute('aria-checked', String(excludeSale.checked));
-        }
+        // The active switch.
         if (activeSwitch) {
             activeSwitch.checked = !!e.active;
             activeSwitch.setAttribute('aria-checked', String(activeSwitch.checked));
@@ -918,8 +880,6 @@
         if (e.minimum !== '' && e.minimum != null && Number(e.minimum) > 0) {
             parts.push('on orders above ' + egp(e.minimum));
         }
-        if (e.firstOrderOnly) parts.push('first order only');
-        if (e.excludeSale)    parts.push('excludes sale items');
         if (e.usesPerCustomer !== '' && e.usesPerCustomer != null && Number(e.usesPerCustomer) > 0) {
             parts.push('once per customer');
         }
@@ -1055,72 +1015,6 @@
         if (startsInput) startsInput.addEventListener('input', onDateChange);
         if (endsInput)   endsInput.addEventListener('input',   onDateChange);
 
-        // Scope chips.
-        for (const chip of scopeChips) {
-            chip.addEventListener('click', () => {
-                if (!state.editing) return;
-                const v = chip.dataset.aboAdminCouponsScope;
-                if (v === state.editing.scope) return;
-                state.editing.scope = v;
-                if (v === 'all') state.editing.scopeIds = [];
-                syncScopeChips();
-                syncScopeSelections();
-                markDirty();
-            });
-        }
-
-        // Multi-select change → sync back to scopeIds.
-        if (catsSelect) {
-            catsSelect.addEventListener('change', () => {
-                if (!state.editing) return;
-                if (state.editing.scope !== 'categories') return;
-                state.editing.scopeIds = $$('option', catsSelect).filter((o) => o.selected).map((o) => o.value);
-                renderScopeSelected();
-                markDirty();
-            });
-        }
-        if (prodSelect) {
-            prodSelect.addEventListener('change', () => {
-                if (!state.editing) return;
-                if (state.editing.scope !== 'products') return;
-                state.editing.scopeIds = $$('option', prodSelect).filter((o) => o.selected).map((o) => o.value);
-                renderScopeSelected();
-                markDirty();
-            });
-        }
-
-        // Remove chip (delegated).
-        if (selectedWrap) {
-            selectedWrap.addEventListener('click', (e) => {
-                const btn = e.target.closest('[data-abo-admin-coupons-scope-remove]');
-                if (!btn) return;
-                const id = btn.dataset.id;
-                if (!state.editing) return;
-                state.editing.scopeIds = state.editing.scopeIds.filter((x) => x !== id);
-                syncScopeSelections();
-                markDirty();
-            });
-        }
-
-        // Switches.
-        if (firstOrder) {
-            firstOrder.addEventListener('change', () => {
-                if (!state.editing) return;
-                state.editing.firstOrderOnly = firstOrder.checked;
-                firstOrder.setAttribute('aria-checked', String(firstOrder.checked));
-                renderSummary();
-                markDirty();
-            });
-        }
-        if (excludeSale) {
-            excludeSale.addEventListener('change', () => {
-                if (!state.editing) return;
-                state.editing.excludeSale = excludeSale.checked;
-                excludeSale.setAttribute('aria-checked', String(excludeSale.checked));
-                renderSummary();
-                markDirty();
-            });
-        }
         if (activeSwitch) {
             activeSwitch.addEventListener('change', () => {
                 if (!state.editing) return;
@@ -1132,92 +1026,119 @@
 
         // Save.
         if (saveBtn) {
-            saveBtn.addEventListener('click', () => {
-                if (!state.editing) return;
+            saveBtn.addEventListener('click', async () => {
+                if (!state.editing || state.busy) return;
                 const e = state.editing;
                 const codeOk = validateCode(e.code).ok;
                 if (!codeOk) {
                     if (codeErrorEl) codeErrorEl.hidden = false;
                     return;
                 }
-                const target = COUPONS.find((c) => c.id === e.id);
-                if (target) {
-                    Object.assign(target, {
+
+                const isNew = !!e._isNew;
+
+                state.busy = true;
+                saveBtn.disabled = true;
+
+                try {
+                    // Only the fields the coupons table holds.
+                    const body = {
                         code: e.code,
                         type: e.type,
                         value: e.type === 'shipping' ? 0 : Number(e.value || 0),
-                        cap: e.type === 'percentage' && e.cap !== '' ? Number(e.cap) : null,
-                        minimum: e.minimum === '' ? null : Number(e.minimum || 0),
-                        usesMax: e.usesMax === '' ? null : Number(e.usesMax || 0),
-                        usesPerCustomer: e.usesPerCustomer === '' ? null : Number(e.usesPerCustomer || 0),
-                        startsAt: e.startsAt || '',
-                        endsAt:   e.endsAt   || '',
-                        scope: e.scope,
-                        scopeIds: Array.from(e.scopeIds),
-                        firstOrderOnly: !!e.firstOrderOnly,
-                        excludeSale: !!e.excludeSale,
-                        active: !!e.active,
-                    });
-                } else {
-                    // New coupon.
-                    const newId = 'cp-new-' + Date.now();
-                    const newC = {
-                        id: newId,
-                        code: e.code,
-                        type: e.type,
-                        value: e.type === 'shipping' ? 0 : Number(e.value || 0),
-                        cap: e.type === 'percentage' && e.cap !== '' ? Number(e.cap) : null,
-                        minimum: e.minimum === '' ? null : Number(e.minimum || 0),
-                        usesMax: e.usesMax === '' ? null : Number(e.usesMax || 0),
-                        usesPerCustomer: e.usesPerCustomer === '' ? null : Number(e.usesPerCustomer || 0),
-                        uses: 0,
-                        startsAt: e.startsAt || '',
-                        endsAt:   e.endsAt   || '',
-                        scope: e.scope,
-                        scopeIds: Array.from(e.scopeIds),
-                        firstOrderOnly: !!e.firstOrderOnly,
-                        excludeSale: !!e.excludeSale,
-                        active: !!e.active,
-                        discountGiven: 0,
-                        categoryLabel: '',
+                        max_discount: e.type === 'percentage' && e.cap !== '' ? Number(e.cap) : null,
+                        min_order_total: e.minimum === '' ? null : Number(e.minimum || 0),
+                        total_usage_limit: e.usesMax === '' ? null : Number(e.usesMax || 0),
+                        usage_per_customer_limit: e.usesPerCustomer === '' ? null : Number(e.usesPerCustomer || 0),
+                        starts_at: e.startsAt || null,
+                        expires_at: e.endsAt || null,
+                        is_active: !!e.active,
                     };
-                    COUPONS.unshift(newC);
-                    e.id = newId;
-                    e._isNew = false;
-                    state.selectedId = newId;
+
+                    const url = isNew ? urlFor('store') : urlFor('update', e.id);
+                    const method = isNew ? 'POST' : 'PUT';
+
+                    const result = await request(method, url, body);
+                    const saved = result.coupon;
+
+                    if (!saved) {
+                        throw new Error('The server did not return the coupon.');
+                    }
+
+                    if (isNew) {
+                        COUPONS.unshift(saved);
+                    } else {
+                        const idx = COUPONS.findIndex((c) => c.id === saved.id);
+                        if (idx > -1) COUPONS[idx] = saved;
+                    }
+
+                    state.selectedId = saved.id;
+                    state.editing = snapshotFromCoupon(saved);
+                    state.dirty = false;
+                    if (dirtyDotEl) dirtyDotEl.classList.remove('is-visible');
+
+                    renderStats();
+                    renderTabCounts();
+                    renderList();
+                    renderPanel();
+                    showToast(result.message || 'Saved', 'lime');
+                } catch (err) {
+                    showToast(err.message || 'The coupon could not be saved.', 'coral');
+                } finally {
+                    state.busy = false;
+                    saveBtn.disabled = false;
                 }
-                state.dirty = false;
-                if (dirtyDotEl) dirtyDotEl.classList.remove('is-visible');
-                renderStats();
-                renderTabCounts();
-                renderList();
-                renderPanel();
-                showToast('Saved (demo)', 'lime');
             });
         }
 
         // Duplicate.
         if (duplicateBtn) {
-            duplicateBtn.addEventListener('click', () => {
-                if (!state.editing) return;
-                const e = state.editing;
-                const source = COUPONS.find((c) => c.id === e.id);
+            duplicateBtn.addEventListener('click', async () => {
+                if (!state.editing || state.editing._isNew || state.busy) return;
+                const source = COUPONS.find((c) => c.id === state.editing.id);
                 if (!source) return;
-                const dup = JSON.parse(JSON.stringify(source));
-                dup.id = 'cp-new-' + Date.now();
-                dup.code = (source.code || '') + '-COPY';
-                dup.uses = 0;
-                dup.discountGiven = 0;
-                dup.active = false;
-                COUPONS.unshift(dup);
-                state.selectedId = dup.id;
-                state.editing = snapshotFromCoupon(dup);
-                state.dirty = false;
-                renderStats();
-                renderTabCounts();
-                renderList();
-                renderPanel();
-                showToast('Duplicated (demo)', 'lime');
+
+                state.busy = true;
+                duplicateBtn.disabled = true;
+
+                try {
+                    // The copy is a new coupon: same rules, a code of
+                    // its own, and it starts switched off.
+                    const result = await request('POST', urlFor('store'), {
+                        code: (source.code || '') + '-COPY',
+                        type: source.type,
+                        value: source.type === 'shipping' ? 0 : Number(source.value || 0),
+                        max_discount: source.cap == null ? null : Number(source.cap),
+                        min_order_total: source.minimum == null ? null : Number(source.minimum),
+                        total_usage_limit: source.usesMax == null ? null : Number(source.usesMax),
+                        usage_per_customer_limit: source.usesPerCustomer == null ? null : Number(source.usesPerCustomer),
+                        starts_at: source.startsAt || null,
+                        expires_at: source.endsAt || null,
+                        is_active: false,
+                    });
+
+                    const copy = result.coupon;
+
+                    if (!copy) {
+                        throw new Error('The server did not return the copy.');
+                    }
+
+                    COUPONS.unshift(copy);
+                    state.selectedId = copy.id;
+                    state.editing = snapshotFromCoupon(copy);
+                    state.dirty = false;
+
+                    renderStats();
+                    renderTabCounts();
+                    renderList();
+                    renderPanel();
+                    showToast(result.message || 'Duplicated', 'lime');
+                } catch (err) {
+                    showToast(err.message || 'The coupon could not be duplicated.', 'coral');
+                } finally {
+                    state.busy = false;
+                    duplicateBtn.disabled = false;
+                }
             });
         }
 
@@ -1295,19 +1216,32 @@
             el.addEventListener('click', closeDeleteModal);
         }
         if (modalCancel) modalCancel.addEventListener('click', closeDeleteModal);
-        if (modalConfirm) modalConfirm.addEventListener('click', () => {
-            if (!state.editing) return;
-            const idx = COUPONS.findIndex((c) => c.id === state.editing.id);
-            if (idx > -1) COUPONS.splice(idx, 1);
-            state.selectedId = null;
-            state.editing = null;
-            state.dirty = false;
-            closeDeleteModal();
-            renderStats();
-            renderTabCounts();
-            renderList();
-            renderPanel();
-            showToast('Coupon deleted (demo)', 'coral');
+        if (modalConfirm) modalConfirm.addEventListener('click', async () => {
+            if (!state.editing || state.busy) return;
+            const id = state.editing.id;
+
+            state.busy = true;
+
+            try {
+                const result = await request('DELETE', urlFor('destroy', id), null);
+
+                const idx = COUPONS.findIndex((c) => c.id === id);
+                if (idx > -1) COUPONS.splice(idx, 1);
+
+                state.selectedId = null;
+                state.editing = null;
+                state.dirty = false;
+                closeDeleteModal();
+                renderStats();
+                renderTabCounts();
+                renderList();
+                renderPanel();
+                showToast(result.message || 'Coupon deleted', 'coral');
+            } catch (err) {
+                showToast(err.message || 'The coupon could not be deleted.', 'coral');
+            } finally {
+                state.busy = false;
+            }
         });
     };
 
@@ -1356,7 +1290,6 @@
 
     const init = () => {
         renderToday();
-        populateScopeOptions();
         renderStats();
         renderTabCounts();
         renderList();

@@ -46,6 +46,71 @@ class CouponManagerTest extends TestCase
             ->assertViewHas('couponsJson');
     }
 
+    /* ─── The screen reads what the server owns ──────────────────── */
+
+    public function test_the_created_coupon_comes_back_in_the_shape_the_screen_reads(): void
+    {
+        $response = $this->actingAsAdmin()
+            ->postJson(route('admin.coupons.store'), [
+                'code' => 'promo25',
+                'type' => 'percentage',
+                'value' => 25.00,
+                'max_discount' => 200.00,
+                'min_order_total' => 500.00,
+                'total_usage_limit' => 50,
+                'usage_per_customer_limit' => 1,
+            ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('coupon.code', 'PROMO25')
+            ->assertJsonPath('coupon.type', 'percentage')
+            ->assertJsonPath('coupon.value', 25)
+            ->assertJsonPath('coupon.cap', 200)
+            ->assertJsonPath('coupon.minimum', 500)
+            ->assertJsonPath('coupon.usesMax', 50)
+            ->assertJsonPath('coupon.usesPerCustomer', 1)
+            ->assertJsonPath('coupon.uses', 0)
+            ->assertJsonPath('coupon.active', true);
+
+        // The id is a string so the browser can match it against the
+        // data-attribute it stamps on every row.
+        $this->assertIsString($response->json('coupon.id'));
+    }
+
+    public function test_the_toggle_answers_with_the_coupon_it_switched(): void
+    {
+        $coupon = Coupon::factory()->create(['is_active' => false]);
+
+        $this->actingAsAdmin()
+            ->patchJson(route('admin.coupons.toggle', $coupon))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('is_active', true)
+            ->assertJsonPath('coupon.active', true)
+            ->assertJsonPath('coupon.id', (string) $coupon->id);
+    }
+
+    public function test_the_payload_carries_the_fields_the_table_holds(): void
+    {
+        Coupon::factory()->create();
+
+        $response = $this->actingAsAdmin()->get(route('admin.coupons.index'));
+
+        $response->assertOk();
+
+        preg_match('/window\.__COUPONS_DATA__ = (\[.*?\]);/s', $response->getContent(), $matches);
+
+        $payload = json_decode($matches[1] ?? '[]', true);
+
+        $this->assertNotEmpty($payload);
+        $this->assertSame(
+            ['id', 'code', 'type', 'value', 'cap', 'minimum', 'usesMax', 'usesPerCustomer',
+                'uses', 'startsAt', 'endsAt', 'active', 'discountGiven'],
+            array_keys($payload[0])
+        );
+    }
+
     public function test_admin_can_create_percentage_coupon_with_cap(): void
     {
         $response = $this->actingAsAdmin()
