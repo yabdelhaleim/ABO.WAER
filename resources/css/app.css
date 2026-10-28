@@ -2491,21 +2491,34 @@ html.abo-intro-lock body {
     }
     .hero__container {
         min-height: 92dvh;
+        align-items: flex-end;
+        padding-bottom: 3rem;
     }
     .hero__inner {
-        min-height: 92dvh;
         max-width: 100%;
-        padding-top: 5rem;
+        padding-top: 0;
+        padding-bottom: 0;
+        min-height: auto;
+        gap: 1.2rem;
     }
     .hero__photo {
         width: 100%;
-        object-position: 35% 30%;
-        opacity: 0.5;
+        object-position: center 15%;
+        opacity: 1;
     }
     .hero__photo-wrap::after {
+        /* Neon glow at top-right where the model is, strong dark
+           fade at bottom so the text is readable. */
         background:
-            linear-gradient(180deg, rgba(5, 6, 7, 0.4) 0%, rgba(5, 6, 7, 0.6) 60%, var(--abo-black) 100%),
-            linear-gradient(90deg, var(--abo-black) 0%, transparent 35%);
+            radial-gradient(ellipse 60% 45% at 65% 20%, rgba(198, 255, 0, 0.07) 0%, transparent 70%),
+            linear-gradient(180deg,
+                rgba(5, 6, 7, 0.18) 0%,
+                rgba(5, 6, 7, 0.12) 35%,
+                rgba(5, 6, 7, 0.65) 62%,
+                var(--abo-black) 88%);
+    }
+    .hero__headline {
+        font-size: clamp(36px, 11vw, 60px);
     }
     .hero__stats {
         gap: 1.2rem;
