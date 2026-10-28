@@ -48,6 +48,15 @@ class CampaignService
             ->where('status', CampaignStatus::Active->value)
             ->count();
 
+        // Campaigns waiting for their scheduled_for to elapse. The
+        // scheduler promotes them one minute later, so this is the
+        // number the "Scheduled" KPI card shows — a campaign whose
+        // moment has not come yet, not one that has already been sent.
+        $scheduledCampaignsCount = (int) Campaign::query()
+            ->where('status', CampaignStatus::Scheduled->value)
+            ->whereNotNull('scheduled_for')
+            ->count();
+
         $totalSentCount = (int) (Campaign::query()->sum('sent_count') ?? 0);
 
         $sentCampaigns = Campaign::query()
@@ -73,6 +82,7 @@ class CampaignService
 
         return [
             'active_campaigns_count' => $activeCampaignsCount,
+            'scheduled_campaigns_count' => $scheduledCampaignsCount,
             'total_sent_count' => $totalSentCount,
             'avg_open_rate' => $avgOpenRate,
             'avg_click_rate' => $avgClickRate,

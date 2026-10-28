@@ -28,7 +28,7 @@ class NotifyAdminsOfNewOrder
      */
     public function handle(OrderCreated $event): void
     {
-        $admins = Admin::query()->where('is_active', true)->get();
+        $admins = Admin::query()->where('is_active', true)->with('pushSubscriptions')->get();
 
         if ($admins->isEmpty()) {
             return;

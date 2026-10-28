@@ -18,6 +18,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
+use NotificationChannels\WebPush\WebPushChannel;
 use Tests\TestCase;
 
 /**
@@ -184,7 +185,8 @@ class AdminOrderNotificationTest extends TestCase
             $this->admin,
             NewOrderAdminNotification::class,
             function (NewOrderAdminNotification $notification, array $channels, object $notifiable): bool {
-                $this->assertSame(['database'], $channels);
+                $this->assertContains('database', $channels);
+                $this->assertContains(WebPushChannel::class, $channels);
 
                 $data = $notification->toArray($notifiable);
                 $this->assertSame('orders', $data['type']);

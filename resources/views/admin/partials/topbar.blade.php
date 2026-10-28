@@ -25,6 +25,13 @@
     $unreadCount = $bellAdmin
         ? app(\App\Services\Admin\AdminNotificationService::class)->unreadCountFor($bellAdmin)
         : 0;
+
+    // The signed-in admin's own name and first letter. The topbar used
+    // to say "Admin" to everybody, so a screen full of real names had
+    // one account that never named itself — the operator could not
+    // tell whose session they were looking at.
+    $signedInName = $bellAdmin?->name ?: 'Admin';
+    $signedInInitial = mb_strtoupper(mb_substr($signedInName, 0, 1));
 @endphp
 
 @once
@@ -38,8 +45,10 @@
                 index:        @json(route('admin.notifications.index')),
                 markAllRead:  @json(route('admin.notifications.markAllRead')),
                 markReadBase: @json(url('admin/notifications') . '/'),
+                pushSubscribe: @json(route('admin.push.subscriptions.update')),
             };
             window.ADMIN_NOTIFICATIONS_POLL_MS = 30000;
+            window.VAPID_PUBLIC_KEY = @json(config('webpush.vapid.public_key'));
         </script>
     @endpush
 @endonce
@@ -105,7 +114,7 @@
     </div>
 
     <div class="abo-admin-topbar__admin">
-        <span class="abo-admin-topbar__admin-name">Admin</span>
-        <span class="abo-admin-topbar__avatar" aria-hidden="true">A</span>
+        <span class="abo-admin-topbar__admin-name">{{ $signedInName }}</span>
+        <span class="abo-admin-topbar__avatar" aria-hidden="true">{{ $signedInInitial }}</span>
     </div>
 </header>

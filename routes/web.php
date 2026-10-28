@@ -22,6 +22,7 @@ use App\Http\Controllers\Admin\SizeGuideController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\CampaignTrackingController;
+use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\Store\AddressController;
 use App\Http\Controllers\Store\CartController;
@@ -519,4 +520,14 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::post('/mark-all-read', [AdminNotificationController::class, 'markAllAsRead'])->name('markAllRead');
         Route::patch('/{id}/read', [AdminNotificationController::class, 'markAsRead'])->name('read');
     });
+
+    // WebPush subscription endpoints for logged in Admin
+    Route::post('/push-subscriptions', [PushSubscriptionController::class, 'update'])->name('push.subscriptions.update');
+    Route::delete('/push-subscriptions', [PushSubscriptionController::class, 'destroy'])->name('push.subscriptions.destroy');
+});
+
+// WebPush subscription endpoints for Customer / Public Store
+Route::middleware('web')->group(function () {
+    Route::post('/push-subscriptions', [PushSubscriptionController::class, 'update'])->name('store.push.subscriptions.update');
+    Route::delete('/push-subscriptions', [PushSubscriptionController::class, 'destroy'])->name('store.push.subscriptions.destroy');
 });

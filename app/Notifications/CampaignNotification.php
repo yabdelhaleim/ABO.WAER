@@ -9,6 +9,8 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
+use NotificationChannels\WebPush\WebPushChannel;
+use NotificationChannels\WebPush\WebPushMessage;
 
 /**
  * The unified delivery class for a marketing campaign.
@@ -46,9 +48,27 @@ class CampaignNotification extends Notification implements ShouldQueue
     {
         return match ($this->campaign->type) {
             CampaignType::Email => ['mail'],
-            CampaignType::Push => ['database'],
+            CampaignType::Push => ['database', WebPushChannel::class],
             CampaignType::Sms => $this->smsLogChannel($notifiable),
         };
+    }
+
+    /**
+     * WebPush payload for customer mobile/desktop push notification.
+     */
+    public function toWebPush(mixed $notifiable, mixed $notification): WebPushMessage
+    {
+        $url = $this->campaignCtaUrl();
+
+        return (new WebPushMessage)
+            ->title($this->campaign->title)
+            ->icon(asset('images/abo-logo.svg'))
+            ->badge(asset('images/abo-logo.svg'))
+            ->body($this->campaign->message)
+            ->action('Shop Now', 'shop_now')
+            ->data(['url' => $url])
+            ->tag('campaign-'.$this->campaign->id)
+            ->vibrate([200, 100, 200]);
     }
 
     /**

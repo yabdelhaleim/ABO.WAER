@@ -78,5 +78,50 @@
     @include('store.partials.footer')
 
     @stack('scripts')
+
+    @auth
+        <script>
+            (function () {
+                if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+                const vapidKey = @json(config('webpush.vapid.public_key'));
+                const subscribeUrl = @json(route('store.push.subscriptions.update'));
+                if (!vapidKey || !subscribeUrl) return;
+
+                function urlBase64ToUint8Array(base64String) {
+                    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+                    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+                    const rawData = window.atob(base64);
+                    const outputArray = new Uint8Array(rawData.length);
+                    for (let i = 0; i < rawData.length; ++i) {
+                        outputArray[i] = rawData.charCodeAt(i);
+                    }
+                    return outputArray;
+                }
+
+                navigator.serviceWorker.register('/sw.js').then(function (reg) {
+                    if (Notification.permission === 'granted') {
+                        reg.pushManager.getSubscription().then(function (sub) {
+                            if (!sub) {
+                                reg.pushManager.subscribe({
+                                    userVisibleOnly: true,
+                                    applicationServerKey: urlBase64ToUint8Array(vapidKey)
+                                }).then(function (newSub) {
+                                    fetch(subscribeUrl, {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                                            'Accept': 'application/json'
+                                        },
+                                        body: JSON.stringify(newSub)
+                                    });
+                                });
+                            }
+                        });
+                    }
+                }).catch(function (e) {});
+            })();
+        </script>
+    @endauth
 </body>
 </html>

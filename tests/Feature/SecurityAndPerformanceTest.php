@@ -18,6 +18,7 @@ use App\Models\Variant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -335,7 +336,7 @@ class SecurityAndPerformanceTest extends TestCase
         // from the database rather than served from a warm cache. Without
         // this flush the second call would read cache and appear cheaper,
         // making the two counts incomparable and causing a false failure.
-        \Illuminate\Support\Facades\Cache::flush();
+        Cache::flush();
 
         // Keep the connection logged so we can read every SELECT after
         // the request returns.

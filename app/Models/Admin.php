@@ -7,10 +7,11 @@ use App\Notifications\AdminPasswordResetNotification;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use NotificationChannels\WebPush\HasPushSubscriptions;
 
 class Admin extends Authenticatable
 {
-    use Notifiable;
+    use HasPushSubscriptions, Notifiable;
 
     protected $guarded = [];
 

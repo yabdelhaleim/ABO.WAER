@@ -5,6 +5,8 @@ namespace App\Notifications;
 use App\Models\Order;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
+use NotificationChannels\WebPush\WebPushChannel;
+use NotificationChannels\WebPush\WebPushMessage;
 
 /**
  * Database-channel notification for "a new order was placed".
@@ -38,15 +40,31 @@ class NewOrderAdminNotification extends Notification
     public function __construct(public Order $order) {}
 
     /**
-     * Only the database channel. The "mark as read" surface is the
-     * notifications table; nothing about this notification needs an
-     * email or push payload yet.
+     * Database channel for dashboard topbar bell + WebPush for mobile and desktop browser alerts.
      *
-     * @return array<int, string>
+     * @return array<int, string|class-string>
      */
     public function via(mixed $notifiable): array
     {
-        return ['database'];
+        return ['database', WebPushChannel::class];
+    }
+
+    /**
+     * Build the WebPush message for mobile / browser lock-screen notification.
+     */
+    public function toWebPush(mixed $notifiable, mixed $notification): WebPushMessage
+    {
+        $url = route('admin.orders.index', ['search' => $this->order->order_number]);
+
+        return (new WebPushMessage)
+            ->title('New Order #'.$this->order->order_number)
+            ->icon(asset('images/abo-logo.svg'))
+            ->badge(asset('images/abo-logo.svg'))
+            ->body('Order Total: '.number_format($this->order->total).' EGP | Click to view order.')
+            ->action('View Order', 'view_order')
+            ->data(['url' => $url])
+            ->tag('order-'.$this->order->id)
+            ->vibrate([200, 100, 200]);
     }
 
     /**
