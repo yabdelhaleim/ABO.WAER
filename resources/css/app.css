@@ -2505,19 +2505,19 @@ html.abo-intro-lock body {
         /* The model's head/face is at 42.5% from the left, 33% from the top.
            45% 20% centers the head and shoulders in the portrait mobile crop. */
         object-position: 45% 20%;
-        opacity: 0.85;
+        opacity: 1;
     }
     .hero__photo-wrap::after {
+        /* Clean dark cinematic vignette — no green tint over the photo */
         background:
-            radial-gradient(circle at 45% 20%, rgba(198, 255, 0, 0.16) 0%, transparent 65%),
             linear-gradient(180deg,
-                rgba(5, 6, 7, 0.35) 0%,
-                rgba(5, 6, 7, 0.50) 35%,
-                rgba(5, 6, 7, 0.85) 72%,
-                var(--abo-black) 100%),
+                rgba(5, 6, 7, 0.20) 0%,
+                rgba(5, 6, 7, 0.40) 35%,
+                rgba(5, 6, 7, 0.82) 70%,
+                var(--abo-black) 98%),
             linear-gradient(90deg,
-                rgba(5, 6, 7, 0.70) 0%,
-                rgba(5, 6, 7, 0.25) 100%);
+                rgba(5, 6, 7, 0.55) 0%,
+                rgba(5, 6, 7, 0.15) 100%);
     }
     .hero__headline {
         font-size: clamp(32px, 9.5vw, 50px);
