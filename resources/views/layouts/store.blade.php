@@ -85,10 +85,27 @@
     @stack('scripts')
 
     @auth
+        <div id="abo-push-banner" style="position:fixed;bottom:1.25rem;left:50%;transform:translateX(-50%);z-index:9999;background:#141416;color:#ffffff;border:1px solid rgba(223,242,74,0.35);border-radius:12px;padding:0.75rem 1.25rem;box-shadow:0 12px 35px rgba(0,0,0,0.6);display:none;align-items:center;gap:1rem;max-width:420px;width:calc(100% - 2rem);font-family:inherit;">
+            <span style="font-size:1.3rem;">🔔</span>
+            <div style="flex:1;font-size:0.8rem;line-height:1.4;">
+                <strong style="color:var(--abo-lime);display:block;margin-bottom:2px;">ABO Notifications</strong>
+                Stay updated with exclusive offers & order tracking.
+            </div>
+            <div style="display:flex;gap:0.5rem;align-items:center;">
+                <button type="button" id="abo-push-banner-btn" style="padding:0.4rem 0.9rem;font-size:0.75rem;background:var(--abo-lime);color:#0a0a0b;border:none;font-weight:700;border-radius:6px;cursor:pointer;">Enable</button>
+                <button type="button" id="abo-push-banner-close" style="background:none;border:none;color:#888;cursor:pointer;font-size:1.2rem;padding:0 0.25rem;line-height:1;">&times;</button>
+            </div>
+        </div>
+
         <script>
             (function () {
                 const statusEl = document.getElementById('account-push-status');
+                const helpEl = document.getElementById('account-push-help');
                 const btnEl = document.getElementById('account-push-btn');
+                const testBtnEl = document.getElementById('account-push-test-btn');
+                const bannerEl = document.getElementById('abo-push-banner');
+                const bannerBtnEl = document.getElementById('abo-push-banner-btn');
+                const bannerCloseEl = document.getElementById('abo-push-banner-close');
 
                 if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
                     if (statusEl) statusEl.textContent = 'Not supported by this browser';
@@ -97,6 +114,7 @@
 
                 const vapidKey = @json(config('webpush.vapid.public_key'));
                 const subscribeUrl = @json(route('store.push.subscriptions.update'));
+                const testUrl = @json(route('store.push.subscriptions.test'));
 
                 function urlBase64ToUint8Array(base64String) {
                     const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -110,21 +128,45 @@
                 }
 
                 function updateUI() {
-                    if (!statusEl) return;
-                    if (Notification.permission === 'granted') {
-                        statusEl.textContent = 'Active ✓';
-                        statusEl.style.color = 'var(--abo-lime)';
+                    const perm = Notification.permission;
+                    if (perm === 'granted') {
+                        if (statusEl) {
+                            statusEl.textContent = 'Active ✓';
+                            statusEl.style.color = 'var(--abo-lime)';
+                        }
+                        if (helpEl) helpEl.style.display = 'none';
                         if (btnEl) btnEl.style.display = 'none';
-                    } else if (Notification.permission === 'denied') {
-                        statusEl.textContent = 'Blocked (allow in browser site settings)';
-                        statusEl.style.color = '#ff5c5c';
-                        if (btnEl) btnEl.style.display = 'none';
+                        if (testBtnEl) testBtnEl.style.display = 'inline-flex';
+                        if (bannerEl) bannerEl.style.display = 'none';
+                    } else if (perm === 'denied') {
+                        if (statusEl) {
+                            statusEl.textContent = 'Blocked ❌';
+                            statusEl.style.color = '#ff5c5c';
+                        }
+                        if (helpEl) {
+                            helpEl.textContent = 'Notifications are blocked in your browser. Click the lock icon 🔒 beside the URL bar to allow notifications, then reload.';
+                            helpEl.style.display = 'block';
+                        }
+                        if (btnEl) {
+                            btnEl.style.display = 'inline-flex';
+                            btnEl.textContent = 'Re-check Settings';
+                        }
+                        if (testBtnEl) testBtnEl.style.display = 'none';
+                        if (bannerEl) bannerEl.style.display = 'none';
                     } else {
-                        statusEl.textContent = 'Not enabled';
-                        statusEl.style.color = 'var(--abo-gray)';
+                        if (statusEl) {
+                            statusEl.textContent = 'Not enabled';
+                            statusEl.style.color = 'var(--abo-gray)';
+                        }
+                        if (helpEl) helpEl.style.display = 'none';
                         if (btnEl) {
                             btnEl.style.display = 'inline-flex';
                             btnEl.textContent = 'Enable Notifications';
+                        }
+                        if (testBtnEl) testBtnEl.style.display = 'none';
+
+                        if (bannerEl && !sessionStorage.getItem('abo_push_dismissed')) {
+                            bannerEl.style.display = 'flex';
                         }
                     }
                 }
@@ -136,29 +178,41 @@
                     }
                     return reg.pushManager.getSubscription().then(function (sub) {
                         if (sub) {
-                            updateUI();
-                            return;
+                            return sendSubscriptionToBackend(sub);
                         }
                         return reg.pushManager.subscribe({
                             userVisibleOnly: true,
                             applicationServerKey: urlBase64ToUint8Array(vapidKey)
                         }).then(function (newSub) {
-                            return fetch(subscribeUrl, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                                    'Accept': 'application/json'
-                                },
-                                body: JSON.stringify(newSub)
-                            }).then(function () {
-                                updateUI();
-                            });
+                            return sendSubscriptionToBackend(newSub);
                         });
+                    }).catch(function (err) {
+                        console.error('Subscription error:', err);
                     });
                 }
 
-                // If already granted, register & ensure subscribed
+                function sendSubscriptionToBackend(sub) {
+                    return fetch(subscribeUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify(sub)
+                    }).then(function (res) {
+                        if (res.ok) {
+                            updateUI();
+                        } else {
+                            res.json().then(function(err) {
+                                console.warn('Push subscription failed on server:', err);
+                            });
+                        }
+                    }).catch(function (err) {
+                        console.error('Network error saving subscription:', err);
+                    });
+                }
+
                 navigator.serviceWorker.register('/sw.js').then(function (reg) {
                     updateUI();
                     if (Notification.permission === 'granted') {
@@ -168,22 +222,74 @@
                     console.warn('SW registration failed:', e);
                 });
 
-                // User gesture click handler: 100% compliant with browser permission policies
-                if (btnEl) {
-                    btnEl.addEventListener('click', function () {
+                function triggerPrompt() {
+                    if (Notification.permission === 'denied') {
+                        alert('Notifications are blocked in your browser.\n\nPlease click the lock icon 🔒 in your address bar, find Notifications, change it to "Allow", and reload.');
+                        return;
+                    }
+                    if (btnEl) {
                         btnEl.disabled = true;
                         btnEl.textContent = 'Requesting…';
-                        Notification.requestPermission().then(function (perm) {
-                            btnEl.disabled = false;
-                            updateUI();
-                            if (perm === 'granted') {
-                                navigator.serviceWorker.ready.then(function (reg) {
-                                    subscribeUser(reg);
-                                });
+                    }
+                    Notification.requestPermission().then(function (perm) {
+                        if (btnEl) btnEl.disabled = false;
+                        updateUI();
+                        if (perm === 'granted') {
+                            navigator.serviceWorker.ready.then(function (reg) {
+                                subscribeUser(reg);
+                            });
+                        }
+                    }).catch(function () {
+                        if (btnEl) btnEl.disabled = false;
+                        updateUI();
+                    });
+                }
+
+                if (btnEl) {
+                    btnEl.addEventListener('click', triggerPrompt);
+                }
+
+                if (bannerBtnEl) {
+                    bannerBtnEl.addEventListener('click', function () {
+                        if (bannerEl) bannerEl.style.display = 'none';
+                        triggerPrompt();
+                    });
+                }
+
+                if (bannerCloseEl) {
+                    bannerCloseEl.addEventListener('click', function () {
+                        sessionStorage.setItem('abo_push_dismissed', '1');
+                        if (bannerEl) bannerEl.style.display = 'none';
+                    });
+                }
+
+                if (testBtnEl) {
+                    testBtnEl.addEventListener('click', function () {
+                        testBtnEl.disabled = true;
+                        const originalText = testBtnEl.textContent;
+                        testBtnEl.textContent = 'Sending…';
+
+                        fetch(testUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                                'Accept': 'application/json'
                             }
-                        }).catch(function () {
-                            btnEl.disabled = false;
-                            updateUI();
+                        }).then(function (res) {
+                            return res.json();
+                        }).then(function (data) {
+                            testBtnEl.disabled = false;
+                            testBtnEl.textContent = originalText;
+                            if (data.success) {
+                                alert('🎉 Test notification dispatched!\nCheck your screen / notification tray.');
+                            } else {
+                                alert('⚠️ Delivery blip: ' + (data.message || 'Unknown error'));
+                            }
+                        }).catch(function (err) {
+                            testBtnEl.disabled = false;
+                            testBtnEl.textContent = originalText;
+                            alert('⚠️ Request error: ' + err.message);
                         });
                     });
                 }

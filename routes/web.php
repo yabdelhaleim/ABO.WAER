@@ -559,10 +559,12 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     // WebPush subscription endpoints for logged in Admin
     Route::post('/push-subscriptions', [PushSubscriptionController::class, 'update'])->name('push.subscriptions.update');
     Route::delete('/push-subscriptions', [PushSubscriptionController::class, 'destroy'])->name('push.subscriptions.destroy');
+    Route::post('/push-subscriptions/test', [PushSubscriptionController::class, 'sendTest'])->name('push.subscriptions.test');
 });
 
 // WebPush subscription endpoints for Customer / Public Store
 Route::middleware('web')->group(function () {
     Route::post('/push-subscriptions', [PushSubscriptionController::class, 'update'])->name('store.push.subscriptions.update');
     Route::delete('/push-subscriptions', [PushSubscriptionController::class, 'destroy'])->name('store.push.subscriptions.destroy');
+    Route::post('/push-subscriptions/test', [PushSubscriptionController::class, 'sendTest'])->name('store.push.subscriptions.test');
 });

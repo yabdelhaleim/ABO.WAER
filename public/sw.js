@@ -1,10 +1,6 @@
 'use strict';
 
 self.addEventListener('push', function (event) {
-    if (!(self.Notification && self.Notification.permission === 'granted')) {
-        return;
-    }
-
     let data = {};
     if (event.data) {
         try {
@@ -22,13 +18,17 @@ self.addEventListener('push', function (event) {
         body: data.body || '',
         icon: data.icon || '/images/abo-logo.svg',
         badge: data.badge || '/images/abo-logo.svg',
-        tag: data.tag || 'abo-notification',
+        tag: data.tag || ('abo-notification-' + Date.now()),
         vibrate: data.vibrate || [200, 100, 200],
         data: data.data || {},
         actions: data.actions || []
     };
 
-    event.waitUntil(self.registration.showNotification(title, options));
+    event.waitUntil(
+        self.registration.showNotification(title, options).catch(function (err) {
+            console.error('showNotification failed:', err);
+        })
+    );
 });
 
 self.addEventListener('notificationclick', function (event) {

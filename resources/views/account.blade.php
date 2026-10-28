@@ -137,11 +137,19 @@
 
                     <div class="account__detail" id="account-push-section">
                         <dt class="account__detail-label">Push Notifications</dt>
-                        <dd class="account__detail-value" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-top:0.4rem;flex-wrap:wrap;">
-                            <span id="account-push-status" style="color:var(--abo-gray);font-size:0.85rem;">Checking…</span>
-                            <button type="button" id="account-push-btn" class="store-btn store-btn--secondary" style="padding:0.4rem 1.1rem;font-size:0.75rem;min-height:36px;display:none;">
-                                Enable Notifications
-                            </button>
+                        <dd class="account__detail-value" style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-top:0.5rem;flex-wrap:wrap;">
+                            <div>
+                                <span id="account-push-status" style="font-weight:600;font-size:0.875rem;color:var(--abo-gray);">Checking…</span>
+                                <p id="account-push-help" style="margin:0.25rem 0 0 0;font-size:0.75rem;color:#ff5c5c;display:none;"></p>
+                            </div>
+                            <div style="display:flex;gap:0.5rem;align-items:center;">
+                                <button type="button" id="account-push-btn" class="store-btn store-btn--secondary" style="padding:0.45rem 1.1rem;font-size:0.8rem;min-height:36px;display:none;">
+                                    Enable Notifications
+                                </button>
+                                <button type="button" id="account-push-test-btn" class="store-btn store-btn--secondary" style="padding:0.45rem 1.1rem;font-size:0.8rem;min-height:36px;display:none;">
+                                    🔔 Send Test Notification
+                                </button>
+                            </div>
                         </dd>
                     </div>
                 </dl>
