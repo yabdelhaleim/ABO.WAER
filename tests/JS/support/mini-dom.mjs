@@ -362,6 +362,21 @@ export function createBrowser() {
     const window = {
         CSS: { escape: (value) => String(value) },
         location: { assign() {} },
+        // The home module asks the browser how far the page is scrolled
+        // and whether the visitor asked for reduced motion. The answer
+        // here is "not scrolled" and "no preference" — the same as a
+        // desktop browser that has not set it.
+        scrollY: 0,
+        innerWidth: 1024,
+        outerWidth: 1024,
+        matchMedia: (query) => ({
+            matches: false,
+            media: query,
+            addEventListener() {},
+            removeEventListener() {},
+            addListener() {},
+            removeListener() {},
+        }),
         // The print documents open in a new tab. The calls are recorded
         // so a test can read the URL that was opened; there is no tab
         // here to open.
@@ -374,10 +389,17 @@ export function createBrowser() {
             windowListeners[type] = windowListeners[type] || [];
             windowListeners[type].push(handler);
         },
+        removeEventListener: (type, handler) => {
+            windowListeners[type] = (windowListeners[type] || []).filter((h) => h !== handler);
+        },
         dispatchEvent: (type, event) => {
             (windowListeners[type] || []).forEach((handler) => handler(event));
         },
     };
+
+    // The touch check the home module makes before it wires the mouse
+    // parallax: no touch points, so the parallax stays on.
+    const navigator = { maxTouchPoints: 0 };
 
     const store = new Map();
 
@@ -392,7 +414,7 @@ export function createBrowser() {
         clear: () => store.clear(),
     };
 
-    return { document, window, localStorage, root, FakeElement, opened };
+    return { document, window, navigator, localStorage, root, FakeElement, opened };
 }
 
 /**
@@ -405,6 +427,14 @@ export function installGlobals(browser, fetchImpl) {
     globalThis.localStorage = browser.localStorage;
     globalThis.fetch = fetchImpl;
     globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 0);
+
+    // Node ships a `navigator` global of its own and it is read-only, so
+    // the page's navigator is defined rather than assigned.
+    Object.defineProperty(globalThis, 'navigator', {
+        value: browser.navigator,
+        configurable: true,
+        writable: true,
+    });
 }
 
 /**

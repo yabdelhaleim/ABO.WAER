@@ -30,6 +30,7 @@ use App\Http\Controllers\Store\CartController;
 use App\Http\Controllers\Store\CheckoutController;
 use App\Http\Controllers\Store\CouponController as StoreCouponController;
 use App\Http\Controllers\Store\HomeController;
+use App\Http\Controllers\Store\NewsletterController;
 use App\Http\Controllers\Store\OrderController;
 use App\Http\Controllers\Store\PageController as StorePageController;
 use App\Http\Controllers\Store\SearchController;
@@ -117,6 +118,21 @@ Route::middleware('web')->group(function () {
     Route::get('/checkout/success/{order}', [CheckoutController::class, 'success'])
         ->name('checkout.success')
         ->where('order', '^ABO-\d{4}-\d+$');
+
+    // Newsletter — the list behind the home page's signup form. The
+    // form used to be a theatre: it printed "YOU'RE IN ✓" without
+    // sending anything, so the shopper was told they had subscribed
+    // and the store never learned their address. These two routes
+    // write the address and take it off the list again.
+    //
+    // Throttled to 5/min per IP because the endpoint is public and an
+    // open signup is an open spam list.
+    Route::post('/newsletter/subscribe', [NewsletterController::class, 'subscribe'])
+        ->middleware('throttle:newsletter')
+        ->name('newsletter.subscribe');
+    Route::post('/newsletter/unsubscribe', [NewsletterController::class, 'unsubscribe'])
+        ->middleware('throttle:newsletter')
+        ->name('newsletter.unsubscribe');
 
     // Content pages — DB-driven via Store\PageController. All 5 pages
     // share a single Blade view (content.blade.php) which receives

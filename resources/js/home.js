@@ -9,6 +9,8 @@
 //      when the intro is disabled / skipped / already seen)
 // The timeline is the same in both cases.
 
+import { apiRequest } from './cart-client.js';
+
 const HOME_TOTAL_MS = 2600;
 const REDUCED_HOME_MS = 400;
 
@@ -367,7 +369,17 @@ function initStickyHeader() {
     window.addEventListener('scroll', update, { passive: true });
 }
 
-// ─── Newsletter (no page reload, success state) ────────────────
+// ─── Newsletter ──────────────────────────────────────────────────
+//
+// The form used to be a theatre: the browser checked the address,
+// waited 700ms and printed "YOU'RE IN ✓" without sending anything.
+// The shopper was told they had subscribed and the store never
+// learned their address.
+//
+// The form posts to the server now, and the success state appears
+// only once the server has written the subscription down. A request
+// that fails says so — the page never claims a subscription that did
+// not happen.
 
 function initNewsletter() {
     const form = document.querySelector('[data-home-newsletter]');
@@ -375,28 +387,49 @@ function initNewsletter() {
     const input = form.querySelector('input[type="email"]');
     const btn = form.querySelector('button[type="submit"]');
     const success = form.querySelector('[data-home-newsletter-success]');
+    const hint = document.querySelector('.newsletter__hint');
 
     const validEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || '').trim());
 
-    form.addEventListener('submit', (ev) => {
+    const say = (text) => {
+        if (hint) hint.textContent = text || '';
+    };
+
+    form.addEventListener('submit', async (ev) => {
         ev.preventDefault();
+
         if (!validEmail(input.value)) {
             input.setAttribute('aria-invalid', 'true');
+            say('Please enter a valid email address.');
             input.focus();
             return;
         }
+
         input.removeAttribute('aria-invalid');
         btn.setAttribute('data-loading', 'true');
         btn.disabled = true;
-        // No backend endpoint yet (per spec, no fake subscriptions).
-        // Show success after a short delay so the user sees the
-        // state transition (loading → success).
-        setTimeout(() => {
-            btn.removeAttribute('data-loading');
-            btn.textContent = success?.textContent || "YOU'RE IN ✓";
-            input.value = '';
-            input.disabled = true;
-        }, 700);
+        say('');
+
+        const result = await apiRequest('POST', form.getAttribute('action'), {
+            email: input.value.trim(),
+        });
+
+        btn.removeAttribute('data-loading');
+        btn.disabled = false;
+
+        if (!result.ok) {
+            // The address was not saved. Say so — do not thank the
+            // shopper for a subscription that did not happen.
+            say(result.message || 'We could not save your subscription. Please try again.');
+            return;
+        }
+
+        say(result.data && result.data.message ? result.data.message : '');
+
+        if (success) success.hidden = false;
+
+        input.value = '';
+        input.disabled = true;
     });
 }
 

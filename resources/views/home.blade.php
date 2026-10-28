@@ -245,7 +245,18 @@
             <h2 class="newsletter__headline">{{ $newsletter['headline'] }}</h2>
             <p class="newsletter__subline">{{ $newsletter['subline'] }}</p>
 
-            <form class="newsletter__form" data-home-newsletter novalidate>
+            {{-- The form posts to the server: the address is written to
+                 the newsletter_subscribers table before the browser says
+                 "YOU'RE IN". With JavaScript off the same form posts
+                 itself and the server answers with a redirect. --}}
+            <form
+                class="newsletter__form"
+                data-home-newsletter
+                action="{{ route('newsletter.subscribe') }}"
+                method="POST"
+                novalidate
+            >
+                @csrf
                 <label class="sr-only" for="newsletter-email">Email address</label>
                 <input
                     id="newsletter-email"
@@ -261,7 +272,7 @@
                 </button>
                 <span class="newsletter__success" data-home-newsletter-success hidden>{{ $newsletter['success'] }}</span>
             </form>
-            <p class="newsletter__hint" role="status" aria-live="polite"></p>
+            <p class="newsletter__hint" role="status" aria-live="polite">{{ session('status') }}</p>
         </div>
     </section>
 
