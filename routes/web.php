@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\PageController as AdminPageController;
 use App\Http\Controllers\Admin\PasswordResetController;
 use App\Http\Controllers\Admin\ProductBulkController;
 use App\Http\Controllers\Admin\ProductController;
+use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\ShippingController;
 use App\Http\Controllers\Admin\SizeGuideController;
 use App\Http\Controllers\Auth\LoginController;
@@ -286,23 +287,13 @@ Route::middleware(['web', 'admin', 'admin.permission:settings'])->get('/admin/se
 // name `admin.campaigns.v2` never resolved. The screen is served by
 // Admin\CampaignController.
 
-// ─── Admin: Reports preview (front-end only) ──────────────────────────
-// Placeholder route that renders the new admin.reports.index view — used to
-// preview the front-end design before the analytics page is wired up to the
-// database. Closure-only, no controller, no model, no validation. No
-// protected admin.reports route exists, so the URL stays `/admin/reports`
-// (no `-v2` suffix needed) and only the route name is suffixed with `.v2`
-// (per the project convention).
-//
-// Nothing shadows this route, so the `admin` middleware is what keeps the
-// analytics page off the public internet. To open the page in a browser:
-// log in at /admin/login, then visit /admin/reports. The Reports link in
-// the sidebar partial (resources/views/admin/partials/sidebar.blade.php) is
-// the shared `#/reports` item; we pass `activeHash` here so the sidebar
-// highlights Reports while this preview is open.
-Route::middleware(['web', 'admin', 'admin.permission:reports'])->get('/admin/reports', function () {
-    return view('admin.reports.index', ['activeHash' => '#/reports']);
-})->name('admin.reports.v2');
+// ─── Admin: Reports (no preview) ────────────────────────────────────────────
+// The `/admin/reports` preview closure is gone. It served the same URL as
+// the protected `admin.reports.index` route further down with a static
+// REPORTS_DATA object behind it, so the preview had already replaced the
+// wired page and the name `admin.reports.v2` never resolved. The screen is
+// served by Admin\ReportController and every number on it is measured from
+// the database.
 
 // ─── Admin: Protected ────────────────────────────────────────────────────────
 //
@@ -475,6 +466,16 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     Route::middleware('admin.permission:pages')->group(function () {
         Route::get('/pages', [AdminPageController::class, 'index'])->name('pages.index');
         Route::match(['put', 'patch'], '/pages/{page}', [AdminPageController::class, 'update'])->name('pages.update');
+    });
+
+    // Reports — the analytics screen. The page carries the report the
+    // server measured; the range endpoint answers the same report for
+    // another range so the toolbar never reloads the page, and the
+    // export streams the report as a CSV.
+    Route::middleware('admin.permission:reports')->group(function () {
+        Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+        Route::get('/reports/range/{range}', [ReportController::class, 'range'])->name('reports.range');
+        Route::get('/reports/export', [ReportController::class, 'export'])->name('reports.export');
     });
 
     // Shipping — zones, their governorates, and the global shipping settings.

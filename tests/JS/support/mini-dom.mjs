@@ -105,6 +105,7 @@ class FakeText {
 class FakeElement {
     constructor(tagName) {
         this.tagName = String(tagName).toUpperCase();
+        this.nodeType = 1;
         this.childNodes = [];
         this.parentNode = null;
         this.attributes = {};
@@ -121,6 +122,23 @@ class FakeElement {
         if (this.childNodes.length === 0) return this.text;
 
         return this.childNodes.map((node) => node.textContent ?? '').join('');
+    }
+
+    /**
+     * The element this one sits in.
+     */
+    get parentElement() {
+        return this.parentNode && this.parentNode.nodeType === 1 ? this.parentNode : null;
+    }
+
+    /**
+     * Where the element is on the page.
+     *
+     * The charts read it to place their tooltip; the numbers do not
+     * matter here, only that the call works.
+     */
+    getBoundingClientRect() {
+        return { x: 0, y: 0, top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0 };
     }
 
     set textContent(value) {
@@ -321,6 +339,9 @@ export function createBrowser() {
         documentElement: root,
         body: root,
         createElement: (tag) => new FakeElement(tag),
+        // The SVG charts are built with createElementNS; the namespace
+        // makes no difference to the element itself here.
+        createElementNS: (_namespace, tag) => new FakeElement(tag),
         createTextNode: (text) => new FakeText(text),
         querySelector: (selector) => root.querySelector(selector),
         querySelectorAll: (selector) => root.querySelectorAll(selector),

@@ -1,11 +1,12 @@
 {{--
-    Admin · Reports (front-end only, static data).
+    Admin · Reports.
 
-    Extends the existing admin layout. No controller, no model, no
-    fetch / XHR. Every section hydrates from the REPORTS_DATA object
-    at the top of public/admin/js/reports.js. Both are marked
-    TODO(backend) so a real analytics service can be wired up later
-    without changing the view or the components.
+    Extends the existing admin layout. Every number on this screen is
+    measured by App\Services\Admin\ReportService and handed to the
+    browser in one payload: the series, the totals, the breakdowns and
+    the top products. The browser draws that payload and asks the
+    server for another range when the toolbar changes — it never
+    invents a number.
 
     Page sections (top to bottom):
       1. Page header — INSIGHTS eyebrow, "RE" + "PORTS" title,
@@ -22,7 +23,7 @@
       6. Second row  — 1.6fr / 1fr: per-tab content
                        (governorate/profit/waste + segmented bar).
       7. Top products tab — sortable table + search + category filter.
-      8. Footer note — "Sample data" + generated date.
+      8. Footer note — the range that is on screen + generated date.
 
     Conventions match every other admin page in this area:
       - Extends admin.layouts.app; the sidebar + topbar partials
@@ -49,7 +50,7 @@
             <h1 class="abo-admin-page__title abo-admin-reports__title">
                 <span class="abo-admin-reports__title-white">RE</span><span class="abo-admin-reports__title-lime">PORTS</span>
             </h1>
-            <p class="abo-admin-page__date" id="abo-admin-reports-generated">Sample data — generated …</p>
+            <p class="abo-admin-page__date" id="abo-admin-reports-generated">{{ $payload['range']['label'] }} — generated …</p>
         </div>
 
         <div class="abo-admin-page__head-actions">
@@ -83,11 +84,11 @@
             <div class="abo-admin-reports__custom" data-abo-admin-reports-custom hidden>
                 <label class="abo-admin-reports__custom-field">
                     <span>FROM</span>
-                    <input type="date" data-abo-admin-reports-from value="2026-10-01">
+                    <input type="date" data-abo-admin-reports-from value="{{ $defaults['from'] }}">
                 </label>
                 <label class="abo-admin-reports__custom-field">
                     <span>TO</span>
-                    <input type="date" data-abo-admin-reports-to value="2026-10-17">
+                    <input type="date" data-abo-admin-reports-to value="{{ $defaults['to'] }}">
                 </label>
             </div>
         </div>
@@ -221,13 +222,13 @@
     {{-- ─── Footer note ─────────────────────────────────────────── --}}
     <footer class="abo-admin-reports__foot">
         <span class="abo-admin-reports__foot-pill" aria-hidden="true"></span>
-        <span>Sample data — generated <time data-abo-admin-reports-generated-time datetime="">{{ now()->toDateString() }}</time></span>
+        <span>{{ $payload['range']['label'] }} — generated <time data-abo-admin-reports-generated-time datetime="">{{ now()->toDateString() }}</time></span>
     </footer>
 
-    {{-- ─── Page-local toast (export demo) ──────────────────────── --}}
+    {{-- ─── Page-local toast ─────────────────────────────────────── --}}
     <div class="abo-admin-reports__toast" role="status" aria-live="polite" hidden data-abo-admin-reports-toast>
         <span class="abo-admin-reports__toast-dot" aria-hidden="true"></span>
-        <span data-abo-admin-reports-toast-text>Export started (demo)</span>
+        <span data-abo-admin-reports-toast-text>Export ready</span>
     </div>
 @endsection
 
@@ -237,6 +238,12 @@
 @endpush
 
 @push('scripts')
+    {{-- The report the server measured, and the routes it answers on.
+         public/admin/js/reports.js draws the payload and asks the
+         server for another range when the toolbar changes. --}}
+    <script type="application/json" data-abo-admin-reports-payload>{!! json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+    <script type="application/json" data-abo-admin-reports-routes>{!! json_encode($routes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+
     {{-- Page-local script. Loaded only on the reports page. --}}
     <script src="{{ asset('admin/js/reports.js') }}" defer></script>
 @endpush

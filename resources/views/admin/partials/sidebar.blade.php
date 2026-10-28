@@ -25,7 +25,7 @@
         'GROWTH' => [
             ['num' => '11', 'label' => 'Coupons',     'url' => route('admin.coupons.index'),           'active' => request()->routeIs('admin.coupons*')],
             ['num' => '12', 'label' => 'Campaigns',   'url' => route('admin.campaigns.index'),         'active' => request()->routeIs('admin.campaigns*')],
-            ['num' => '13', 'label' => 'Reports',     'url' => route('admin.reports.v2'),              'active' => request()->routeIs('admin.reports*')],
+            ['num' => '13', 'label' => 'Reports',     'url' => route('admin.reports.index'),          'active' => request()->routeIs('admin.reports*')],
         ],
         'SYSTEM' => [
             ['num' => '14', 'label' => 'Admins',      'url' => route('admin.admins.index'),            'active' => request()->routeIs('admin.admins*')],

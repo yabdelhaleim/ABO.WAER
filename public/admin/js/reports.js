@@ -1,13 +1,17 @@
-// ABO Admin · Reports (front-end only, static data).
+// ABO Admin · Reports.
 //
-// Scope (per the project scope rules):
-//   - No fetch / XHR / WebSockets. No localStorage / IndexedDB.
-//   - Every section hydrates from the static REPORTS_DATA object
-//     below. The shape is final; replacing values with API data is
-//     the only change required to wire a real backend.
+// The screen draws the report the server measured.
+//
+//   - The page carries the report in a JSON tag; every section
+//     hydrates from it. When the toolbar changes the range, the
+//     browser asks the server for that range and replaces the report
+//     with the answer — it never measures anything itself.
+//   - The "compare to previous period" arrows are the real
+//     difference against the period before this one, which the server
+//     measured too.
 //   - Charts are plain SVG, drawn in this file. No chart library.
-//   - Export buttons are visual only — they fire a toast saying
-//     "Export started (demo)".
+//   - EXPORT CSV downloads the report from the server; EXPORT PDF
+//     opens the print dialog, where the browser can save it as a PDF.
 
 /* eslint-disable no-console */
 
@@ -56,129 +60,74 @@ const fmtDate = (d) => {
     }
 };
 
-// ─── Static data (single source of truth) ─────────────────────
+// ─── The report (single source of truth) ───────────────────────
 
-// TODO(backend): replace with API data. Every reference below
-// stays — only the values change.
-const REPORTS_DATA = {
-    // Each per-day series. Index 0 = oldest, last = most recent.
-    // Values are realistic magnitudes; the JS layer applies small
-    // scaling multipliers per range so "Today" / "7d" / "30d" /
-    // "This month" all look distinct without authoring four arrays.
-    series: {
-        // Day labels; only the trailing N are kept for the active range.
-        days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+// The report the server measured. The page carries it in a JSON tag
+// and the browser draws it; when the toolbar changes the range the
+// screen asks the server for that range and replaces this one with
+// the answer.
+let REPORT = readJson('[data-abo-admin-reports-payload]');
 
-        // Revenue (EGP) per day.
-        revenue: [12_400, 14_800, 11_200, 17_600, 21_300, 18_400, 19_750],
+// The routes the server answers on.
+const ROUTES = readJson('[data-abo-admin-reports-routes]') || {};
 
-        // Orders per day.
-        orders:  [18, 22, 16, 27, 33, 28, 31],
+/**
+ * Read one of the page's JSON tags.
+ */
+function readJson(selector) {
+    const node = document.querySelector(selector);
+    if (!node) return null;
+    try {
+        return JSON.parse(node.textContent);
+    } catch (err) {
+        return null;
+    }
+}
 
-        // Net profit per day.
-        profit:  [3_100, 3_900, 2_700, 4_650, 5_800, 4_900, 5_320],
+/**
+ * The series of the range on screen.
+ *
+ * The server sends the numbers as they are; nothing here scales them.
+ */
+function currentSeries() {
+    const s = (REPORT && REPORT.series) || {};
+    return {
+        days: s.days || [],
+        revenue: s.revenue || [],
+        orders: s.orders || [],
+        items: s.items || [],
+        profit: s.profit || [],
+        cog: s.cog || [],
+        ship: s.ship || [],
+        returns: s.returns || [],
+        waste: s.waste || [],
+    };
+}
 
-        // Cost of goods per day.
-        cog:     [7_400, 8_700, 6_700, 10_300, 12_500, 10_800, 11_600],
+/**
+ * The totals of the range on screen.
+ */
+function currentTotals() {
+    return (REPORT && REPORT.totals) || {};
+}
 
-        // Shipping cost per day.
-        ship:    [1_900, 2_200, 1_800, 2_650, 2_990, 2_700, 2_850],
+/**
+ * The totals of the period before the one on screen.
+ */
+function previousTotals() {
+    return (REPORT && REPORT.previous && REPORT.previous.totals) || {};
+}
 
-        // Returns per day (count of returned orders).
-        returns: [1, 2, 0, 1, 3, 2, 2],
-
-        // Waste value per day (EGP).
-        waste:   [620, 980, 0, 410, 1_540, 870, 1_080],
-    },
-
-    // The 4 reason buckets for the stacked chart + reasons list.
-    reasons: [
-        { key: 'size',    label: 'Wrong size',     color: 'coral' },
-        { key: 'damaged', label: 'Damaged',        color: 'amber' },
-        { key: 'wrong',   label: 'Not as described', color: 'dim'   },
-        { key: 'other',   label: 'Other',          color: 'stone' },
-    ],
-
-    // Reason counts per day — used by the stacked chart. Numbers
-    // intentionally small so the stack reads cleanly.
-    reasonsByDay: [
-        { size: 1, damaged: 0, wrong: 0, other: 0 },
-        { size: 1, damaged: 1, wrong: 0, other: 0 },
-        { size: 0, damaged: 0, wrong: 0, other: 0 },
-        { size: 1, damaged: 0, wrong: 0, other: 0 },
-        { size: 1, damaged: 1, wrong: 1, other: 0 },
-        { size: 1, damaged: 1, wrong: 0, other: 0 },
-        { size: 1, damaged: 1, wrong: 0, other: 0 },
-    ],
-
-    // Top governorates — used by Sales by governorate.
-    governorates: [
-        { name: 'Cairo',        share: 32 },
-        { name: 'Giza',         share: 18 },
-        { name: 'Alexandria',   share: 14 },
-        { name: 'Sharqia',      share: 8  },
-        { name: 'Dakahlia',     share: 7  },
-        { name: 'Gharbia',      share: 6  },
-        { name: 'Qalyubia',     share: 5  },
-        { name: 'Beheira',      share: 4  },
-    ],
-
-    // Profit by category — used on the Profit tab.
-    categories: [
-        { name: 'Hoodies',  share: 28 },
-        { name: 'Tees',     share: 22 },
-        { name: 'Pants',    share: 16 },
-        { name: 'Shirts',   share: 12 },
-        { name: 'Jackets',  share: 10 },
-        { name: 'Accessories', share: 7 },
-        { name: 'Footwear', share: 5 },
-    ],
-
-    // Orders by status — reused across the Sales and Profit tabs.
-    statusSegments: [
-        { key: 'new',        label: 'New',         count: 22, hue: 'lime'  },
-        { key: 'processing', label: 'Processing',  count: 14, hue: 'amber' },
-        { key: 'shipped',    label: 'Shipped',     count: 18, hue: 'sky'   },
-        { key: 'delivered',  label: 'Delivered',   count: 96, hue: 'olive' },
-        { key: 'cancelled',  label: 'Cancelled',   count: 6,  hue: 'gray'  },
-    ],
-
-    // Cost breakdown — used on the Profit tab.
-    costBreakdown: [
-        { key: 'cog',  label: 'Cost of goods', count: 51_500, hue: 'lime'  },
-        { key: 'ship', label: 'Shipping',      count: 15_200, hue: 'olive' },
-        { key: 'pay',  label: 'Payment fees',  count: 4_800,  hue: 'amber' },
-        { key: 'mkt',  label: 'Marketing',     count: 3_100,  hue: 'sky'   },
-        { key: 'oth',  label: 'Other',         count: 1_400,  hue: 'gray'  },
-    ],
-
-    // Top products — used on the Top products tab.
-    topProducts: [
-        { id: 'p-01', name: 'Oversize hoodie',     cat: 'Hoodies',     units: 142, rev: 71_000, profit: 21_300, ret: 4.2 },
-        { id: 'p-02', name: 'Cargo pants',         cat: 'Pants',       units: 118, rev: 53_100, profit: 15_900, ret: 6.1 },
-        { id: 'p-03', name: 'Heavy tee',           cat: 'Tees',        units: 96,  rev: 19_200, profit:  6_720, ret: 3.4 },
-        { id: 'p-04', name: 'Linen overshirt',     cat: 'Shirts',      units: 74,  rev: 33_300, profit:  9_990, ret: 8.5 },
-        { id: 'p-05', name: 'Bomber jacket',       cat: 'Jackets',     units: 38,  rev: 30_400, profit:  9_120, ret: 5.2 },
-        { id: 'p-06', name: 'Wide-leg trousers',   cat: 'Pants',       units: 52,  rev: 20_800, profit:  6_240, ret: 2.8 },
-        { id: 'p-07', name: 'Cap',                 cat: 'Accessories', units: 88,  rev:  8_800, profit:  3_520, ret: 1.4 },
-        { id: 'p-08', name: 'Court sneaker',       cat: 'Footwear',    units: 41,  rev: 24_600, profit:  7_380, ret: 9.6 },
-        { id: 'p-09', name: 'Pocket tee',          cat: 'Tees',        units: 65,  rev: 11_700, profit:  4_095, ret: 3.1 },
-        { id: 'p-10', name: 'Coach jacket',        cat: 'Jackets',     units: 22,  rev: 17_600, profit:  5_280, ret: 4.7 },
-    ],
-
-    // Range scaling — multiplies the canonical 7-day series so each
-    // range reads distinctly without authoring 4 separate arrays.
-    rangeScale: {
-        today: 0.32,
-        '7d':  1.0,
-        '30d': 4.0,
-        month: 3.4,
-        custom: 1.4,
-    },
-
-    // Top return reason — used by the Waste tab KPI.
-    topReturnReason: { name: 'Wrong size', share: 48 },
-};
+/**
+ * One list of the report, always an array.
+ *
+ * The browser draws what the server sent; a list that is missing
+ * renders as an empty list rather than as a crash.
+ */
+function reportList(key) {
+    if (!REPORT || !Array.isArray(REPORT[key])) return [];
+    return REPORT[key];
+}
 
 // ─── State ────────────────────────────────────────────────────
 
@@ -193,36 +142,27 @@ const state = {
 
 // ─── Range helpers ────────────────────────────────────────────
 
-function scaledSeries() {
-    const s = REPORTS_DATA.series;
-    const scale = REPORTS_DATA.rangeScale[state.range] ?? 1;
-    return {
-        days: s.days.slice(),
-        revenue:  s.revenue.map((v) => v * scale),
-        orders:   s.orders.map((v)  => v * scale),
-        profit:   s.profit.map((v)  => v * scale),
-        cog:      s.cog.map((v)     => v * scale),
-        ship:     s.ship.map((v)    => v * scale),
-        returns:  s.returns.map((v) => v * scale),
-        waste:    s.waste.map((v)   => v * scale),
-    };
-}
-
-function previousPeriodFactor() {
-    // Compare = on: previous period is roughly the same magnitude
-    // (small noise). Off: no comparison.
-    if (!state.compare) return null;
-    return 0.93;
-}
-
 function delta(cur, prev) {
     if (prev == null || prev === 0) return null;
     return ((cur - prev) / prev) * 100;
 }
 
+/**
+ * The difference against the previous period, or null when the
+ * comparison is off.
+ */
+function periodDelta(key) {
+    if (!state.compare) return null;
+    const cur = currentTotals()[key];
+    const prev = previousTotals()[key];
+    if (cur == null || prev == null) return null;
+    return delta(Number(cur), Number(prev));
+}
+
 // ─── Range label ─────────────────────────────────────────────
 
 function rangeLabel() {
+    if (REPORT && REPORT.range && REPORT.range.label) return REPORT.range.label;
     switch (state.range) {
         case 'today':  return 'Today';
         case '7d':     return 'Last 7 days';
@@ -259,7 +199,7 @@ function setGenerated() {
     const el2 = $('[data-abo-admin-reports-generated-time]');
     const now = new Date();
     const text = fmtDate(now);
-    if (el1) el1.textContent = `Sample data — generated ${text}`;
+    if (el1) el1.textContent = `${rangeLabel()} — generated ${text}`;
     if (el2) {
         el2.textContent = text;
         el2.setAttribute('datetime', now.toISOString());
@@ -316,61 +256,54 @@ function renderKpis() {
     if (!wrap) return;
     wrap.replaceChildren();
 
-    const s = scaledSeries();
-    const prev = previousPeriodFactor();
+    const s = currentSeries();
+    const totals = currentTotals();
+    const topProducts = (REPORT && REPORT.topProducts) || [];
+    const topReason = (REPORT && REPORT.topReturnReason) || { name: '—' };
+
+    // The sparkline of a card is the series it reports, scaled into
+    // 0..1 so the shape reads.
+    const spark = (arr) => {
+        const max = Math.max(...arr, 1);
+        return arr.map((v) => v / max);
+    };
 
     // Build per-tab KPI sets. Each entry is { label, value, delta, tone, spark }.
     let items = [];
     if (state.tab === 'sales') {
-        const sum = (arr) => arr.reduce((a, b) => a + b, 0);
-        const revenue = sum(s.revenue);
-        const orders  = sum(s.orders);
-        const aov     = orders ? revenue / orders : 0;
-        const itemsSold = sum(s.orders.map((o, i) => o * 1.8)); // synthetic items/order ratio
         items = [
-            { label: 'REVENUE',       value: fmtCurrency(revenue),   delta: prev != null ? delta(revenue, revenue * prev) : null, tone: 'lime',  spark: s.revenue.map((v, i, a) => v / Math.max(...a, 1)) },
-            { label: 'ORDERS',        value: fmtNum(orders),          delta: prev != null ? delta(orders, orders * prev) : null,     tone: 'olive', spark: s.orders.map((v, i, a) => v / Math.max(...a, 1)) },
-            { label: 'AVG ORDER',     value: fmtCurrency(aov),        delta: prev != null ? delta(aov, aov * prev) : null,           tone: 'olive', spark: s.revenue.map((v, i, a) => v / Math.max(...a, 1)) },
-            { label: 'ITEMS SOLD',    value: fmtNum(itemsSold),       delta: prev != null ? delta(itemsSold, itemsSold * prev) : null, tone: 'olive', spark: s.orders.map((v, i, a) => v / Math.max(...a, 1)) },
+            { label: 'REVENUE',    value: fmtCurrency(totals.revenue), delta: periodDelta('revenue'), tone: 'lime',  spark: spark(s.revenue) },
+            { label: 'ORDERS',     value: fmtNum(totals.orders),      delta: periodDelta('orders'),  tone: 'olive', spark: spark(s.orders) },
+            { label: 'AVG ORDER',  value: fmtCurrency(totals.aov),     delta: periodDelta('aov'),     tone: 'olive', spark: spark(s.revenue) },
+            { label: 'ITEMS SOLD', value: fmtNum(totals.items),       delta: periodDelta('items'),   tone: 'olive', spark: spark(s.items) },
         ];
     } else if (state.tab === 'profit') {
-        const sum = (arr) => arr.reduce((a, b) => a + b, 0);
-        const revenue = sum(s.revenue);
-        const profit  = sum(s.profit);
-        const cog     = sum(s.cog);
-        const ship    = sum(s.ship);
-        const margin  = revenue ? (profit / revenue) * 100 : 0;
         items = [
-            { label: 'NET PROFIT',    value: fmtCurrency(profit),  delta: prev != null ? delta(profit, profit * prev) : null, tone: 'lime',  spark: s.profit.map((v, i, a) => v / Math.max(...a, 1)) },
-            { label: 'MARGIN %',      value: `${margin.toFixed(1)}%`, delta: prev != null ? delta(margin, margin * 0.95) : null, tone: 'olive', spark: s.profit.map((v, i, a) => v / Math.max(...a, 1)) },
-            { label: 'COST OF GOODS', value: fmtCurrency(cog),     delta: prev != null ? delta(cog, cog * prev) : null,     tone: 'amber', spark: s.cog.map((v, i, a) => v / Math.max(...a, 1)) },
-            { label: 'SHIPPING COST', value: fmtCurrency(ship),    delta: prev != null ? delta(ship, ship * prev) : null,   tone: 'amber', spark: s.ship.map((v, i, a) => v / Math.max(...a, 1)) },
+            { label: 'NET PROFIT',    value: fmtCurrency(totals.profit), delta: periodDelta('profit'), tone: 'lime',  spark: spark(s.profit) },
+            { label: 'MARGIN %',      value: `${Number(totals.margin || 0).toFixed(1)}%`, delta: periodDelta('margin'), tone: 'olive', spark: spark(s.profit) },
+            { label: 'COST OF GOODS', value: fmtCurrency(totals.cog),    delta: periodDelta('cog'),    tone: 'amber', spark: spark(s.cog) },
+            { label: 'SHIPPING COST', value: fmtCurrency(totals.ship),   delta: periodDelta('ship'),   tone: 'amber', spark: spark(s.ship) },
         ];
     } else if (state.tab === 'waste') {
-        const sum = (arr) => arr.reduce((a, b) => a + b, 0);
-        const returned = sum(s.returns);
-        const waste    = sum(s.waste);
-        const totalOrders = sum(s.orders) || 1;
-        const rate = (returned / totalOrders) * 100;
+        const totalOrders = Number(totals.orders || 0) + Number(totals.returns || 0);
+        const rate = totalOrders > 0 ? (Number(totals.returns || 0) / totalOrders) * 100 : 0;
         items = [
-            { label: 'RETURNED ORDERS',  value: fmtNum(returned),                   delta: prev != null ? delta(returned, returned * 1.1) : null, tone: 'amber', spark: s.returns.map((v, i, a) => v / Math.max(...a, 1)) },
-            { label: 'WASTE VALUE',      value: fmtCurrency(waste),                 delta: prev != null ? delta(waste, waste * 0.9) : null,        tone: 'coral', spark: s.waste.map((v, i, a) => v / Math.max(...a, 1)) },
-            { label: 'RETURN RATE %',    value: `${rate.toFixed(1)}%`,               delta: prev != null ? delta(rate, rate * 0.95) : null,         tone: 'coral', spark: s.returns.map((v, i, a) => v / Math.max(...a, 1)) },
-            { label: 'TOP RETURN REASON',value: REPORTS_DATA.topReturnReason.name,   delta: null,                                                       tone: 'amber', spark: [.2, .3, .25, .5, .6, .7, .85] },
+            { label: 'RETURNED ORDERS',   value: fmtNum(totals.returns), delta: periodDelta('returns'), tone: 'amber', spark: spark(s.returns) },
+            { label: 'WASTE VALUE',       value: fmtCurrency(totals.waste), delta: periodDelta('waste'), tone: 'coral', spark: spark(s.waste) },
+            { label: 'RETURN RATE %',     value: `${rate.toFixed(1)}%`, delta: periodDelta('returns'), tone: 'coral', spark: spark(s.returns) },
+            { label: 'TOP RETURN REASON', value: topReason.name, delta: null, tone: 'amber', spark: spark(s.returns) },
         ];
     } else {
-        // Top products tab — show a neutral set so the page is never
-        // empty before the user navigates into the table.
-        const sum = (arr) => arr.reduce((a, b) => a + b, 0);
-        const revenue = sum(s.revenue);
-        const profit  = sum(s.profit);
-        const units   = REPORTS_DATA.topProducts.reduce((a, p) => a + p.units, 0);
-        const avgRet  = REPORTS_DATA.topProducts.reduce((a, p) => a + p.ret, 0) / REPORTS_DATA.topProducts.length;
+        // Top products tab — the numbers the table itself is built on.
+        const units = topProducts.reduce((a, p) => a + Number(p.units || 0), 0);
+        const avgRet = topProducts.length
+            ? topProducts.reduce((a, p) => a + Number(p.ret || 0), 0) / topProducts.length
+            : 0;
         items = [
-            { label: 'TOP UNITS',     value: fmtNum(units),     delta: prev != null ? delta(units, units * prev) : null, tone: 'lime',  spark: s.orders.map((v, i, a) => v / Math.max(...a, 1)) },
-            { label: 'TOP REVENUE',   value: fmtCurrency(revenue), delta: prev != null ? delta(revenue, revenue * prev) : null, tone: 'olive', spark: s.revenue.map((v, i, a) => v / Math.max(...a, 1)) },
-            { label: 'TOP PROFIT',    value: fmtCurrency(profit),  delta: prev != null ? delta(profit, profit * prev) : null, tone: 'lime',  spark: s.profit.map((v, i, a) => v / Math.max(...a, 1)) },
-            { label: 'AVG RETURN RATE', value: `${avgRet.toFixed(1)}%`, delta: null, tone: avgRet > 6 ? 'coral' : 'amber', spark: [.2, .25, .3, .28, .35, .4, .45] },
+            { label: 'TOP UNITS',       value: fmtNum(units), delta: null, tone: 'lime',  spark: spark(s.orders) },
+            { label: 'TOP REVENUE',     value: fmtCurrency(totals.revenue), delta: periodDelta('revenue'), tone: 'olive', spark: spark(s.revenue) },
+            { label: 'TOP PROFIT',      value: fmtCurrency(totals.profit), delta: periodDelta('profit'), tone: 'lime',  spark: spark(s.profit) },
+            { label: 'AVG RETURN RATE', value: `${avgRet.toFixed(1)}%`, delta: null, tone: avgRet > 6 ? 'coral' : 'amber', spark: spark(s.returns) },
         ];
     }
 
@@ -423,7 +356,7 @@ function renderSalesChart() {
     if (!host) return;
     clearChart(host);
 
-    const s = scaledSeries();
+    const s = currentSeries();
     const tip = attachTooltip(host);
 
     const svg = svgNS('svg', { viewBox: `0 0 ${CHART_W} ${CHART_H}`, preserveAspectRatio: 'none', role: 'img' });
@@ -529,7 +462,7 @@ function renderProfitChart() {
     if (!host) return;
     clearChart(host);
 
-    const s = scaledSeries();
+    const s = currentSeries();
     const tip = attachTooltip(host);
 
     const svg = svgNS('svg', { viewBox: `0 0 ${CHART_W} ${CHART_H}`, preserveAspectRatio: 'none', role: 'img' });
@@ -608,14 +541,14 @@ function renderWasteChart() {
     if (!host) return;
     clearChart(host);
 
-    const s = scaledSeries();
+    const s = currentSeries();
     const tip = attachTooltip(host);
 
     const svg = svgNS('svg', { viewBox: `0 0 ${CHART_W} ${CHART_H}`, preserveAspectRatio: 'none', role: 'img' });
     svg.setAttribute('aria-label', 'Stacked bar chart of returns by reason per day for the selected period.');
 
-    const reasons = REPORTS_DATA.reasons;
-    const stacks = REPORTS_DATA.reasonsByDay;
+    const reasons = reportList('reasons');
+    const stacks = reportList('reasonsByDay');
     // Max total per day.
     const maxStack = Math.max(...stacks.map((row) => reasons.reduce((a, r) => a + (row[r.key] || 0), 0)), 1);
     const innerW = CHART_W - PAD.l - PAD.r;
@@ -712,7 +645,7 @@ function renderMainChart() {
             legendEl.appendChild(el('li', {}, [el('span', { class: 'abo-admin-chart__swatch abo-admin-reports__swatch--lime' }), 'Sales']));
             legendEl.appendChild(el('li', {}, [el('span', { class: 'abo-admin-chart__swatch abo-admin-chart__swatch--profit' }), 'Profit']));
         } else if (state.tab === 'waste') {
-            for (const r of REPORTS_DATA.reasons) {
+            for (const r of reportList('reasons')) {
                 const cls = `abo-admin-reports__swatch--${r.color}`;
                 legendEl.appendChild(el('li', {}, [el('span', { class: `abo-admin-chart__swatch ${cls}` }), r.label]));
             }
@@ -778,16 +711,16 @@ function renderReasonsList() {
     if (!host) return;
     host.replaceChildren();
     const ul = el('ul', { class: 'abo-admin-reports__reasons' });
-    const total = REPORTS_DATA.reasonsByDay.reduce(
-        (a, row) => a + REPORTS_DATA.reasons.reduce((b, r) => b + (row[r.key] || 0), 0),
+    const total = reportList('reasonsByDay').reduce(
+        (a, row) => a + reportList('reasons').reduce((b, r) => b + (row[r.key] || 0), 0),
         0,
     );
     if (!total) {
         host.appendChild(el('p', { class: 'abo-admin-empty' }, 'No data for this period.'));
         return;
     }
-    for (const r of REPORTS_DATA.reasons) {
-        const count = REPORTS_DATA.reasonsByDay.reduce((a, row) => a + (row[r.key] || 0), 0);
+    for (const r of reportList('reasons')) {
+        const count = reportList('reasonsByDay').reduce((a, row) => a + (row[r.key] || 0), 0);
         const cls = `abo-admin-reports__reasons-dot abo-admin-reports__bar--${r.color === 'dim' ? 'dim' : r.color === 'stone' ? 'stone' : r.color}`;
         ul.appendChild(el('li', {}, [
             el('span', { class: cls }),
@@ -811,23 +744,23 @@ function renderBreakdown() {
         if (t1) t1.textContent = 'SALES BY GOVERNORATE';
         if (s1) s1.textContent = 'Top 8';
         if (t2) t2.textContent = 'ORDERS BY STATUS';
-        if (s2) s2.textContent = `${REPORTS_DATA.statusSegments.reduce((a, s) => a + s.count, 0)} orders`;
-        renderBarsList(host1, REPORTS_DATA.governorates, { fillClass: '' });
-        renderStatusBar(REPORTS_DATA.statusSegments);
+        if (s2) s2.textContent = `${reportList('statusSegments').reduce((a, s) => a + s.count, 0)} orders`;
+        renderBarsList(host1, reportList('governorates'), { fillClass: '' });
+        renderStatusBar(reportList('statusSegments'));
     } else if (state.tab === 'profit') {
         if (t1) t1.textContent = 'PROFIT BY CATEGORY';
         if (s1) s1.textContent = 'Top categories';
         if (t2) t2.textContent = 'COST BREAKDOWN';
-        if (s2) s2.textContent = `${REPORTS_DATA.costBreakdown.reduce((a, s) => a + s.count, 0)} EGP`;
-        renderBarsList(host1, REPORTS_DATA.categories, { fillClass: '' });
-        renderStatusBar(REPORTS_DATA.costBreakdown);
+        if (s2) s2.textContent = `${reportList('costBreakdown').reduce((a, s) => a + s.count, 0)} EGP`;
+        renderBarsList(host1, reportList('categories'), { fillClass: '' });
+        renderStatusBar(reportList('costBreakdown'));
     } else if (state.tab === 'waste') {
         if (t1) t1.textContent = 'WASTE BY PRODUCT';
-        if (s1) s1.textContent = `${REPORTS_DATA.topProducts.length} items`;
+        if (s1) s1.textContent = `${reportList('topProducts').length} items`;
         if (t2) t2.textContent = 'REASONS';
         if (s2) s2.textContent = 'All returns';
         // For waste, breakdown 1 becomes a simple list, breakdown 2 a count list.
-        renderBarsList(host1, REPORTS_DATA.topProducts.slice(0, 6).map((p) => ({ name: p.name, value: Math.round(p.units * (p.ret / 100)) })), { fillClass: 'abo-admin-reports__bar-fill--coral' });
+        renderBarsList(host1, reportList('topProducts').slice(0, 6).map((p) => ({ name: p.name, value: Math.round(p.units * (p.ret / 100)) })), { fillClass: 'abo-admin-reports__bar-fill--coral' });
         renderReasonsList();
     } else {
         // 'top' tab — the breakdown section is hidden by setTab(),
@@ -839,7 +772,7 @@ function renderBreakdown() {
 
 function sortKey(p, key) {
     switch (key) {
-        case 'rank':   return REPORTS_DATA.topProducts.indexOf(p) + 1;
+        case 'rank':   return reportList('topProducts').indexOf(p) + 1;
         case 'name':   return p.name;
         case 'units':  return p.units;
         case 'rev':    return p.rev;
@@ -856,7 +789,7 @@ function renderTopProducts() {
 
     const q = state.topFilter.q.trim().toLowerCase();
     const cat = state.topFilter.cat;
-    let rows = REPORTS_DATA.topProducts.filter((p) => {
+    let rows = reportList('topProducts').filter((p) => {
         if (cat && p.cat !== cat) return false;
         if (q && !(p.name.toLowerCase().includes(q) || p.cat.toLowerCase().includes(q))) return false;
         return true;
@@ -878,7 +811,7 @@ function renderTopProducts() {
         return;
     }
 
-    const maxRet = Math.max(...REPORTS_DATA.topProducts.map((p) => p.ret), 1);
+    const maxRet = Math.max(...reportList('topProducts').map((p) => p.ret), 1);
     rows.forEach((p, i) => {
         const tr = el('tr', { 'data-abo-admin-reports-row': p.id });
         tr.appendChild(el('td', { text: String(i + 1) }));
@@ -914,7 +847,7 @@ function renderTopProducts() {
 function populateCategoryFilter() {
     const sel = $('[data-abo-admin-reports-top-category]');
     if (!sel) return;
-    const cats = Array.from(new Set(REPORTS_DATA.topProducts.map((p) => p.cat))).sort();
+    const cats = Array.from(new Set(reportList('topProducts').map((p) => p.cat))).sort();
     // Keep the first "All categories" option.
     sel.replaceChildren(el('option', { value: '' }, 'All categories'));
     for (const c of cats) sel.appendChild(el('option', { value: c }, c));
@@ -1039,21 +972,111 @@ function readHash() {
 
 // ─── Date range ───────────────────────────────────────────────
 
-function setRange(range) {
-    state.range = range;
-    const wrap = $('[data-abo-admin-reports-range]');
-    if (wrap) {
-        for (const b of $$('button[data-range]', wrap)) {
-            const isActive = b.dataset.range === range;
-            b.classList.toggle('is-active', isActive);
-            b.setAttribute('aria-selected', isActive ? 'true' : 'false');
-        }
+/**
+ * The URL of the report for a range.
+ *
+ * The custom range carries its two dates; every other range is a
+ * single word the server knows.
+ */
+function rangeUrl(range) {
+    const template = (ROUTES && ROUTES.range && ROUTES.range.url) || '/admin/reports/range/__RANGE__';
+    const url = template.replace('__RANGE__', encodeURIComponent(range));
+
+    if (range !== 'custom') return url;
+
+    const params = new URLSearchParams();
+    if (state.custom.from) params.set('from', state.custom.from);
+    if (state.custom.to) params.set('to', state.custom.to);
+    const query = params.toString();
+
+    return query ? `${url}?${query}` : url;
+}
+
+/**
+ * The URL of the CSV export for the range on screen.
+ */
+function exportUrl() {
+    const template = (ROUTES && ROUTES.export && ROUTES.export.url) || '/admin/reports/export';
+
+    const params = new URLSearchParams();
+    params.set('range', state.range);
+    if (state.range === 'custom') {
+        if (state.custom.from) params.set('from', state.custom.from);
+        if (state.custom.to) params.set('to', state.custom.to);
     }
+
+    return `${template}?${params.toString()}`;
+}
+
+/**
+ * Draw the report that is on screen.
+ */
+function renderReport() {
+    setGenerated();
+    populateCategoryFilter();
+    setTab(state.tab, { skipHash: true });
+}
+
+/**
+ * Mark the range that is on screen in the toolbar.
+ */
+function syncRangeButtons(range) {
+    const wrap = $('[data-abo-admin-reports-range]');
+    if (!wrap) return;
+    for (const b of $$('button[data-range]', wrap)) {
+        const isActive = b.dataset.range === range;
+        b.classList.toggle('is-active', isActive);
+        b.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    }
+}
+
+/**
+ * Switch to another range.
+ *
+ * The server measures it: the screen asks for the range and is
+ * replaced by the answer.
+ */
+async function setRange(range) {
+    state.range = range;
+    syncRangeButtons(range);
+
     const custom = $('[data-abo-admin-reports-custom]');
     if (custom) custom.hidden = range !== 'custom';
-    renderKpis();
-    renderMainChart();
-    renderBreakdown();
+
+    await loadReport();
+}
+
+/**
+ * Ask the server for the report of the current range and draw it.
+ */
+async function loadReport() {
+    const url = rangeUrl(state.range);
+
+    let payload = null;
+    try {
+        const response = await fetch(url, {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+        if (!response.ok) throw new Error(`Request failed (${response.status})`);
+        payload = await response.json();
+    } catch (err) {
+        showToast('The report could not be loaded.');
+        return;
+    }
+
+    if (!payload || !payload.report) {
+        showToast('The report could not be loaded.');
+        return;
+    }
+
+    REPORT = payload.report;
+    state.range = (REPORT.range && REPORT.range.key) || state.range;
+    syncRangeButtons(state.range);
+
+    renderReport();
 }
 
 function initRange() {
@@ -1069,9 +1092,7 @@ function initRange() {
         if (from) state.custom.from = from.value || null;
         if (to)   state.custom.to   = to.value   || null;
         if (state.range === 'custom') {
-            renderKpis();
-            renderMainChart();
-            renderBreakdown();
+            loadReport();
         }
     };
     if (from) from.addEventListener('change', onChange);
@@ -1091,8 +1112,16 @@ function initRange() {
 function initExport() {
     for (const btn of $$('[data-abo-admin-reports-export]')) {
         btn.addEventListener('click', () => {
-            const kind = (btn.dataset.aboAdminReportsExport || 'csv').toUpperCase();
-            showToast(`Export ${kind} started (demo)`);
+            const kind = (btn.dataset.aboAdminReportsExport || 'csv').toLowerCase();
+
+            if (kind === 'pdf') {
+                showToast('Print dialog opened — choose “Save as PDF”.');
+                window.print();
+                return;
+            }
+
+            showToast('The CSV is downloading.');
+            window.location.assign(exportUrl());
         });
     }
 }
@@ -1100,8 +1129,19 @@ function initExport() {
 // ─── Boot ─────────────────────────────────────────────────────
 
 function init() {
-    setGenerated();
-    populateCategoryFilter();
+    // The report on screen was measured for one range; the toolbar
+    // starts on that range, not on a hard-coded one.
+    if (REPORT && REPORT.range && REPORT.range.key) {
+        state.range = REPORT.range.key;
+    }
+
+    const from = $('[data-abo-admin-reports-from]');
+    const to = $('[data-abo-admin-reports-to]');
+    if (from) state.custom.from = from.value || null;
+    if (to) state.custom.to = to.value || null;
+
+    syncRangeButtons(state.range);
+
     initTopSort();
     initTopSearch();
     initTopCategory();
@@ -1110,8 +1150,13 @@ function init() {
     initExport();
 
     const initial = readHash();
-    setTab(initial, { skipHash: true });
-    window.addEventListener('hashchange', () => setTab(readHash(), { skipHash: true }));
+    state.tab = initial;
+    renderReport();
+
+    window.addEventListener('hashchange', () => {
+        state.tab = readHash();
+        setTab(state.tab, { skipHash: true });
+    });
 }
 
 if (document.readyState === 'loading') {
