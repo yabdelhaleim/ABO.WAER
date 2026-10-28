@@ -6,6 +6,7 @@ use App\Enums\CampaignStatus;
 use App\Jobs\SendCampaignJob;
 use App\Models\Campaign;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -218,16 +219,27 @@ class CampaignService
                 ]);
             }
 
-            if ($locked->status === CampaignStatus::Active) {
+            if ($locked->status === CampaignStatus::Active && $locked->sent_at && $locked->sent_at->diffInMinutes(now()) < 5) {
                 throw ValidationException::withMessages([
-                    'campaign' => 'This campaign is already being sent.',
+                    'campaign' => 'This campaign is currently being sent. Please wait a moment.',
                 ]);
             }
 
-            $locked->update(['status' => CampaignStatus::Active]);
+            $locked->update([
+                'status' => CampaignStatus::Active,
+                'sent_at' => now(),
+            ]);
         });
 
-        SendCampaignJob::dispatch($campaign->fresh());
+        try {
+            SendCampaignJob::dispatchSync($campaign->fresh());
+        } catch (\Throwable $e) {
+            Log::error('SendCampaignJob dispatchSync failed: '.$e->getMessage(), [
+                'campaign_id' => $campaign->id,
+                'exception' => $e,
+            ]);
+            SendCampaignJob::dispatch($campaign->fresh());
+        }
     }
 
     /**
