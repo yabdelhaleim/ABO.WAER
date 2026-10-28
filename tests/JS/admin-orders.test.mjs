@@ -108,6 +108,8 @@ const ROUTES = {
     cancel: { url: '/admin/orders/__ORDER__/cancel', method: 'POST' },
     tracking: { url: '/admin/orders/__ORDER__/tracking', method: 'PATCH' },
     export: { url: '/admin/orders/export' },
+    invoice: { url: '/admin/orders/__ORDER__/invoice' },
+    labels: { url: '/admin/orders/labels' },
 };
 
 /**
@@ -194,7 +196,27 @@ function buildPage(browser) {
     // The bulk bar.
     const bulk = el('div', { 'data-abo-admin-orders-bulk': '', hidden: true });
     bulk.appendChild(el('span', { 'data-abo-admin-orders-bulk-count': '' }));
+    bulk.appendChild(el('button', { type: 'button', 'data-abo-admin-orders-bulk-action': 'print' }));
     page.appendChild(bulk);
+
+    // The order slide-over. Every hook orders.js paints into is here,
+    // because the drawer is painted from the dataset when it opens.
+    const drawer = el('aside', { 'data-abo-admin-orders-drawer': '', hidden: true });
+    drawer.appendChild(el('div', { class: 'abo-admin-orders__drawer-overlay' }));
+    drawer.appendChild(el('div', { class: 'abo-admin-orders__drawer-panel' }));
+    for (const hook of [
+        'drawer-id', 'drawer-date', 'drawer-status-wrap', 'drawer-status',
+        'drawer-customer-name', 'drawer-phone', 'drawer-email', 'drawer-address',
+        'drawer-delivery', 'drawer-payment', 'drawer-subtotal', 'drawer-shipping',
+        'drawer-discount-row', 'drawer-discount', 'drawer-coupon', 'drawer-total',
+        'drawer-danger', 'drawer-pos', 'drawer-prev', 'drawer-next',
+        'drawer-items', 'drawer-timeline', 'drawer-notes', 'drawer-note-input',
+        'drawer-status-apply', 'drawer-close',
+    ]) {
+        drawer.appendChild(el('div', { ['data-abo-admin-orders-' + hook]: '' }));
+    }
+    drawer.appendChild(el('button', { type: 'button', 'data-abo-admin-orders-drawer-print': '' }));
+    page.appendChild(drawer);
 
     // The toast.
     const toast = el('div', { 'data-abo-admin-orders-toast': '', hidden: true });
@@ -323,4 +345,74 @@ test('clearing the filters takes them back out of the export link', () => {
 
     assert.equal(params.get('status'), null);
     assert.equal(params.get('q'), null);
+});
+
+// ─── Printing ──────────────────────────────────────────────
+//
+// The PRINT LABELS button in the bulk bar and the print control in
+// the order slide-over used to answer "Labels ready (demo)" and
+// "Invoice ready (demo)" — two toasts and no document. They now open
+// the server-rendered print pages.
+
+test('the print-invoice control opens the invoice of the order in the drawer', () => {
+    const page = run();
+
+    // Open the drawer on the first order. The rows are markup rather
+    // than elements — the script draws the table as a string — so the
+    // drawer is opened the way the page opens it.
+    const view = page.document.createElement('button');
+    view.setAttribute('data-abo-admin-orders-view', 'ABO-2026-1001');
+    page.document.dispatchEvent('click', {
+        target: view,
+        preventDefault() {},
+        stopPropagation() {},
+    });
+
+    const print = page.document.querySelector('[data-abo-admin-orders-drawer-print]');
+    click(print);
+
+    assert.equal(page.browser.opened.length, 1);
+    assert.equal(page.browser.opened[0].url, '/admin/orders/ABO-2026-1001/invoice');
+    assert.equal(page.browser.opened[0].target, '_blank');
+});
+
+test('the print-labels button asks the server for the selected orders', () => {
+    const page = run();
+
+    // Tick a row's checkbox the way the browser does.
+    const check = page.document.createElement('input');
+    check.setAttribute('data-abo-admin-orders-check', 'ABO-2026-1001');
+    check.checked = true;
+    page.document.dispatchEvent('change', { target: check });
+
+    // The bulk bar is handled by the page's click listener, so the
+    // click is dispatched on the document.
+    const bulk = page.document.querySelector('[data-abo-admin-orders-bulk-action="print"]');
+    page.document.dispatchEvent('click', {
+        target: bulk,
+        preventDefault() {},
+        stopPropagation() {},
+    });
+
+    assert.equal(page.browser.opened.length, 1);
+    assert.ok(page.browser.opened[0].url.startsWith('/admin/orders/labels?orders='));
+
+    const query = page.browser.opened[0].url.split('?')[1];
+    assert.equal(new URLSearchParams(query).get('orders'), 'ABO-2026-1001');
+});
+
+test('the print-labels button says so when nothing is selected', () => {
+    const page = run();
+
+    const bulk = page.document.querySelector('[data-abo-admin-orders-bulk-action="print"]');
+    page.document.dispatchEvent('click', {
+        target: bulk,
+        preventDefault() {},
+        stopPropagation() {},
+    });
+
+    assert.equal(page.browser.opened.length, 0);
+
+    const toast = page.document.querySelector('[data-abo-admin-orders-toast-text]');
+    assert.equal(toast.textContent, 'Select at least one order');
 });

@@ -71,6 +71,16 @@ class OrderController extends Controller
                 'export' => [
                     'url' => route('admin.orders.export'),
                 ],
+                // The two printable documents. The invoice is one order,
+                // so its URL carries the `{order}` placeholder the rest
+                // of the routes use; the labels sheet takes the whole
+                // selection at once, so its URL takes a query string.
+                'invoice' => [
+                    'url' => route('admin.orders.invoice', ['order' => '__ORDER__']),
+                ],
+                'labels' => [
+                    'url' => route('admin.orders.labels'),
+                ],
             ],
         ]);
     }

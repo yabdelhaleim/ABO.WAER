@@ -424,6 +424,14 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         // same filters off the query string and streams the rows the
         // screen is showing.
         Route::get('/orders/export', [AdminOrderController::class, 'export'])->name('orders.export');
+        // The two printable documents. The invoice is one order — it
+        // binds by id or by order number, like every other order route
+        // here. The labels sheet takes the whole selection at once, so
+        // it lives on the collection and carries the order numbers in
+        // the query string. Both pages stand outside the admin chrome:
+        // a receipt is handed to a customer, not to the back office.
+        Route::get('/orders/labels', [AdminOrderController::class, 'labels'])->name('orders.labels');
+        Route::get('/orders/{order}/invoice', [AdminOrderController::class, 'invoice'])->name('orders.invoice');
         Route::patch('/orders/{order}/status', [AdminOrderController::class, 'updateStatus'])->name('orders.status');
         Route::post('/orders/{order}/cancel', [AdminOrderController::class, 'cancel'])->name('orders.cancel');
         Route::patch('/orders/{order}/tracking', [AdminOrderController::class, 'updateTracking'])->name('orders.tracking');

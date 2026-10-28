@@ -336,6 +336,7 @@ export function createBrowser() {
     const root = new FakeElement('html');
     const documentListeners = {};
     const windowListeners = {};
+    const opened = [];
 
     const document = {
         readyState: 'complete',
@@ -361,6 +362,14 @@ export function createBrowser() {
     const window = {
         CSS: { escape: (value) => String(value) },
         location: { assign() {} },
+        // The print documents open in a new tab. The calls are recorded
+        // so a test can read the URL that was opened; there is no tab
+        // here to open.
+        open: (url, target, features) => {
+            opened.push({ url, target, features });
+
+            return null;
+        },
         addEventListener: (type, handler) => {
             windowListeners[type] = windowListeners[type] || [];
             windowListeners[type].push(handler);
@@ -383,7 +392,7 @@ export function createBrowser() {
         clear: () => store.clear(),
     };
 
-    return { document, window, localStorage, root, FakeElement };
+    return { document, window, localStorage, root, FakeElement, opened };
 }
 
 /**

@@ -603,6 +603,88 @@
         if (link && url) link.setAttribute('href', url);
     }
 
+    // ─── Print ────────────────────────────────────────────────
+    //
+    // The two documents are server-rendered pages: the invoice for one
+    // order, and the labels sheet for the whole selection. The browser
+    // only opens them — every line on the paper is measured from the
+    // database by App\Services\Admin\ReceiptService, never from the
+    // copy this file happens to be holding.
+
+    /**
+     * Open a print document in a new tab.
+     *
+     * The dialog is opened by the document itself once it has loaded
+     * (the page carries the script that calls window.print()), so the
+     * sheet is laid out before the operator sees it.
+     */
+    function openPrintDocument(url) {
+        if (!url) {
+            toast('Print is not available right now');
+            return;
+        }
+
+        window.open(url, '_blank', 'noopener');
+    }
+
+    /**
+     * The invoice for one order.
+     */
+    function invoiceUrl(orderId) {
+        const route = ROUTES.invoice;
+        if (!route || !route.url || !orderId) return null;
+
+        return route.url.replace('__ORDER__', encodeURIComponent(orderId));
+    }
+
+    /**
+     * Print the invoice of the order the drawer is showing.
+     */
+    function printInvoice(orderId) {
+        const url = invoiceUrl(orderId);
+        if (!url) {
+            toast('Print is not available right now');
+            return;
+        }
+
+        openPrintDocument(url);
+    }
+
+    /**
+     * The labels sheet for the selected orders.
+     *
+     * The selection is the set of order numbers the rows carry, and
+     * they travel in the query string in the order they were picked —
+     * the sheet comes out in the order the operator chose.
+     */
+    function labelsUrl() {
+        const route = ROUTES.labels;
+        if (!route || !route.url) return null;
+
+        const numbers = Array.from(state.selected);
+        if (numbers.length === 0) return null;
+
+        return route.url + '?orders=' + encodeURIComponent(numbers.join(','));
+    }
+
+    /**
+     * Print the labels of every selected order.
+     */
+    function printLabels() {
+        if (state.selected.size === 0) {
+            toast('Select at least one order');
+            return;
+        }
+
+        const url = labelsUrl();
+        if (!url) {
+            toast('Print is not available right now');
+            return;
+        }
+
+        openPrintDocument(url);
+    }
+
     // ─── Listeners: row open / view / checkbox ────────────────
 
     document.addEventListener('click', (e) => {
@@ -667,7 +749,7 @@
         }
         const bulkPrint = target.closest('[data-abo-admin-orders-bulk-action="print"]');
         if (bulkPrint) {
-            toast('Labels ready (demo)');
+            printLabels();
             return;
         }
 
@@ -896,9 +978,10 @@
         drawer.querySelector('.abo-admin-orders__drawer-overlay')
             .addEventListener('click', closeDrawer);
 
-        // Print invoice
+        // Print invoice — the document is rendered by the server from
+        // the order's own rows and the receipt settings the store saved.
         $('[data-abo-admin-orders-drawer-print]', drawer)
-            .addEventListener('click', () => toast('Invoice ready (demo)'));
+            .addEventListener('click', () => printInvoice(state.drawer.id));
 
         // Status update
         $('[data-abo-admin-orders-drawer-status-apply]', drawer)

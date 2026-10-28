@@ -196,10 +196,36 @@ class SettingsService
     /**
      * A single setting: the stored value when there is one, the default
      * otherwise. A value the admin cleared stays cleared.
+     *
+     * A block of settings — the receipt fields, the social links — is
+     * stored leaf by leaf: `receipts.fields.address` is a row of its
+     * own, not a row called `receipts.fields`. So a block is read by
+     * asking for each of its leaves in turn, and a row that holds the
+     * whole block is still honoured when one exists.
      */
     protected function value(string $key, mixed $default): mixed
     {
-        if (! array_key_exists($key, StoreSetting::allSettings())) {
+        $settings = StoreSetting::allSettings();
+
+        if (is_array($default)) {
+            $values = $default;
+
+            if (array_key_exists($key, $settings)) {
+                $stored = StoreSetting::get($key);
+
+                if (is_array($stored)) {
+                    $values = array_replace_recursive($values, $stored);
+                }
+            }
+
+            foreach ($default as $child => $childDefault) {
+                $values[$child] = $this->value($key.'.'.$child, $childDefault);
+            }
+
+            return $values;
+        }
+
+        if (! array_key_exists($key, $settings)) {
             return $default;
         }
 
@@ -207,10 +233,6 @@ class SettingsService
 
         if ($stored === null) {
             return null;
-        }
-
-        if (is_array($default) && is_array($stored)) {
-            return array_replace_recursive($default, $stored);
         }
 
         return $stored;

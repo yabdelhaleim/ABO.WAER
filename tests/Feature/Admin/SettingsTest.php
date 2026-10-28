@@ -235,6 +235,46 @@ class SettingsTest extends TestCase
             ->assertJsonValidationErrors('receipts.paper');
     }
 
+    /**
+     * A block of settings is stored leaf by leaf — `receipts.fields.address`
+     * is a row of its own — so it has to be read leaf by leaf too. The
+     * two used to disagree: the leaves were written and the block was
+     * read, which meant every receipt toggle came back at its default
+     * no matter what the operator had saved.
+     */
+    public function test_a_saved_block_of_settings_comes_back_the_same(): void
+    {
+        $this->actingAsAdmin()
+            ->putJson(route('admin.settings.update'), $this->body([
+                'store' => [
+                    'social' => [
+                        'instagram' => 'instagram.com/abo',
+                        'facebook' => 'facebook.com/abo',
+                    ],
+                ],
+                'receipts' => [
+                    'paper' => 'thermal',
+                    'fields' => [
+                        'address' => true,
+                        'shippingFee' => false,
+                    ],
+                ],
+            ]))
+            ->assertOk();
+
+        $payload = $this->payloadFrom(
+            $this->actingAsAdmin()->get(route('admin.settings.index'))->getContent() ?: ''
+        );
+
+        $this->assertSame('instagram.com/abo', $payload['store']['social']['instagram']);
+        $this->assertSame('facebook.com/abo', $payload['store']['social']['facebook']);
+        $this->assertSame('thermal', $payload['receipts']['paper']);
+        $this->assertTrue($payload['receipts']['fields']['address']);
+        $this->assertFalse($payload['receipts']['fields']['shippingFee']);
+        // The leaves that were not touched keep their default.
+        $this->assertTrue($payload['receipts']['fields']['orderNumber']);
+    }
+
     // ─── The cancellation reasons ─────────────────────────────────
 
     public function test_the_cancellation_reasons_are_the_rows_in_the_database(): void
