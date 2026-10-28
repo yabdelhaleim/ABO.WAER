@@ -123,6 +123,14 @@ function initHero() {
         };
         window.addEventListener('abo:intro-reveal', onReveal, { once: true });
         window.addEventListener('abo:home-reveal', onReveal, { once: true });
+
+        // Safety fallback: if reveal doesn't fire within 600ms, force start & finalize
+        setTimeout(() => {
+            if (root.dataset.homeRevealed !== '1') {
+                root.dataset.homeRevealed = '1';
+                finalize(els);
+            }
+        }, 600);
     }
 }
 
@@ -216,36 +224,47 @@ function applyFrame(elapsed, els, finalStats, countUp) {
 }
 
 function finalize(els) {
-    // Clear inline styles so the static CSS owns the final state.
-    [els.header, els.photo, els.eyebrow, els.eyebrowLine, els.paragraph, els.sweep].forEach((el) => {
-        if (!el) return;
-        el.style.removeProperty('opacity');
-        el.style.removeProperty('transform');
-        if (el === els.eyebrowLine) {
-            el.style.removeProperty('--home-reveal-translate');
-        }
-        if (el === els.header) {
-            el.style.removeProperty('--home-reveal-opacity');
-        }
-    });
+    const hero = document.querySelector('[data-home-hero]');
+    hero?.classList.add('is-arrived');
+
+    if (els.eyebrow) {
+        els.eyebrow.style.opacity = '1';
+        els.eyebrow.style.transform = 'none';
+    }
+    if (els.eyebrowLine) {
+        els.eyebrowLine.style.transform = 'scaleX(1)';
+    }
+    if (els.photo) {
+        els.photo.style.opacity = '1';
+        els.photo.style.transform = 'none';
+    }
+    if (els.header) {
+        els.header.style.removeProperty('--home-reveal-translate');
+        els.header.style.removeProperty('--home-reveal-opacity');
+    }
+    if (els.sweep) {
+        els.sweep.style.opacity = '0';
+    }
     els.h1Lines.forEach((el) => {
+        el.style.opacity = '1';
         const inner = el.querySelector('span') || el;
-        inner.style.removeProperty('transform');
-        el.style.removeProperty('opacity');
+        inner.style.transform = 'none';
     });
+    if (els.paragraph) {
+        els.paragraph.style.opacity = '1';
+        els.paragraph.style.transform = 'none';
+    }
     els.ctas.forEach((el) => {
-        el.style.removeProperty('opacity');
-        el.style.removeProperty('transform');
+        el.style.opacity = '1';
+        el.style.transform = 'none';
         if (el.classList.contains('store-btn--primary')) {
             el.classList.add('is-arrived');
         }
     });
     els.stats.forEach((el) => {
-        el.style.removeProperty('opacity');
-        el.style.removeProperty('transform');
+        el.style.opacity = '1';
+        el.style.transform = 'none';
     });
-    // Tear down will-change hints now that the entrance is over.
-    document.querySelector('[data-home-hero]')?.classList.add('is-arrived');
 }
 
 // ─── Count-up ──────────────────────────────────────────────────
@@ -456,12 +475,9 @@ if (document.readyState === 'loading') {
 
 // If the intro is disabled, dispatch the home reveal after first paint
 // so the hero entrance still plays.
-window.addEventListener('DOMContentLoaded', () => {
-    // Defer to next frame so fonts have a chance to swap in.
+function triggerRevealFallback() {
     requestAnimationFrame(() => {
         if (!document.querySelector('[data-home-hero]')) return;
-        // Give the intro 50ms to dispatch its own event; if it doesn't,
-        // fire the fallback so the entrance still plays.
         setTimeout(() => {
             const root = document.querySelector('[data-home-hero]');
             if (root && root.dataset.homeRevealed !== '1') {
@@ -470,4 +486,10 @@ window.addEventListener('DOMContentLoaded', () => {
             }
         }, 50);
     });
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', triggerRevealFallback);
+} else {
+    triggerRevealFallback();
+}
