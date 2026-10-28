@@ -34,24 +34,37 @@
     $signedInInitial = mb_strtoupper(mb_substr($signedInName, 0, 1));
 @endphp
 
-@once
-    @push('head')
-        <script>
-            // Initial bell payload. admin.js uses this so the first
-            // paint already shows the right rows and badge count
-            // instead of a brief "loading" empty state.
-            window.INITIAL_ADMIN_NOTIFICATIONS = @json($bellNotifications);
-            window.ADMIN_NOTIFICATIONS_ENDPOINTS = {
-                index:        @json(route('admin.notifications.index')),
-                markAllRead:  @json(route('admin.notifications.markAllRead')),
-                markReadBase: @json(url('admin/notifications') . '/'),
-                pushSubscribe: @json(route('admin.push.subscriptions.update')),
-            };
-            window.ADMIN_NOTIFICATIONS_POLL_MS = 30000;
-            window.VAPID_PUBLIC_KEY = @json(config('webpush.vapid.public_key'));
-        </script>
-    @endpush
-@endonce
+{{--
+    The bell's data, straight into the page.
+
+    This used to be pushed onto the `head` stack — but the topbar is
+    included from the layout's *body*, and the head has already been
+    written by then, so the script was thrown away. The bell woke up
+    with no payload, no endpoints and no VAPID key: the list stayed
+    empty, the poll never ran and web push never registered.
+
+    It is written here instead, in the body, before admin.js — which is
+    loaded with `defer`, so it runs after the document is parsed and
+    after this script has run.
+--}}
+<script>
+    // Initial bell payload. admin.js uses this so the first
+    // paint already shows the right rows and badge count
+    // instead of a brief "loading" empty state.
+    window.INITIAL_ADMIN_NOTIFICATIONS = @json($bellNotifications);
+    window.ADMIN_NOTIFICATIONS_ENDPOINTS = {
+        index:        @json(route('admin.notifications.index')),
+        markAllRead:  @json(route('admin.notifications.markAllRead')),
+        markReadBase: @json(url('admin/notifications') . '/'),
+        pushSubscribe: @json(route('admin.push.subscriptions.update')),
+    };
+    window.ADMIN_NOTIFICATIONS_POLL_MS = 30000;
+    // Whether the bell rings. The switch is one of the store's
+    // own settings, so the browser is handed the answer
+    // instead of keeping a copy of a setting it cannot see.
+    window.ADMIN_NOTIFICATIONS_SOUND = @json(\App\Models\StoreSetting::get('notifications.browserSound', true));
+    window.VAPID_PUBLIC_KEY = @json(config('webpush.vapid.public_key'));
+</script>
 
 <header class="abo-admin-topbar" role="banner">
     <form class="abo-admin-topbar__search" role="search" onsubmit="event.preventDefault();">
@@ -99,6 +112,7 @@
                 <button type="button" role="tab" aria-selected="false" data-abo-admin-bell-filter="orders"  >Orders</button>
                 <button type="button" role="tab" aria-selected="false" data-abo-admin-bell-filter="stock"   >Stock</button>
                 <button type="button" role="tab" aria-selected="false" data-abo-admin-bell-filter="returns" >Returns</button>
+                <button type="button" role="tab" aria-selected="false" data-abo-admin-bell-filter="coupons">Coupons</button>
             </div>
 
             <ul class="abo-admin-bell__list" data-abo-admin-bell-list>

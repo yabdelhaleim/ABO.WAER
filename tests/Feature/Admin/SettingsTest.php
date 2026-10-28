@@ -112,8 +112,7 @@ class SettingsTest extends TestCase
             'notifications' => [
                 'newOrder' => true,
                 'lowStock' => true,
-                'returnRequest' => true,
-                'shipmentFailed' => false,
+                'customerCancellation' => true,
                 'couponExpiring' => false,
                 'browserSound' => true,
             ],

@@ -77,11 +77,13 @@ class SettingsService
             ],
             'paper' => 'a4',
         ],
+        // Every switch here is wired to something that actually happens.
+        // "Shipment failed" used to sit in this list, promising a
+        // courier callback this application cannot receive; it is gone.
         'notifications' => [
             'newOrder' => true,
             'lowStock' => true,
-            'returnRequest' => true,
-            'shipmentFailed' => false,
+            'customerCancellation' => true,
             'couponExpiring' => false,
             'browserSound' => true,
         ],

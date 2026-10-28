@@ -627,11 +627,10 @@
 
                 <ul class="abo-admin-settings__toggles" role="list">
                     @foreach ([
-                        ['key' => 'newOrder',       'label' => 'New order',         'sub' => 'A new order comes in.'],
-                        ['key' => 'lowStock',       'label' => 'Low stock',         'sub' => 'A product drops to or below the low-stock threshold.'],
-                        ['key' => 'returnRequest',  'label' => 'Return request',    'sub' => 'A customer asks for a return or exchange.'],
-                        ['key' => 'shipmentFailed', 'label' => 'Shipment failed',   'sub' => 'A courier reports a failed delivery attempt.'],
-                        ['key' => 'couponExpiring', 'label' => 'Coupon expiring',   'sub' => 'A coupon is about to expire or did expire.'],
+                        ['key' => 'newOrder',             'label' => 'New order',             'sub' => 'A new order comes in.'],
+                        ['key' => 'lowStock',             'label' => 'Low stock',             'sub' => 'A product drops to or below the low-stock threshold.'],
+                        ['key' => 'customerCancellation', 'label' => 'Customer cancellation', 'sub' => 'A customer cancels an order of their own accord.'],
+                        ['key' => 'couponExpiring',       'label' => 'Coupon expiring',       'sub' => 'A coupon is about to expire or did expire.'],
                     ] as $t)
                         <li class="abo-admin-settings__toggle-row">
                             <div>

@@ -21,6 +21,9 @@
 //     mark-read-base URLs prepared by route('admin.notifications.*').
 //   window.ADMIN_NOTIFICATIONS_POLL_MS   — poll cadence in ms
 //     (30_000 by default — the spec asks for "30–45 seconds").
+//   window.ADMIN_NOTIFICATIONS_SOUND     — whether a new notification
+//     rings a tone. The store's own "Browser sound" setting, read by
+//     the server and published here.
 
 /* eslint-disable no-console */
 
@@ -199,12 +202,63 @@ async function postMarkAllRead() {
 // server, then re-renders the badge and the visible rows.
 function applyServerPayload(state, badgeEl, listEl, payload) {
     if (!payload || !Array.isArray(payload.notifications)) return;
+    // The ids the browser already knows about. A row the server sends
+    // that is not among them is news, and news is what makes the bell
+    // ring.
+    const known = new Set(state.items.map((n) => n.id));
     state.items = payload.notifications.map((n) => ({ ...n }));
     const count = typeof payload.unread_count === 'number'
         ? payload.unread_count
         : unreadCount(state.items);
     updateBadge(badgeEl, count);
     renderBellList(state, listEl);
+    if (payload.notifications.some((n) => !known.has(n.id))) {
+        playNotificationTone();
+    }
+}
+
+// ─── Notification sound ──────────────────────────────────────
+//
+// The settings screen offers a "Browser sound" switch. The server
+// publishes the store's answer as window.ADMIN_NOTIFICATIONS_SOUND —
+// the browser keeps no copy of a setting it cannot see.
+//
+// The tone is synthesised with the Web Audio API, so the admin panel
+// ships no audio file and no second request to make one.
+
+function playNotificationTone() {
+    if (window.ADMIN_NOTIFICATIONS_SOUND !== true) return;
+
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) return;
+
+    try {
+        const ctx = new Ctor();
+        const now = ctx.currentTime;
+
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.08, now + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+        gain.connect(ctx.destination);
+
+        // Two notes: the shop's little "someone is waiting" chime.
+        for (const [frequency, offset] of [[784, 0], [1046.5, 0.12]]) {
+            const osc = ctx.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(frequency, now + offset);
+            osc.connect(gain);
+            osc.start(now + offset);
+            osc.stop(now + offset + 0.3);
+        }
+
+        setTimeout(() => {
+            if (typeof ctx.close === 'function') ctx.close().catch(() => {});
+        }, 900);
+    } catch (err) {
+        // A browser that refuses to open an audio context is not a
+        // reason to break the bell.
+    }
 }
 
 // ─── Polling ────────────────────────────────────────────────

@@ -28,6 +28,18 @@ class SettingsRequest extends FormRequest
         if ($this->input('store.email') === '') {
             $this->merge(['store.email' => null]);
         }
+
+        // The two switches that are gone must stay gone. A page the
+        // browser cached before the change still sends them, and a
+        // setting nobody can see would otherwise be written back to
+        // the table as if it still meant something.
+        $notifications = $this->input('notifications');
+
+        if (is_array($notifications)) {
+            unset($notifications['shipmentFailed'], $notifications['returnRequest']);
+
+            $this->merge(['notifications' => $notifications]);
+        }
     }
 
     /**
@@ -77,8 +89,7 @@ class SettingsRequest extends FormRequest
             'notifications' => ['required', 'array'],
             'notifications.newOrder' => ['required', 'boolean'],
             'notifications.lowStock' => ['required', 'boolean'],
-            'notifications.returnRequest' => ['required', 'boolean'],
-            'notifications.shipmentFailed' => ['required', 'boolean'],
+            'notifications.customerCancellation' => ['required', 'boolean'],
             'notifications.couponExpiring' => ['required', 'boolean'],
             'notifications.browserSound' => ['required', 'boolean'],
         ];

@@ -3,6 +3,7 @@
 namespace App\Services\Admin;
 
 use App\Enums\OrderStatus;
+use App\Events\OrderCancelled;
 use App\Models\CancellationReason;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -273,7 +274,7 @@ class OrderService
         ?int $changedById = null,
         string $changedByType = 'Admin',
     ): Order {
-        return DB::transaction(function () use ($order, $reasonId, $customNote, $changedById, $changedByType): Order {
+        $cancelled = DB::transaction(function () use ($order, $reasonId, $customNote, $changedById, $changedByType): Order {
             if ($order->status === OrderStatus::Cancelled) {
                 return $order;
             }
@@ -308,6 +309,16 @@ class OrderService
 
             return $order;
         });
+
+        // The bell hears about the cancellations it cares about. The
+        // event is dispatched outside the transaction, so a listener
+        // that reads the order reads the cancelled one — and a
+        // listener that fails cannot roll the cancellation back.
+        if ($cancelled->status === OrderStatus::Cancelled) {
+            OrderCancelled::dispatch($cancelled, $changedByType, $changedById);
+        }
+
+        return $cancelled;
     }
 
     /**

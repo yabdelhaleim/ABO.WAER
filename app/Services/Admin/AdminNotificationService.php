@@ -19,7 +19,7 @@ use Illuminate\Support\Collection;
  * Shape contract with admin.js (single source of truth — keep in sync):
  *   {
  *     id:       string,    // stable id used as data-attribute on the row
- *     type:     string,    // bell-filter tab key (orders | stock | returns)
+ *     type:     string,    // bell-filter tab key (orders | stock | returns | coupons)
  *     tone:     string,    // CSS modifier on the dot (lime | coral | …)
  *     title:    string,    // headline shown in the list
  *     time:     string,    // "X minutes ago" relative label

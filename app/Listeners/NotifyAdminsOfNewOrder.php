@@ -4,6 +4,7 @@ namespace App\Listeners;
 
 use App\Events\OrderCreated;
 use App\Models\Admin;
+use App\Models\StoreSetting;
 use App\Notifications\NewOrderAdminNotification;
 use Illuminate\Support\Facades\Notification;
 
@@ -19,6 +20,10 @@ use Illuminate\Support\Facades\Notification;
  * going through Notification::route() so a deactivated admin (whose
  * row remained in the table) is skipped — only `is_active = true`
  * accounts get the notification.
+ *
+ * The store's bell switch decides whether a new order rings the bell
+ * at all: "New order" is the one notification a busy shop may want to
+ * turn off.
  */
 class NotifyAdminsOfNewOrder
 {
@@ -28,6 +33,10 @@ class NotifyAdminsOfNewOrder
      */
     public function handle(OrderCreated $event): void
     {
+        if (! StoreSetting::get('notifications.newOrder', true)) {
+            return;
+        }
+
         $admins = Admin::query()->where('is_active', true)->with('pushSubscriptions')->get();
 
         if ($admins->isEmpty()) {

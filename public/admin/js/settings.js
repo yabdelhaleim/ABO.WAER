@@ -234,8 +234,8 @@ const STATE = {
                 fields: { orderNumber: true, date: true, customerPhone: true,
                           address: false, paymentMethod: true, shippingFee: true },
                 paper: 'a4' },
-    notifications: { newOrder: true, lowStock: true, returnRequest: true,
-                     shipmentFailed: false, couponExpiring: false, browserSound: true },
+    notifications: { newOrder: true, lowStock: true, customerCancellation: true,
+                     couponExpiring: false, browserSound: true },
     reasonSeq: 1,
 };
 
