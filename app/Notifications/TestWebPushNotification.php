@@ -28,8 +28,8 @@ class TestWebPushNotification extends Notification
     {
         return (new WebPushMessage)
             ->title($this->title)
-            ->icon(asset('images/abo-logo.svg'))
-            ->badge(asset('images/abo-logo.svg'))
+            ->icon(asset('images/abo-icon-192.png'))
+            ->badge(asset('images/abo-badge-96.png'))
             ->body($this->body)
             ->action('Open Store', 'open_store')
             ->data(['url' => $this->url])

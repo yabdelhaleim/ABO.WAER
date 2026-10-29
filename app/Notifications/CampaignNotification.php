@@ -63,8 +63,8 @@ class CampaignNotification extends Notification
 
         $push = (new WebPushMessage)
             ->title($this->campaign->title)
-            ->icon(asset('images/abo-logo.svg'))
-            ->badge(asset('images/abo-logo.svg'))
+            ->icon(asset('images/abo-icon-192.png'))
+            ->badge(asset('images/abo-badge-96.png'))
             ->body($body)
             ->action('Shop Now', 'shop_now')
             ->data(['url' => $url])

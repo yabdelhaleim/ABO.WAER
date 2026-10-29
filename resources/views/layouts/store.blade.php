@@ -41,6 +41,9 @@
 
     <link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
     <link rel="icon" type="image/svg+xml" href="{{ \App\Models\StoreSetting::faviconUrl() }}">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('images/abo-icon-192.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
+    <link rel="manifest" href="/manifest.json">
 
     @if (request()->routeIs('home'))
         {{-- Preload the hero photo only on the home page so LCP and reveal are instant. --}}

@@ -16,8 +16,9 @@ self.addEventListener('push', function (event) {
     const title = data.title || 'ABO Store';
     const options = {
         body: data.body || '',
-        icon: data.icon || '/images/abo-logo.svg',
-        badge: data.badge || '/images/abo-logo.svg',
+        icon: data.icon || '/images/abo-icon-192.png',
+        badge: data.badge || '/images/abo-badge-96.png',
+        image: data.image || null,
         tag: data.tag || ('abo-notification-' + Date.now()),
         vibrate: data.vibrate || [200, 100, 200],
         data: data.data || {},

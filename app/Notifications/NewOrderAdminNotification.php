@@ -77,8 +77,8 @@ class NewOrderAdminNotification extends Notification
 
         return (new WebPushMessage)
             ->title('New Order #'.$this->order->order_number)
-            ->icon(asset('images/abo-logo.svg'))
-            ->badge(asset('images/abo-logo.svg'))
+            ->icon(asset('images/abo-icon-192.png'))
+            ->badge(asset('images/abo-badge-96.png'))
             ->body('Order Total: '.number_format($this->order->total).' EGP | Click to view order.')
             ->action('View Order', 'view_order')
             ->data(['url' => $url])
