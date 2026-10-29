@@ -61,7 +61,7 @@ class CampaignNotification extends Notification
             $body .= ' | Use code: '.$this->campaign->coupon;
         }
 
-        return (new WebPushMessage)
+        $push = (new WebPushMessage)
             ->title($this->campaign->title)
             ->icon(asset('images/abo-logo.svg'))
             ->badge(asset('images/abo-logo.svg'))
@@ -70,6 +70,12 @@ class CampaignNotification extends Notification
             ->data(['url' => $url])
             ->tag('campaign-'.$this->campaign->id)
             ->vibrate([200, 100, 200]);
+
+        if ($this->campaign->image_url) {
+            $push->image($this->campaign->image_url);
+        }
+
+        return $push;
     }
 
     /**

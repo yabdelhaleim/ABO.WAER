@@ -44,7 +44,12 @@ class CampaignController extends Controller
      */
     public function store(StoreCampaignRequest $request): JsonResponse
     {
-        $campaign = $this->campaignService->createCampaign($request->validated());
+        $data = $request->validated();
+        if ($request->hasFile('image')) {
+            $data['image'] = $request->file('image');
+        }
+
+        $campaign = $this->campaignService->createCampaign($data);
 
         return response()->json([
             'success' => true,
@@ -73,7 +78,12 @@ class CampaignController extends Controller
      */
     public function update(UpdateCampaignRequest $request, Campaign $campaign): JsonResponse
     {
-        $updated = $this->campaignService->updateCampaign($campaign, $request->validated());
+        $data = $request->validated();
+        if ($request->hasFile('image')) {
+            $data['image'] = $request->file('image');
+        }
+
+        $updated = $this->campaignService->updateCampaign($campaign, $data);
 
         return response()->json([
             'success' => true,

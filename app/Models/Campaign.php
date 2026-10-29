@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\CampaignAudience;
 use App\Enums\CampaignStatus;
 use App\Enums\CampaignType;
+use App\Services\ImageService;
 use Database\Factories\CampaignFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -73,6 +74,14 @@ class Campaign extends Model
     }
 
     /**
+     * Public URL for the campaign image banner, or null when none is set.
+     */
+    public function getImageUrlAttribute(): ?string
+    {
+        return $this->image_path ? ImageService::publicUrl($this->image_path) : null;
+    }
+
+    /**
      * تحويل الحملة إلى الشكل الذي تستهلكه واجهة campaigns.js
      * في لوحة الأدمن (id ثابت كـ c-XXX لتطابق الترقيم الحالي).
      *
@@ -118,6 +127,8 @@ class Campaign extends Model
             'clicked' => $metrics['clicked'],
             'coupon' => $this->coupon,
             'deeplink' => $this->deeplink,
+            'image' => $this->image_url,
+            'image_path' => $this->image_path,
         ];
     }
 

@@ -454,24 +454,33 @@ async function deleteCampaign(id) {
 
 async function saveCampaign(existingId) {
     const f = slideoverState.fields;
-    // The audience cards are rendered from App\Enums\CampaignAudience, so the
-    // radio value already is the stored segment — no mapping needed.
-    const payload = {
-        title: f.name || '',
-        subject: f.title || f.name || '',
-        preview: f.message || '',
-        message: f.message || '',
-        type: f.type,
-        audience: f.audience || 'all',
-    };
+    const formData = new FormData();
+    formData.append('title', f.name || '');
+    formData.append('subject', f.title || f.name || '');
+    formData.append('preview', f.message || '');
+    formData.append('message', f.message || '');
+    formData.append('type', f.type);
+    formData.append('audience', f.audience || 'all');
+    if (f.coupon) formData.append('coupon', f.coupon);
+    if (f.deeplink) formData.append('deeplink', f.deeplink);
+
     if (f.when === 'later' && f.date) {
         const time = (f.time || '10:00') + ':00';
-        payload.scheduled_for = f.date + ' ' + time;
+        formData.append('scheduled_for', f.date + ' ' + time);
+    }
+
+    const fileInput = $('[data-abo-admin-campaigns-field="image"]');
+    if (fileInput && fileInput.files && fileInput.files[0]) {
+        formData.append('image', fileInput.files[0]);
+    } else if (!f.image) {
+        formData.append('remove_image', '1');
     }
 
     const editing = Boolean(existingId);
-    const url = editing ? apiUrl(CAMPAIGNS_API.update, existingId) : CAMPAIGNS_API.store;
-    const method = editing ? 'PUT' : 'POST';
+    let url = editing ? apiUrl(CAMPAIGNS_API.update, existingId) : CAMPAIGNS_API.store;
+    if (editing) {
+        formData.append('_method', 'PUT');
+    }
 
     if (!url) {
         showToast('API not configured.');
@@ -480,14 +489,13 @@ async function saveCampaign(existingId) {
 
     try {
         const res = await fetch(url, {
-            method,
+            method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': CAMPAIGNS_API.csrf,
                 'X-Requested-With': 'XMLHttpRequest',
                 'Accept': 'application/json',
             },
-            body: JSON.stringify(payload),
+            body: formData,
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.success) {
@@ -648,9 +656,9 @@ function openSlideover({ id } = {}) {
                 type: c.type,
                 title: '',
                 message: c.preview || '',
-                image: null,
-                deeplink: '',
-                coupon: '',
+                image: c.image || null,
+                deeplink: c.deeplink || '',
+                coupon: c.coupon || '',
                 audience: c.audience_value || 'all',
                 when: c.status === 'scheduled' ? 'later' : 'now',
                 date: c.schedule ? c.schedule.date : '',

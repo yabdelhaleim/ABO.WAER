@@ -32,6 +32,8 @@ class StoreCampaignRequest extends FormRequest
             'scheduled_for' => ['nullable', 'date', 'after:now'],
             'coupon' => ['nullable', 'string', 'max:255'],
             'deeplink' => ['nullable', 'string', 'max:255'],
+            'image' => ['nullable', 'file', 'image', 'max:5120'],
+            'remove_image' => ['nullable', 'boolean'],
         ];
     }
 }

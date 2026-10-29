@@ -5,6 +5,7 @@ namespace App\Services\Admin;
 use App\Enums\CampaignStatus;
 use App\Jobs\SendCampaignJob;
 use App\Models\Campaign;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -286,7 +287,7 @@ class CampaignService
      */
     protected function extractAttributes(array $data): array
     {
-        return array_intersect_key($data, array_flip([
+        $attributes = array_intersect_key($data, array_flip([
             'title',
             'subject',
             'preview',
@@ -296,7 +297,16 @@ class CampaignService
             'coupon',
             'deeplink',
             'scheduled_for',
+            'image_path',
         ]));
+
+        if (isset($data['image']) && $data['image'] instanceof UploadedFile) {
+            $attributes['image_path'] = $data['image']->store('campaigns', 'public');
+        } elseif (! empty($data['remove_image'])) {
+            $attributes['image_path'] = null;
+        }
+
+        return $attributes;
     }
 
     /**

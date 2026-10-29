@@ -32,6 +32,8 @@ class UpdateCampaignRequest extends FormRequest
             'scheduled_for' => ['sometimes', 'nullable', 'date', 'after:now'],
             'coupon' => ['sometimes', 'nullable', 'string', 'max:255'],
             'deeplink' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'image' => ['sometimes', 'nullable', 'file', 'image', 'max:5120'],
+            'remove_image' => ['sometimes', 'nullable', 'boolean'],
         ];
     }
 }

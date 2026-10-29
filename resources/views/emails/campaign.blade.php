@@ -57,6 +57,17 @@
                         </span>
                     </td>
                 </tr>
+                {{-- Campaign banner image (if uploaded) --}}
+                @if (!empty($campaign->image_url))
+                <tr>
+                    <td align="center" style="padding:0;background-color:#ffffff;line-height:0;">
+                        <a href="{{ $ctaUrl }}" target="_blank" rel="noopener" style="display:block;text-decoration:none;">
+                            <img src="{{ $campaign->image_url }}" alt="{{ $subjectLine }}" width="600"
+                                 style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;">
+                        </a>
+                    </td>
+                </tr>
+                @endif
                 {{-- Subject line. --}}
                 <tr>
                     <td style="padding:32px 32px 8px 32px;">
