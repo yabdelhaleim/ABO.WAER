@@ -217,6 +217,7 @@
                 }
 
                 navigator.serviceWorker.register('/sw.js').then(function (reg) {
+                    try { reg.update(); } catch (e) {}
                     updateUI();
                     if (Notification.permission === 'granted') {
                         subscribeUser(reg);

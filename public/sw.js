@@ -1,5 +1,13 @@
 'use strict';
 
+self.addEventListener('install', function (event) {
+    self.skipWaiting();
+});
+
+self.addEventListener('activate', function (event) {
+    event.waitUntil(self.clients.claim());
+});
+
 self.addEventListener('push', function (event) {
     let data = {};
     if (event.data) {
@@ -20,6 +28,7 @@ self.addEventListener('push', function (event) {
         badge: data.badge || '/images/abo-badge-96.png',
         image: data.image || null,
         tag: data.tag || ('abo-notification-' + Date.now()),
+        renotify: true,
         vibrate: data.vibrate || [200, 100, 200],
         data: data.data || {},
         actions: data.actions || []
