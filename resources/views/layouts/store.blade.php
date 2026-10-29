@@ -106,6 +106,7 @@
                 const helpEl = document.getElementById('account-push-help');
                 const btnEl = document.getElementById('account-push-btn');
                 const testBtnEl = document.getElementById('account-push-test-btn');
+                const resetBtnEl = document.getElementById('account-push-reset-btn');
                 const bannerEl = document.getElementById('abo-push-banner');
                 const bannerBtnEl = document.getElementById('abo-push-banner-btn');
                 const bannerCloseEl = document.getElementById('abo-push-banner-close');
@@ -140,6 +141,7 @@
                         if (helpEl) helpEl.style.display = 'none';
                         if (btnEl) btnEl.style.display = 'none';
                         if (testBtnEl) testBtnEl.style.display = 'inline-flex';
+                        if (resetBtnEl) resetBtnEl.style.display = 'inline-block';
                         if (bannerEl) bannerEl.style.display = 'none';
                     } else if (perm === 'denied') {
                         if (statusEl) {
@@ -155,6 +157,7 @@
                             btnEl.textContent = 'Re-check Settings';
                         }
                         if (testBtnEl) testBtnEl.style.display = 'none';
+                        if (resetBtnEl) resetBtnEl.style.display = 'none';
                         if (bannerEl) bannerEl.style.display = 'none';
                     } else {
                         if (statusEl) {
@@ -167,6 +170,7 @@
                             btnEl.textContent = 'Enable Notifications';
                         }
                         if (testBtnEl) testBtnEl.style.display = 'none';
+                        if (resetBtnEl) resetBtnEl.style.display = 'none';
 
                         if (bannerEl && !sessionStorage.getItem('abo_push_dismissed')) {
                             bannerEl.style.display = 'flex';
@@ -174,21 +178,30 @@
                     }
                 }
 
-                function subscribeUser(reg) {
+                function createNewSubscription(reg) {
+                    return reg.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(vapidKey)
+                    }).then(function (newSub) {
+                        return sendSubscriptionToBackend(newSub);
+                    });
+                }
+
+                function subscribeUser(reg, forceNew) {
                     if (!vapidKey || !subscribeUrl) {
                         console.warn('VAPID public key or subscribe route missing.');
                         return Promise.resolve();
                     }
                     return reg.pushManager.getSubscription().then(function (sub) {
                         if (sub) {
+                            if (forceNew) {
+                                return sub.unsubscribe().then(function () {
+                                    return createNewSubscription(reg);
+                                });
+                            }
                             return sendSubscriptionToBackend(sub);
                         }
-                        return reg.pushManager.subscribe({
-                            userVisibleOnly: true,
-                            applicationServerKey: urlBase64ToUint8Array(vapidKey)
-                        }).then(function (newSub) {
-                            return sendSubscriptionToBackend(newSub);
-                        });
+                        return createNewSubscription(reg);
                     }).catch(function (err) {
                         console.error('Subscription error:', err);
                     });
@@ -301,6 +314,20 @@
                             testBtnEl.disabled = false;
                             testBtnEl.textContent = originalText;
                             alert('⚠️ Request error: ' + err.message);
+                        });
+                    });
+                }
+                if (resetBtnEl) {
+                    resetBtnEl.addEventListener('click', function () {
+                        resetBtnEl.textContent = 'Re-syncing…';
+                        navigator.serviceWorker.ready.then(function (reg) {
+                            return subscribeUser(reg, true);
+                        }).then(function () {
+                            resetBtnEl.textContent = 'Re-sync Device';
+                            alert('✓ تم إعادة تهيئة اشتراك هذا الجهاز بنجاح مع السيرفر!\nاضغط الآن على زرار "Send Test Notification" لتجربته.');
+                        }).catch(function (e) {
+                            resetBtnEl.textContent = 'Re-sync Device';
+                            alert('Error: ' + e.message);
                         });
                     });
                 }

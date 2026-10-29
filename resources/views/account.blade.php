@@ -142,12 +142,15 @@
                                 <span id="account-push-status" style="font-weight:600;font-size:0.875rem;color:var(--abo-gray);">Checking…</span>
                                 <p id="account-push-help" style="margin:0.25rem 0 0 0;font-size:0.75rem;color:#ff5c5c;display:none;"></p>
                             </div>
-                            <div style="display:flex;gap:0.5rem;align-items:center;">
+                            <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
                                 <button type="button" id="account-push-btn" class="store-btn store-btn--secondary" style="padding:0.45rem 1.1rem;font-size:0.8rem;min-height:36px;display:none;">
                                     Enable Notifications
                                 </button>
                                 <button type="button" id="account-push-test-btn" class="store-btn store-btn--secondary" style="padding:0.45rem 1.1rem;font-size:0.8rem;min-height:36px;display:none;">
                                     🔔 Send Test Notification
+                                </button>
+                                <button type="button" id="account-push-reset-btn" style="background:none;border:none;color:var(--abo-gray);text-decoration:underline;font-size:0.75rem;cursor:pointer;display:none;padding:0.25rem;">
+                                    Re-sync Device
                                 </button>
                             </div>
                         </dd>

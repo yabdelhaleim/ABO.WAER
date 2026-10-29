@@ -26,7 +26,6 @@ self.addEventListener('push', function (event) {
         body: data.body || '',
         icon: data.icon || '/images/abo-icon-192.png',
         badge: data.badge || '/images/abo-badge-96.png',
-        image: data.image || null,
         tag: data.tag || ('abo-notification-' + Date.now()),
         renotify: true,
         vibrate: data.vibrate || [200, 100, 200],
@@ -34,9 +33,17 @@ self.addEventListener('push', function (event) {
         actions: data.actions || []
     };
 
+    if (data.image) {
+        options.image = data.image;
+    }
+
     event.waitUntil(
         self.registration.showNotification(title, options).catch(function (err) {
             console.error('showNotification failed:', err);
+            return self.registration.showNotification(title, {
+                body: options.body,
+                icon: options.icon
+            });
         })
     );
 });
