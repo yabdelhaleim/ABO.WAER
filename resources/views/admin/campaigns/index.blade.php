@@ -592,5 +592,5 @@
     </script>
 
     {{-- Page-local script. Loaded only on /admin/campaigns. --}}
-    <script src="{{ asset('admin/js/campaigns.js') }}" defer></script>
+    <script src="{{ asset('admin/js/campaigns.js') }}?v={{ file_exists(public_path('admin/js/campaigns.js')) ? filemtime(public_path('admin/js/campaigns.js')) : time() }}" defer></script>
 @endpush

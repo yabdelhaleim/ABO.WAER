@@ -470,7 +470,9 @@ async function saveCampaign(existingId) {
     }
 
     const fileInput = $('[data-abo-admin-campaigns-field="image"]');
-    if (fileInput && fileInput.files && fileInput.files[0]) {
+    if (f.file) {
+        formData.append('image', f.file);
+    } else if (fileInput && fileInput.files && fileInput.files[0]) {
         formData.append('image', fileInput.files[0]);
     } else if (!f.image) {
         formData.append('remove_image', '1');
@@ -656,6 +658,7 @@ function openSlideover({ id } = {}) {
                 type: c.type,
                 title: '',
                 message: c.preview || '',
+                file: null,
                 image: c.image || null,
                 deeplink: c.deeplink || '',
                 coupon: c.coupon || '',
@@ -674,6 +677,7 @@ function openSlideover({ id } = {}) {
             type: 'push',
             title: '',
             message: '',
+            file: null,
             image: null,
             deeplink: '',
             coupon: '',
@@ -763,7 +767,7 @@ function hydrateSlideoverFields() {
     const fileInput = $('[data-abo-admin-campaigns-field="image"]');
     if (preview) preview.hidden = !f.image;
     if (thumb && f.image) thumb.src = f.image;
-    if (fileInput) fileInput.value = '';
+    if (fileInput && !f.image && !f.file) fileInput.value = '';
 
     // Phone thumb in notification preview
     const phoneThumb = $('[data-abo-admin-campaigns-phone-thumb]');
@@ -894,7 +898,10 @@ function initSlideover() {
             input.addEventListener('change', () => {
                 const file = input.files && input.files[0];
                 if (!file) return;
-                if (slideoverState.fields.image) URL.revokeObjectURL(slideoverState.fields.image);
+                if (slideoverState.fields.image && slideoverState.fields.image.startsWith('blob:')) {
+                    URL.revokeObjectURL(slideoverState.fields.image);
+                }
+                slideoverState.fields.file = file;
                 slideoverState.fields.image = URL.createObjectURL(file);
                 hydrateSlideoverFields();
             });
@@ -932,8 +939,13 @@ function initSlideover() {
     const imgRemove = $('[data-abo-admin-campaigns-image-remove]');
     if (imgRemove) {
         imgRemove.addEventListener('click', () => {
-            if (slideoverState.fields.image) URL.revokeObjectURL(slideoverState.fields.image);
+            if (slideoverState.fields.image && slideoverState.fields.image.startsWith('blob:')) {
+                URL.revokeObjectURL(slideoverState.fields.image);
+            }
+            slideoverState.fields.file = null;
             slideoverState.fields.image = null;
+            const fileInput = $('[data-abo-admin-campaigns-field="image"]');
+            if (fileInput) fileInput.value = '';
             hydrateSlideoverFields();
         });
     }
