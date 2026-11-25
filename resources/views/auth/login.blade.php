@@ -158,6 +158,7 @@
                             </x-auth.primary-button>
                         </div>
 
+                        {{-- Google Login Hidden
                         <div class="abo-auth__divider" data-anim="fade-up" data-anim-delay="560" aria-hidden="true">
                             <span></span><em>OR</em><span></span>
                         </div>
@@ -165,6 +166,7 @@
                         <div data-anim="rise" data-anim-delay="620">
                             <x-auth.google-button :enabled="$googleEnabled" :href="route('auth.google')" />
                         </div>
+                        --}}
 
                         <p class="abo-auth__register" data-anim="fade-up" data-anim-delay="680">
                             Don't have an account?
